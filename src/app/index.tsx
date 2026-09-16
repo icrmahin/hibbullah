@@ -6,5 +6,6 @@ export default function AppIndex() {
   const { session, loading } = useAuth();
   if (loading) return <LoadingState label="Loading Hibbullah" />;
   if (!session) return <Redirect href="/(auth)/welcome" />;
+  if (session.role === "admin") return <Redirect href="/(admin)" />;
   return <Redirect href="/(customer)/(tabs)" />;
 }

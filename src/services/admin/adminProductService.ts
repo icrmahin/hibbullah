@@ -52,3 +52,19 @@ export async function updateProduct(
 export async function setProductActive(productId: string, isActive: boolean): Promise<Product> {
   return updateProduct(productId, { isActive });
 }
+
+export async function deleteProduct(productId: string): Promise<void> {
+  await wait();
+  const index = store.products.findIndex((item) => item.id === productId);
+  if (index === -1) throw new Error("Product not found.");
+  const product = store.products[index];
+  store.products.splice(index, 1);
+  store.audit.unshift({
+    id: `audit-${Date.now()}`,
+    actor: "Dr. Yusuf Ali",
+    action: "Deleted product",
+    timestamp: new Date().toISOString(),
+    recordType: "Product",
+    oldValue: product.name,
+  });
+}

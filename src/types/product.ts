@@ -12,6 +12,10 @@ export type Product = {
   stock: number;
   unit: string;
   image?: string;
+  /** Primary product image — app-level field, maps to image_path on backend */
+  primaryImage?: string;
+  /** Secondary product image — app-level field, stored alongside primary */
+  secondaryImage?: string;
   isActive: boolean;
   isFeatured?: boolean;
   batchNumber?: string;

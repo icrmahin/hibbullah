@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -21,7 +22,9 @@ import {
   resolveAuthSession,
 } from "../services/authService";
 import { clearSession, saveSession } from "../lib/session";
+import { env } from "../lib/env";
 import { supabase } from "../lib/supabase";
+import { store } from "../services/mockData";
 
 export type AuthContextValue = AuthContextType;
 
@@ -56,15 +59,50 @@ async function verifyAdminStatus(email?: string | null): Promise<boolean> {
   }
 }
 
+/**
+ * Development-only mock session.
+ *
+ * When EXPO_PUBLIC_USE_MOCK=true and no real Supabase session exists, an
+ * authenticated admin session is synthesized so the admin UI can be worked on
+ * without Google login. It reuses the existing mock admin in
+ * src/services/mockData.ts — no new user data is created. The mock session
+ * only lives in React state (never persisted) and real Supabase
+ * authentication always takes priority and remains the production path.
+ */
+function resolveMockAdminSession(): {
+  authSession: AuthSession;
+  user: User;
+} | null {
+  const mockAdmin = store.users.find((user) => user.role === "admin");
+  if (!mockAdmin) return null;
+
+  const authSession: AuthSession = {
+    id: `mock-${mockAdmin.id}`,
+    userId: mockAdmin.id,
+    role: "admin",
+    email: mockAdmin.email,
+    phone: mockAdmin.phone,
+    isAdmin: true,
+  };
+
+  return { authSession, user: mockAdmin };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Tracks whether the development-only mock session is active so null-auth
+  // Supabase events never clear it. Reset whenever a real session/sign-out
+  // appears.
+  const mockSessionActive = useRef(false);
+
   // Helper function to reset all user states securely
   const resetAuthState = useCallback(async () => {
     await clearSession();
+    mockSessionActive.current = false;
     setSession(null);
     setUser(null);
     setIsAdmin(false);
@@ -132,6 +170,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(profile);
             setIsAdmin(isAdminUser);
           }
+        } else if (env.useMock) {
+          // Development-only: no real Supabase session + mock mode enabled →
+          // use the existing mock admin as an authenticated admin session.
+          // State-only, never persisted.
+          const mock = resolveMockAdminSession();
+          if (isMounted && mock) {
+            mockSessionActive.current = true;
+            setSession(mock.authSession);
+            setUser(mock.user);
+            setIsAdmin(true);
+          }
         } else {
           // Forcefully clear stale local storage if no active Supabase session
           if (isMounted) {
@@ -156,11 +205,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, sbSession) => {
       if (event === "SIGNED_OUT" || !sbSession?.user) {
-        if (isMounted) {
+        // A null-auth event must not clear an active development-only mock
+        // session. Explicit sign-out still clears it below in `signOut`.
+        if (mockSessionActive.current) {
+          if (isMounted) {
+            setLoading(false);
+          }
+        } else if (isMounted) {
           await resetAuthState();
           setLoading(false);
         }
       } else if (sbSession?.user) {
+        // A real Supabase session always outranks the development mock.
+        mockSessionActive.current = false;
         try {
           const userEmail = sbSession.user.email;
           const [isAdminUser, resolved] = await Promise.all([

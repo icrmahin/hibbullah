@@ -7,6 +7,7 @@ import Button from "../../../components/common/Button";
 import LoadingState from "../../../components/common/LoadingState";
 import colors from "../../../constants/colors";
 import spacing from "../../../constants/spacing";
+import typography from "../../../constants/typography";
 import { getInventory } from "../../../services/admin/inventoryService";
 import type { InventoryItem } from "../../../types/inventory";
 
@@ -68,6 +69,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   name: { color: colors.text, fontWeight: "700" },
-  meta: { color: colors.textMuted, fontSize: 12 },
+  meta: { color: colors.textMuted, fontSize: typography.caption },
   qty: { color: colors.primary, fontWeight: "700" },
 });

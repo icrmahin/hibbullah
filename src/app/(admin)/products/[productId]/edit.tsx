@@ -1,55 +1,91 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AdminHeader from "../../../../components/admin/AdminHeader";
-import Button from "../../../../components/common/Button";
-import Input from "../../../../components/common/Input";
+import ProductForm from "../../../../components/admin/ProductForm";
+import EmptyState from "../../../../components/common/EmptyState";
+import ErrorState from "../../../../components/common/ErrorState";
+import LoadingState from "../../../../components/common/LoadingState";
 import colors from "../../../../constants/colors";
-import spacing from "../../../../constants/spacing";
-import { mockProducts } from "../../../../services/mockData";
+import { updateProduct } from "../../../../services/admin/adminProductService";
+import { getCategories } from "../../../../services/categoryService";
+import { getManufacturers } from "../../../../services/manufacturerService";
+import { getProductById } from "../../../../services/productService";
+import type { Category } from "../../../../types/category";
+import type { Manufacturer } from "../../../../types/manufacturer";
+import type { Product } from "../../../../types/product";
+import { normalizeError } from "../../../../utils/errorHandling";
 
 export default function AdminEditProductScreen() {
   const params = useLocalSearchParams<{ productId: string }>();
-  const product =
-    mockProducts.find((item) => item.id === params.productId) ??
-    mockProducts[0];
-  const [name, setName] = useState(product.name);
-  const [price, setPrice] = useState(String(product.price));
-  const [stock, setStock] = useState(String(product.stock));
+  const productId = params.productId;
+
+  const [product, setProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!productId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [item, categoryList, manufacturerList] = await Promise.all([
+        getProductById(productId),
+        getCategories(),
+        getManufacturers(),
+      ]);
+      if (!item) {
+        setError("Product not found.");
+        setProduct(null);
+        return;
+      }
+      setProduct(item);
+      setCategories(categoryList);
+      setManufacturers(manufacturerList);
+    } catch (err) {
+      setError(normalizeError(err).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [productId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <AdminHeader title="Edit product" subtitle="Update catalog item" />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.form}>
-          <Input label="Product name" value={name} onChangeText={setName} />
-          <Input
-            label="Price"
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="numeric"
-          />
-          <Input
-            label="Stock"
-            value={stock}
-            onChangeText={setStock}
-            keyboardType="numeric"
-          />
-          <Input label="Description" value={product.description} multiline />
-        </View>
-        <Button title="Save changes" onPress={() => router.back()} fullWidth />
-      </ScrollView>
+      {loading ? (
+        <LoadingState label="Loading product…" />
+      ) : error ? (
+        <ErrorState title="Could not load product" message={error} onRetry={load} />
+      ) : !product ? (
+        <EmptyState
+          title="Product not found"
+          message="This product may have been removed."
+          actionLabel="Back to products"
+          onAction={() => router.back()}
+        />
+      ) : (
+        <ProductForm
+          product={product}
+          categories={categories}
+          manufacturers={manufacturers}
+          submitLabel="Save changes"
+          onSubmit={async (input) => {
+            await updateProduct(product.id, input);
+            router.back();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  form: { gap: spacing.md },
 });

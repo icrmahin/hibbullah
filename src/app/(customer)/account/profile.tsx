@@ -12,7 +12,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { mockUser } from '../../../services/mockData';
 
 export default function ProfileScreen() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [name, setName] = useState(user?.name ?? mockUser.name);
   const [email, setEmail] = useState(user?.email ?? mockUser.email ?? '');
   const [phone, setPhone] = useState(user?.phone ?? mockUser.phone ?? '');
@@ -49,14 +49,6 @@ export default function ProfileScreen() {
             keyboardType="phone-pad"
           />
         </View>
-
-        {Boolean(user && isAdmin) && (
-          <Button
-            title="Go to Admin Panel"
-            onPress={() => router.push('/(admin)')}
-            fullWidth
-          />
-        )}
 
         <Button
           title="Save changes"

@@ -12,7 +12,7 @@ export default function AdminProductCard({ product, onPress }: { product: Produc
 	const available = product.isActive && product.stock > 0;
 	return (
 		<Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={() => onPress?.(product)} accessibilityRole="button" accessibilityLabel={`Edit ${product.name}`}>
-			<ProductImage uri={product.image} recyclingKey={product.id} style={styles.image} />
+			<ProductImage uri={product.primaryImage ?? product.image} recyclingKey={product.id} style={styles.image} />
 			<View style={styles.content}>
 				<View style={styles.topRow}>
 					<Text style={styles.name} numberOfLines={2}>{product.name}</Text>

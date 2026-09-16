@@ -8,6 +8,7 @@ import SearchBar from '../../../components/common/SearchBar';
 import StatusBadge from '../../../components/common/StatusBadge';
 import colors from '../../../constants/colors';
 import spacing from '../../../constants/spacing';
+import typography from '../../../constants/typography';
 import { getOrders } from '../../../services/orderService';
 import type { Order } from '../../../types/order';
 
@@ -52,6 +53,6 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   row: { backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm },
   orderNumber: { color: colors.text, fontWeight: '700' },
-  customer: { color: colors.textMuted, fontSize: 12 },
+  customer: { color: colors.textMuted, fontSize: typography.caption },
   link: { color: colors.primary, fontWeight: '700' },
 });

@@ -42,8 +42,8 @@ import { Stack } from 'expo-router';
 export default function CustomerAccountLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {/* Dashboard Screen */}
-      <Stack.Screen name="dashboard" />
+      {/* Account Home */}
+      <Stack.Screen name="overview" />
 
       {/* Account Management Screens */}
       <Stack.Screen name="profile" />

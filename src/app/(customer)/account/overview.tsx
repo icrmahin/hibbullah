@@ -88,7 +88,7 @@ export default function CustomerAccountDashboard() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header
-        title="Dashboard"
+        title="Account"
         subtitle="Hibbullah · Your account"
         onBack={() => router.back()}
       />

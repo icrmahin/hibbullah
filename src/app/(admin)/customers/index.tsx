@@ -7,6 +7,7 @@ import SearchBar from '../../../components/common/SearchBar';
 import LoadingState from '../../../components/common/LoadingState';
 import colors from '../../../constants/colors';
 import spacing from '../../../constants/spacing';
+import typography from '../../../constants/typography';
 import { mockCustomerList } from '../../../services/mockData';
 
 export default function AdminCustomersScreen() {
@@ -46,6 +47,6 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
   name: { color: colors.text, fontWeight: '700' },
-  info: { color: colors.textMuted, fontSize: 12 },
+  info: { color: colors.textMuted, fontSize: typography.caption },
   link: { color: colors.primary, fontWeight: '700' },
 });

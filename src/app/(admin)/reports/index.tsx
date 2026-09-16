@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AdminHeader from '../../../components/admin/AdminHeader';
 import colors from '../../../constants/colors';
 import spacing from '../../../constants/spacing';
+import typography from '../../../constants/typography';
 
 const reports = [
   { label: 'Revenue today', value: 'KSh 128,400' },
@@ -33,5 +34,5 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   card: { backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   label: { color: colors.textMuted },
-  value: { color: colors.text, fontWeight: '700', marginTop: spacing.xs, fontSize: 20 },
+  value: { color: colors.text, fontWeight: '700', marginTop: spacing.xs, fontSize: typography.h2 },
 });
