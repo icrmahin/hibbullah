@@ -1,0 +1,72 @@
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
+import { StyleSheet, Text, View } from "react-native";
+import colors from "../../constants/colors";
+import spacing from "../../constants/spacing";
+import typography from "../../constants/typography";
+
+type AdminStatCardProps = {
+  label: string;
+  value: string | number;
+  detail?: string;
+  accent?: "green" | "gold" | "neutral";
+  // Meaningful icon communicating what the stat is about; never decorative.
+  icon?: SymbolViewProps["name"];
+};
+
+export default function AdminStatCard({
+  label,
+  value,
+  detail,
+  accent = "neutral",
+  icon,
+}: AdminStatCardProps) {
+  const iconTint =
+    accent === "green" ? colors.primary : accent === "gold" ? colors.gold : colors.textMuted;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.top}>
+        <View
+          style={[
+            styles.marker,
+            accent === "green" && styles.greenMarker,
+            accent === "gold" && styles.goldMarker,
+          ]}
+        />
+        {icon ? (
+          <SymbolView name={icon} tintColor={iconTint} size={17} />
+        ) : null}
+      </View>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.value} numberOfLines={1}>
+        {value}
+      </Text>
+      {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: colors.backgroundAlt,
+    // Controlled industrial radius: slightly rounded, never pill-like.
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  top: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  marker: { width: 20, height: 2, borderRadius: 1, backgroundColor: colors.border, marginBottom: spacing.sm },
+  greenMarker: { backgroundColor: colors.primary },
+  goldMarker: { backgroundColor: colors.gold },
+  // Uppercase micro-label: the "technical" read comes from type, not decoration.
+  label: { color: colors.textMuted, fontSize: typography.label, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
+  value: { color: colors.text, fontSize: 22, fontWeight: "700", marginTop: spacing.xs, letterSpacing: -0.2 },
+  detail: { color: colors.textMuted, fontSize: typography.caption, marginTop: 2 },
+});
