@@ -10,6 +10,7 @@ export default function AppLogo({ size = 88, style }: { size?: number; style?: S
       style={[{ width: size, height: size }, style]}
       contentFit="contain"
       priority="high"
+      accessibilityLabel="Hibbullah logo"
     />
   );
 }

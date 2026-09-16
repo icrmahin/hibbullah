@@ -21,10 +21,16 @@ export default function Modal({
   onAction?: () => void;
 }) {
   return (
-    <RNModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <RNModal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      accessibilityViewIsModal
+    >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.card} onPress={() => undefined}>
-          <Text style={styles.title}>{title}</Text>
+        <View style={styles.card}>
+          <Text style={styles.title} accessibilityRole="header">{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <View style={styles.actions}>
             {actionLabel && onAction ? (
@@ -32,7 +38,7 @@ export default function Modal({
             ) : null}
             <Button title="Close" variant="ghost" onPress={onClose} fullWidth />
           </View>
-        </Pressable>
+        </View>
       </Pressable>
     </RNModal>
   );
@@ -41,17 +47,17 @@ export default function Modal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: colors.overlay,
     justifyContent: "center",
     padding: spacing.xl,
   },
   card: {
     backgroundColor: colors.backgroundAlt,
-    borderRadius: sizes.cardRadius,
+    borderRadius: sizes.borderRadius.xl,
     padding: spacing.xl,
     gap: spacing.md,
   },
-  title: { color: colors.text, fontSize: typography.h2, fontWeight: "600" },
-  message: { color: colors.textMuted, fontSize: typography.body, lineHeight: 24 },
+  title: { color: colors.text, fontSize: typography.title2, fontWeight: "600" },
+  message: { color: colors.textSecondary, fontSize: typography.body, lineHeight: 24 },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
 });

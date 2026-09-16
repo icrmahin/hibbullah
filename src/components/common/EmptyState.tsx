@@ -17,7 +17,7 @@ export default function EmptyState({
 }) {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title} accessibilityRole="header">{title}</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {actionLabel && onAction ? <Button title={actionLabel} onPress={onAction} /> : null}
     </View>
@@ -31,10 +31,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
   },
-  title: { color: colors.text, fontSize: typography.h3, fontWeight: "600" },
+  title: { color: colors.text, fontSize: typography.title3, fontWeight: "600" },
   message: {
-    color: colors.textMuted,
-    fontSize: typography.bodySmall,
+    color: colors.textSecondary,
+    fontSize: typography.footnote,
     textAlign: "center",
     lineHeight: 20,
   },

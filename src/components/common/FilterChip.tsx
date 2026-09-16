@@ -14,7 +14,13 @@ export default function FilterChip({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.selected]}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, selected && styles.selected]}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`Filter by ${label}`}
+    >
       <Text style={[styles.text, selected && styles.selectedText]}>{label}</Text>
     </Pressable>
   );
@@ -23,15 +29,15 @@ export default function FilterChip({
 const styles = StyleSheet.create({
   chip: {
     backgroundColor: colors.backgroundAlt,
-    borderColor: colors.hairline,
+    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: sizes.pill,
+    borderRadius: sizes.borderRadius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 36,
     justifyContent: "center",
   },
   selected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  text: { color: colors.text, fontWeight: "600", fontSize: typography.bodySmall },
+  text: { color: colors.text, fontWeight: "600", fontSize: typography.footnote },
   selectedText: { color: colors.primary },
 });

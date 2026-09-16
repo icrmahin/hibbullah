@@ -11,7 +11,7 @@ type LoadingStateProps = {
 
 export default function LoadingState({ label = 'Loading...' }: LoadingStateProps) {
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessibilityRole="progressbar" accessibilityLabel={label}>
       <AppLogo size={64} />
       <ActivityIndicator size="small" color={colors.primary} />
       <Text style={styles.text}>{label}</Text>
@@ -29,6 +29,6 @@ const styles = StyleSheet.create({
   },
   text: {
     color: colors.textMuted,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
   },
 });

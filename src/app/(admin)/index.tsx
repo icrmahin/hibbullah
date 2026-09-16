@@ -19,6 +19,7 @@ import LoadingState from "../../components/common/LoadingState";
 import StatusBadge from "../../components/common/StatusBadge";
 import config from "../../constants/config";
 import colors from "../../constants/colors";
+import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import typography from "../../constants/typography";
 import { useAdmin } from "../../hooks/useAdmin";
@@ -30,7 +31,6 @@ type StatusTone = "success" | "warning" | "danger" | "info";
 type IconName = SymbolViewProps["name"];
 
 const ROW_ICON_SIZE = 18;
-const RIPPLE = "rgba(2, 55, 25, 0.08)";
 
 const ICONS = {
   orders: { ios: "shippingbox.fill", android: "inventory_2", web: "inventory_2" },
@@ -48,10 +48,10 @@ const QUICK_ACTIONS: {
   route: string;
   icon: IconName;
 }[] = [
-  { label: "Add medicine", meta: "New product", route: "/(admin)/products/add", icon: { ios: "plus.circle.fill", android: "add_circle", web: "add_circle" } },
+  { label: "Add product", meta: "New medicine", route: "/(admin)/products/add", icon: { ios: "plus.circle.fill", android: "add_circle", web: "add_circle" } },
   { label: "Manage orders", meta: "Review queue", route: "/(admin)/orders", icon: ICONS.orders },
-  { label: "Manage products", meta: "Catalog", route: "/(admin)/products", icon: { ios: "pills.fill", android: "medication", web: "medication" } },
   { label: "Inventory", meta: "Stock levels", route: "/(admin)/inventory", icon: { ios: "archivebox.fill", android: "inventory", web: "inventory" } },
+  { label: "Customers", meta: "Records", route: "/(admin)/customers", icon: { ios: "person.2.fill", android: "people", web: "people" } },
 ];
 
 function toneForStatus(status: string): StatusTone {
@@ -269,7 +269,7 @@ export default function AdminDashboardScreen() {
                       styles.listRow,
                       pressed && styles.pressed,
                     ]}
-                    android_ripple={{ color: RIPPLE }}
+                    android_ripple={{ color: colors.ripple.primary }}
                     accessibilityRole="button"
                     accessibilityLabel={`${item.actionLabel} ${item.title}`}
                     onPress={item.onPress}
@@ -311,7 +311,7 @@ export default function AdminDashboardScreen() {
                   !isCompact && styles.actionTileWide,
                   pressed && styles.pressed,
                 ]}
-                android_ripple={{ color: RIPPLE }}
+                android_ripple={{ color: colors.ripple.primary }}
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
                 onPress={() => openRow(action.route)}
@@ -352,7 +352,7 @@ export default function AdminDashboardScreen() {
                           styles.listRow,
                           pressed && styles.pressed,
                         ]}
-                        android_ripple={{ color: RIPPLE }}
+                        android_ripple={{ color: colors.ripple.primary }}
                         accessibilityRole="button"
                         accessibilityLabel={`Review order ${order.orderNumber}`}
                         onPress={() => openOrder(order.id)}
@@ -411,7 +411,7 @@ export default function AdminDashboardScreen() {
                             styles.listRow,
                             pressed && styles.pressed,
                           ]}
-                          android_ripple={{ color: RIPPLE }}
+                          android_ripple={{ color: colors.ripple.primary }}
                           accessibilityRole="button"
                           accessibilityLabel={`Review ${item.productName} stock`}
                           onPress={() => openRow("/(admin)/inventory")}
@@ -504,20 +504,20 @@ const styles = StyleSheet.create({
   },
   sectionIndex: {
     color: colors.textMuted,
-    fontSize: typography.label,
+    fontSize: typography.caption2,
     fontWeight: "700",
     letterSpacing: 0.8,
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     fontWeight: "700",
-    letterSpacing: -0.1,
+    letterSpacing: typography.letterSpacing.tight,
   },
-  sectionRule: { flex: 1, height: 1, backgroundColor: colors.border },
+  sectionRule: { flex: 1, height: 1, backgroundColor: colors.borderLight },
   sectionLink: {
     color: colors.primary,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     fontWeight: "600",
   },
 
@@ -531,9 +531,9 @@ const styles = StyleSheet.create({
     flexBasis: "46%",
     minHeight: 68,
     backgroundColor: colors.backgroundAlt,
-    borderRadius: 8,
+    borderRadius: sizes.borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     padding: spacing.md,
     gap: spacing.xs,
     justifyContent: "center",
@@ -542,19 +542,19 @@ const styles = StyleSheet.create({
   iconTile: {
     width: 28,
     height: 28,
-    borderRadius: 4,
+    borderRadius: sizes.borderRadius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   actionLabel: {
     color: colors.text,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     fontWeight: "600",
   },
-  actionMeta: { color: colors.textMuted, fontSize: typography.caption },
+  actionMeta: { color: colors.textMuted, fontSize: typography.caption2 },
 
   body: { flexDirection: "column", gap: spacing.lg },
   bodyWide: { flexDirection: "row", alignItems: "flex-start" },
@@ -564,9 +564,9 @@ const styles = StyleSheet.create({
 
   panel: {
     backgroundColor: colors.backgroundAlt,
-    borderRadius: 8,
+    borderRadius: sizes.borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -581,26 +581,26 @@ const styles = StyleSheet.create({
   listMain: { flex: 1, gap: spacing.xs },
   listTitle: {
     color: colors.text,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     fontWeight: "700",
   },
-  listMeta: { color: colors.textMuted, fontSize: typography.caption },
+  listMeta: { color: colors.textMuted, fontSize: typography.caption2 },
   rowDate: {
     color: colors.textMuted,
-    fontSize: typography.caption,
+    fontSize: typography.caption2,
     letterSpacing: 0.2,
   },
   actionChip: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 6,
+    borderColor: colors.borderLight,
+    borderRadius: sizes.borderRadius.sm,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   actionChipText: {
     color: colors.primary,
-    fontSize: typography.label,
+    fontSize: typography.caption2,
     fontWeight: "700",
     letterSpacing: 0.4,
     textTransform: "uppercase",
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
   inlineNote: { paddingVertical: spacing.md, alignItems: "flex-start" },
   inlineNoteText: {
     color: colors.success,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     fontWeight: "600",
   },
   hairline: { height: 1, backgroundColor: colors.borderSoft },

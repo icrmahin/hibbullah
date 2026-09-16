@@ -14,7 +14,7 @@ export default function ErrorState({
   onRetry?: () => void;
 }) {
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessibilityRole="alert">
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {onRetry ? <Button title="Retry" onPress={onRetry} /> : null}
@@ -30,6 +30,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
   },
-  title: { color: colors.danger, fontSize: typography.h3, fontWeight: "600" },
-  message: { color: colors.textMuted, fontSize: typography.bodySmall, textAlign: "center" },
+  title: { color: colors.danger, fontSize: typography.title3, fontWeight: "600" },
+  message: { color: colors.textSecondary, fontSize: typography.footnote, textAlign: "center" },
 });

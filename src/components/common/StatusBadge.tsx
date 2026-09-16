@@ -11,10 +11,10 @@ type StatusBadgeProps = {
 
 export default function StatusBadge({ label, tone = 'neutral' }: StatusBadgeProps) {
   const palette = {
-    success: { background: colors.greenSoft, text: colors.success, border: '#BFE3CC', dot: colors.success },
-    warning: { background: colors.amberSoft, text: colors.warning, border: '#EBD9AC', dot: colors.gold },
-    danger: { background: colors.redSoft, text: colors.danger, border: '#F0C4C0', dot: colors.danger },
-    info: { background: colors.primarySoft, text: colors.primary, border: '#C6DECB', dot: colors.primary },
+    success: { background: colors.successSoft, text: colors.success, border: colors.successBorder, dot: colors.success },
+    warning: { background: colors.warningSoft, text: colors.warning, border: colors.warningBorder, dot: colors.warning },
+    danger: { background: colors.dangerSoft, text: colors.danger, border: colors.dangerBorder, dot: colors.danger },
+    info: { background: colors.primarySoft, text: colors.primary, border: colors.primaryMuted, dot: colors.primary },
     neutral: { background: colors.background, text: colors.textMuted, border: colors.border, dot: colors.textMuted },
   }[tone];
 
@@ -24,7 +24,6 @@ export default function StatusBadge({ label, tone = 'neutral' }: StatusBadgeProp
       accessibilityLabel={label}
       accessibilityRole="text"
     >
-      {/* Dot + text so status never depends on color alone. */}
       <View style={[styles.dot, { backgroundColor: palette.dot }]} />
       <Text style={[styles.text, { color: palette.text }]} numberOfLines={1}>
         {label}
@@ -38,9 +37,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 6,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xxs,
     borderRadius: 6,
     borderWidth: 1,
   },
@@ -50,7 +49,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   text: {
-    fontSize: typography.label,
+    fontSize: typography.caption2,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',

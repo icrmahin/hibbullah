@@ -12,7 +12,7 @@ export default function ProductPrice({
   originalPrice?: number;
 }) {
   return (
-    <View style={styles.row}>
+    <View style={styles.row} accessibilityLabel={`Price ${formatCurrency(price)}`}>
       <Text style={styles.price}>{formatCurrency(price)}</Text>
       {originalPrice && originalPrice > price ? (
         <Text style={styles.original}>{formatCurrency(originalPrice)}</Text>
@@ -23,10 +23,10 @@ export default function ProductPrice({
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
-  price: { color: colors.text, fontSize: typography.h3, fontWeight: "600" },
+  price: { color: colors.text, fontSize: typography.headline, fontWeight: "600" },
   original: {
     color: colors.textMuted,
-    fontSize: typography.caption,
+    fontSize: typography.caption1,
     textDecorationLine: "line-through",
   },
 });

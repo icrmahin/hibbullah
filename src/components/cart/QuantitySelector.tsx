@@ -21,14 +21,20 @@ export default function QuantitySelector({
         onPress={() => onChange(Math.max(min, value - 1))}
         style={styles.control}
         hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel="Decrease quantity"
+        accessibilityState={{ disabled: value <= min }}
       >
         <Text style={styles.symbol}>−</Text>
       </Pressable>
-      <Text style={styles.value}>{value}</Text>
+      <Text style={styles.value} accessibilityRole="text">{value}</Text>
       <Pressable
         onPress={() => onChange(Math.min(max, value + 1))}
         style={styles.control}
         hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel="Increase quantity"
+        accessibilityState={{ disabled: value >= max }}
       >
         <Text style={styles.symbol}>+</Text>
       </Pressable>
@@ -40,12 +46,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
     backgroundColor: colors.backgroundAlt,
-    borderRadius: sizes.pill,
+    borderRadius: sizes.borderRadius.pill,
     borderWidth: 1,
-    borderColor: colors.hairline,
-    paddingHorizontal: spacing.md,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
     minHeight: sizes.touch,
   },
   control: {
@@ -54,6 +60,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  symbol: { color: colors.primary, fontSize: 22, fontWeight: "600" },
-  value: { color: colors.text, fontWeight: "600", minWidth: 24, textAlign: "center" },
+  symbol: { color: colors.primary, fontSize: typography.headline, fontWeight: "600" },
+  value: { color: colors.text, fontSize: typography.headline, fontWeight: "600", minWidth: 24, textAlign: "center" },
 });

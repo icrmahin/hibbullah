@@ -43,7 +43,12 @@ export default function SearchBar({
         style={styles.input}
       />
       {value ? (
-        <Pressable onPress={() => onChangeText("")} style={styles.clearButton}>
+        <Pressable
+          onPress={() => onChangeText("")}
+          style={styles.clearButton}
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+        >
           <SymbolView
             name={{ ios: "xmark", android: "close", web: "close" }}
             tintColor={colors.primary}
@@ -59,26 +64,20 @@ const styles = StyleSheet.create({
   wrapper: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: sizes.borderRadius,
+    borderRadius: sizes.borderRadius.md,
     backgroundColor: colors.backgroundAlt,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: colors.primaryDark,
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
     paddingHorizontal: spacing.md,
-    minHeight: 46,
+    minHeight: 44,
   },
   icon: {
-    fontSize: 18,
-    color: colors.textMuted,
     marginRight: spacing.sm,
   },
   input: {
     flex: 1,
     color: colors.text,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     paddingVertical: spacing.sm,
   },
   clearButton: {

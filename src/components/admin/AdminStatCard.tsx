@@ -1,6 +1,7 @@
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { StyleSheet, Text, View } from "react-native";
 import colors from "../../constants/colors";
+import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import typography from "../../constants/typography";
 
@@ -9,7 +10,6 @@ type AdminStatCardProps = {
   value: string | number;
   detail?: string;
   accent?: "green" | "gold" | "neutral";
-  // Meaningful icon communicating what the stat is about; never decorative.
   icon?: SymbolViewProps["name"];
 };
 
@@ -51,9 +51,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: "46%",
     backgroundColor: colors.backgroundAlt,
-    borderRadius: 8,
+    borderRadius: sizes.borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     padding: spacing.md,
   },
   top: {
@@ -61,11 +61,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  marker: { width: 20, height: 2, borderRadius: 1, backgroundColor: colors.border, marginBottom: spacing.sm },
+  marker: { width: 20, height: 2, borderRadius: 1, backgroundColor: colors.borderLight, marginBottom: spacing.sm },
   greenMarker: { backgroundColor: colors.primary },
   goldMarker: { backgroundColor: colors.gold },
-  // Uppercase micro-label: the "technical" read comes from type, not decoration.
-  label: { color: colors.textMuted, fontSize: typography.label, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
-  value: { color: colors.text, fontSize: typography.h2, fontWeight: "700", marginTop: spacing.xs, letterSpacing: -0.2 },
-  detail: { color: colors.textMuted, fontSize: typography.caption, marginTop: spacing.xs },
+  label: { color: colors.textMuted, fontSize: typography.caption2, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
+  value: { color: colors.text, fontSize: typography.title2, fontWeight: "700", marginTop: spacing.xs, letterSpacing: typography.letterSpacing.tight },
+  detail: { color: colors.textMuted, fontSize: typography.caption1, marginTop: spacing.xs },
 });

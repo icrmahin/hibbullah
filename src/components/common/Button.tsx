@@ -22,9 +22,9 @@ export default function Button({
 }: ButtonProps) {
   const palette = {
     primary: { background: colors.primary, text: colors.white, ripple: "rgba(255,255,255,0.22)" },
-    secondary: { background: colors.backgroundAlt, text: colors.primary, border: colors.border, ripple: "rgba(2,55,25,0.10)" },
-    danger: { background: colors.redSoft, text: colors.danger, border: '#F0C4C0', ripple: "rgba(179,38,30,0.12)" },
-    ghost: { background: colors.primarySoft, text: colors.primary, ripple: "rgba(2,55,25,0.14)" },
+    secondary: { background: colors.backgroundAlt, text: colors.primary, border: colors.border, ripple: colors.ripple.primary },
+    danger: { background: colors.dangerSoft, text: colors.danger, border: colors.dangerBorder, ripple: colors.ripple.danger },
+    ghost: { background: colors.primarySoft, text: colors.primary, ripple: colors.ripple.primary },
   }[variant];
 
   return (
@@ -32,6 +32,8 @@ export default function Button({
       {...props}
       disabled={disabled || loading}
       android_ripple={{ color: palette.ripple }}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: palette.background },
@@ -53,10 +55,9 @@ export default function Button({
 
 const styles = StyleSheet.create({
   button: {
-    // 44px minimum keeps the touch target accessible without oversized buttons.
     minHeight: 44,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 10,
+    paddingVertical: spacing.md,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
   disabled: { opacity: 0.5 },
   text: {
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     fontWeight: "600",
     letterSpacing: 0.2,
   },

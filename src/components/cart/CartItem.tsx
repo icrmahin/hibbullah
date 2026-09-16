@@ -37,7 +37,12 @@ export default function CartItemRow({
         <Text style={styles.price}>
           {formatCurrency(item.product.price * item.quantity)}
         </Text>
-        <Pressable onPress={onRemove} hitSlop={8}>
+        <Pressable
+          onPress={onRemove}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${item.product.name} from cart`}
+        >
           <Text style={styles.remove}>Remove</Text>
         </Pressable>
       </View>
@@ -50,20 +55,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.md,
     backgroundColor: colors.backgroundAlt,
-    borderRadius: sizes.cardRadius,
+    borderRadius: sizes.borderRadius.lg,
     borderWidth: 1,
-    borderColor: colors.hairline,
+    borderColor: colors.borderLight,
     padding: spacing.md,
   },
-  image: { width: 72, height: 72, borderRadius: 8 },
-  info: { flex: 1, gap: 6 },
-  name: { color: colors.text, fontWeight: "600" },
-  meta: { color: colors.textMuted, fontSize: typography.caption },
+  image: { width: sizes.thumbnail, height: sizes.thumbnail, borderRadius: sizes.borderRadius.md },
+  info: { flex: 1, gap: spacing.xxs },
+  name: { color: colors.text, fontSize: typography.subhead, fontWeight: "600" },
+  meta: { color: colors.textMuted, fontSize: typography.caption1 },
   aside: { alignItems: "flex-end", justifyContent: "space-between" },
-  price: { color: colors.text, fontWeight: "600" },
+  price: { color: colors.text, fontSize: typography.subhead, fontWeight: "600" },
   remove: {
     color: colors.danger,
-    fontSize: typography.caption,
+    fontSize: typography.caption2,
     fontWeight: "600",
   },
 });

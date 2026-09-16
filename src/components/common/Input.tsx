@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     minHeight: sizes.inputHeight,
     borderWidth: 1,
     borderColor: colors.hairline,
-    borderRadius: sizes.borderRadius,
+    borderRadius: sizes.borderRadius.md,
     backgroundColor: colors.backgroundAlt,
     paddingHorizontal: spacing.lg,
     color: colors.text,
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 120,
-    borderRadius: sizes.cardRadius,
+    borderRadius: sizes.borderRadius.xl,
     textAlignVertical: "top",
     paddingTop: spacing.lg,
   },

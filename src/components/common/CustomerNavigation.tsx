@@ -61,7 +61,7 @@ export default function CustomerNavigation() {
 
   return (
     <View
-      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}
+      style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
     >
       {navigationItems.map((item) => {
         const active = item.path === activePath;
@@ -70,12 +70,11 @@ export default function CustomerNavigation() {
             key={item.label}
             style={({ pressed }) => [styles.item, pressed && styles.pressed]}
             onPress={() => router.replace(item.path as never)}
-            android_ripple={{ color: "rgba(2, 55, 25, 0.06)" }}
+            android_ripple={{ color: colors.ripple.primary }}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${item.label}`}
+            accessibilityLabel={`Open ${item.label}${item.label === "Cart" && itemCount > 0 ? `, ${itemCount} items` : ""}`}
             accessibilityState={{ selected: active }}
           >
-            {/* Thin brand-green rule marks the active tab; no route or item changes. */}
             {active ? <View style={styles.activeBar} /> : null}
             <SymbolView
               name={item.icon}
@@ -83,7 +82,7 @@ export default function CustomerNavigation() {
               size={20}
             />
             {item.label === "Cart" && itemCount > 0 ? (
-              <View style={styles.badge}>
+              <View style={styles.badge} accessibilityLabel={`${itemCount} items in cart`}>
                 <Text style={styles.badgeText}>
                   {itemCount > 99 ? "99+" : itemCount}
                 </Text>
@@ -104,7 +103,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: colors.backgroundAlt,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderLight,
     paddingTop: spacing.sm,
   },
   item: {
@@ -112,7 +111,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
+    gap: spacing.xxs,
     position: "relative",
     paddingTop: spacing.sm,
   },
@@ -138,12 +137,12 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: colors.white,
-    fontSize: typography.label,
+    fontSize: typography.caption2,
     fontWeight: "700",
   },
   label: {
     color: colors.textMuted,
-    fontSize: typography.label,
+    fontSize: typography.caption2,
     fontWeight: "700",
     letterSpacing: 0.6,
     textTransform: "uppercase",

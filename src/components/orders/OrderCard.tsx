@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import colors from "../../constants/colors";
+import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import typography from "../../constants/typography";
 import type { Order } from "../../types/order";
@@ -14,7 +15,12 @@ type OrderCardProps = {
 
 export default function OrderCard({ order, onPress }: OrderCardProps) {
   return (
-    <Pressable style={styles.card} onPress={() => onPress?.(order)}>
+    <Pressable
+      style={styles.card}
+      onPress={() => onPress?.(order)}
+      accessibilityRole="button"
+      accessibilityLabel={`Order ${order.orderNumber}, ${order.status}, ${formatCurrency(order.total)}`}
+    >
       <View style={styles.headerRow}>
         <Text style={styles.orderNumber}>{order.orderNumber}</Text>
         <OrderStatus status={order.status} />
@@ -32,9 +38,9 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.backgroundAlt,
-    borderRadius: 16,
+    borderRadius: sizes.borderRadius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     padding: spacing.lg,
     marginBottom: spacing.lg,
   },
@@ -46,18 +52,18 @@ const styles = StyleSheet.create({
   },
   orderNumber: {
     color: colors.text,
-    fontSize: typography.body,
+    fontSize: typography.subhead,
     fontWeight: "700",
   },
   date: {
     color: colors.textMuted,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     marginTop: spacing.sm,
   },
   items: {
     color: colors.textMuted,
-    fontSize: typography.bodySmall,
-    marginTop: 2,
+    fontSize: typography.footnote,
+    marginTop: spacing.xxs,
   },
   footer: {
     marginTop: spacing.lg,
@@ -67,12 +73,12 @@ const styles = StyleSheet.create({
   },
   total: {
     color: colors.text,
-    fontSize: typography.h3,
+    fontSize: typography.headline,
     fontWeight: "700",
   },
   more: {
     color: colors.primary,
-    fontSize: typography.bodySmall,
+    fontSize: typography.footnote,
     fontWeight: "600",
   },
 });

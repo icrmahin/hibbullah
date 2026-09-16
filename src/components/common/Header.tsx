@@ -70,21 +70,21 @@ const styles = StyleSheet.create({
   backButton: {
     width: sizes.touch,
     height: sizes.touch,
-    borderRadius: sizes.pill,
+    borderRadius: sizes.borderRadius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   titleArea: { flex: 1 },
   title: {
     color: colors.text,
-    fontSize: typography.h3,
+    fontSize: typography.title3,
     fontWeight: "600",
-    letterSpacing: typography.letterSpacingBody,
+    letterSpacing: typography.letterSpacing.tight,
   },
   subtitle: {
     color: colors.textMuted,
-    fontSize: typography.caption,
-    marginTop: spacing.xs,
+    fontSize: typography.caption1,
+    marginTop: spacing.xxs,
   },
   action: { alignItems: "center", justifyContent: "center" },
 });

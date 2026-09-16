@@ -20,6 +20,8 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
     <Pressable
       style={[styles.card, compact && styles.compact]}
       onPress={() => onPress?.(product)}
+      accessibilityRole="button"
+      accessibilityLabel={`${product.name}, ${product.brand}, ${product.stock > 0 ? "In stock" : "Out of stock"}`}
     >
       <ProductImage uri={product.image} recyclingKey={product.id} style={styles.image} />
       <View style={styles.content}>
@@ -45,10 +47,10 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.backgroundAlt,
-    borderRadius: sizes.cardRadius,
+    borderRadius: sizes.borderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: colors.hairline,
+    borderColor: colors.borderLight,
     marginBottom: spacing.lg,
   },
   compact: { marginBottom: 0 },
@@ -56,26 +58,26 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg },
   brand: {
     color: colors.textMuted,
-    fontSize: typography.caption,
+    fontSize: typography.caption2,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   name: {
     color: colors.text,
-    fontSize: typography.body,
+    fontSize: typography.subhead,
     fontWeight: "600",
-    letterSpacing: typography.letterSpacingBody,
+    letterSpacing: typography.letterSpacing.tight,
     marginTop: spacing.xs,
   },
-  generic: { color: colors.textMuted, fontSize: typography.caption, marginTop: 2 },
+  generic: { color: colors.textMuted, fontSize: typography.caption2, marginTop: 2 },
   footer: {
     marginTop: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  stock: { fontSize: typography.caption, fontWeight: "600" },
+  stock: { fontSize: typography.caption2, fontWeight: "600" },
   inStock: { color: colors.success },
   outOfStock: { color: colors.danger },
 });
