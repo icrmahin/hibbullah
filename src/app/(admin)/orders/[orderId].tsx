@@ -50,10 +50,10 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   card: { backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   customer: { color: colors.text, fontSize: typography.h3, fontWeight: '700', marginBottom: spacing.sm },
-  meta: { color: colors.textMuted, marginTop: spacing.sm },
+  meta: { color: colors.textMuted, fontSize: typography.bodySmall, marginTop: spacing.sm },
   sectionTitle: { color: colors.text, fontSize: typography.h3, fontWeight: '700', marginBottom: spacing.md },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  itemName: { color: colors.text, flex: 1 },
-  itemMeta: { color: colors.textMuted },
+  itemName: { color: colors.text, fontSize: typography.body, flex: 1 },
+  itemMeta: { color: colors.textMuted, fontSize: typography.bodySmall },
   actions: { gap: spacing.md },
 });

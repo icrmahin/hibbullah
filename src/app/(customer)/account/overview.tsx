@@ -201,10 +201,10 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: colors.white,
-    fontSize: 17,
+    fontSize: typography.body,
     fontWeight: "700",
   },
-  identityText: { flex: 1, gap: 2 },
+  identityText: { flex: 1, gap: spacing.xs },
   eyebrow: {
     color: colors.textMuted,
     fontSize: typography.label,
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: typography.body,
     fontWeight: "700",
     letterSpacing: -0.1,
   },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: typography.h3,
     fontWeight: "700",
     letterSpacing: -0.1,
   },
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  rowText: { flex: 1, gap: 2 },
+  rowText: { flex: 1, gap: spacing.xs },
   rowLabel: {
     color: colors.text,
     fontSize: typography.bodySmall,

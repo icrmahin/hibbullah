@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   row: { backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm },
-  orderNumber: { color: colors.text, fontWeight: '700' },
+  orderNumber: { color: colors.text, fontSize: typography.body, fontWeight: '700' },
   customer: { color: colors.textMuted, fontSize: typography.caption },
   link: { color: colors.primary, fontWeight: '700' },
 });

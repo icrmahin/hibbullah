@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
-  name: { color: colors.text, fontWeight: '700' },
+  name: { color: colors.text, fontSize: typography.body, fontWeight: '700' },
   info: { color: colors.textMuted, fontSize: typography.caption },
   link: { color: colors.primary, fontWeight: '700' },
 });

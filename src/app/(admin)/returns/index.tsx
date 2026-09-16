@@ -5,6 +5,7 @@ import AdminHeader from '../../../components/admin/AdminHeader';
 import StatusBadge from '../../../components/common/StatusBadge';
 import colors from '../../../constants/colors';
 import spacing from '../../../constants/spacing';
+import typography from '../../../constants/typography';
 import { mockReturns } from '../../../services/mockData';
 
 export default function AdminReturnsScreen() {
@@ -28,6 +29,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   card: { backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
-  order: { color: colors.text, fontWeight: '700' },
-  reason: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.sm },
+  order: { color: colors.text, fontSize: typography.body, fontWeight: '700' },
+  reason: { color: colors.textMuted, fontSize: typography.bodySmall, marginTop: spacing.xs, marginBottom: spacing.sm },
 });

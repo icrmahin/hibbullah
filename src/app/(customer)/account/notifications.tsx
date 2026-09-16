@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "../../../components/common/Header";
 import colors from "../../../constants/colors";
 import spacing from "../../../constants/spacing";
+import typography from "../../../constants/typography";
 import { mockNotifications } from "../../../services/mockData";
 import { formatDateTime } from "../../../utils/date";
 
@@ -40,7 +41,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
   },
-  title: { color: colors.text, fontWeight: "700", marginBottom: spacing.xs },
-  body: { color: colors.textMuted },
-  time: { color: colors.primary, marginTop: spacing.sm, fontSize: 12 },
+  title: { color: colors.text, fontSize: typography.body, fontWeight: "700", marginBottom: spacing.xs },
+  body: { color: colors.textMuted, fontSize: typography.bodySmall },
+  time: { color: colors.primary, marginTop: spacing.sm, fontSize: typography.caption },
 });

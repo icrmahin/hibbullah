@@ -480,9 +480,6 @@ export default function AdminDashboardScreen() {
             </View>
           </View>
 
-          <Text style={styles.footnote}>
-            HIBBULLAH ADMIN · LIGHT MODE · SOLID SURFACES
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -581,7 +578,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     minHeight: 44,
   },
-  listMain: { flex: 1, gap: 2 },
+  listMain: { flex: 1, gap: spacing.xs },
   listTitle: {
     color: colors.text,
     fontSize: typography.bodySmall,
@@ -616,12 +613,4 @@ const styles = StyleSheet.create({
   },
   hairline: { height: 1, backgroundColor: colors.borderSoft },
   pressed: { opacity: 0.6, transform: [{ scale: 0.99 }] },
-  footnote: {
-    color: colors.textMuted,
-    fontSize: typography.label,
-    fontWeight: "600",
-    letterSpacing: 1,
-    textAlign: "center",
-    marginTop: spacing.md,
-  },
 });

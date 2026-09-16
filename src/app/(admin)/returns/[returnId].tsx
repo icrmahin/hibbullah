@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AdminHeader from "../../../components/admin/AdminHeader";
 import colors from "../../../constants/colors";
 import spacing from "../../../constants/spacing";
+import typography from "../../../constants/typography";
 import { mockReturns } from "../../../services/mockData";
 
 export default function AdminReturnDetailScreen() {
@@ -30,7 +31,7 @@ export default function AdminReturnDetailScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   card: {
     backgroundColor: colors.backgroundAlt,
     borderRadius: 16,
@@ -38,6 +39,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
   },
-  label: { color: colors.text, fontWeight: "700", marginTop: spacing.md },
-  value: { color: colors.textMuted, marginTop: spacing.xs },
+  label: { color: colors.text, fontSize: typography.bodySmall, fontWeight: "700", marginTop: spacing.md },
+  value: { color: colors.textMuted, fontSize: typography.body, marginTop: spacing.xs },
 });

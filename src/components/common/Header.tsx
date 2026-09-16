@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textMuted,
     fontSize: typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   action: { alignItems: "center", justifyContent: "center" },
 });

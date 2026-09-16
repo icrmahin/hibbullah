@@ -61,14 +61,14 @@ const styles = StyleSheet.create({
   shopButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.background,
-    minHeight: 32,
+    minHeight: 44,
   },
   shopLabel: {
     color: colors.primary,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   activeDot: {
     width: 6,
@@ -100,13 +100,13 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: typography.h2,
     fontWeight: "700",
     letterSpacing: -0.2,
   },
   subtitle: {
     color: colors.textMuted,
     fontSize: typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
 });

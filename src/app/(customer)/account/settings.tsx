@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "../../../components/common/Header";
 import colors from "../../../constants/colors";
 import spacing from "../../../constants/spacing";
+import typography from "../../../constants/typography";
 
 export default function CustomerSettingsScreen() {
   return (
@@ -43,6 +44,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  label: { color: colors.text, fontWeight: "700" },
-  value: { color: colors.textMuted },
+  label: { color: colors.text, fontSize: typography.body, fontWeight: "700" },
+  value: { color: colors.textMuted, fontSize: typography.bodySmall },
 });

@@ -70,16 +70,16 @@ export default function CustomerCartScreen() {
 
         <View style={styles.summaryBox}>
           <View style={styles.summaryRow}>
-            <Text>Subtotal</Text>
-            <Text>{formatCurrency(summary.subtotal)}</Text>
+            <Text style={styles.summaryLabel}>Subtotal</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(summary.subtotal)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text>Discount</Text>
-            <Text>-{formatCurrency(summary.discount)}</Text>
+            <Text style={styles.summaryLabel}>Discount</Text>
+            <Text style={styles.summaryValue}>-{formatCurrency(summary.discount)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text>Delivery fee</Text>
-            <Text>{formatCurrency(summary.deliveryFee)}</Text>
+            <Text style={styles.summaryLabel}>Delivery fee</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(summary.deliveryFee)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalText}>Total</Text>
@@ -134,6 +134,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  totalText: { color: colors.text, fontWeight: "800" },
+  totalText: { color: colors.text, fontSize: typography.body, fontWeight: "800" },
+  summaryLabel: { color: colors.text, fontSize: typography.bodySmall },
+  summaryValue: { color: colors.text, fontSize: typography.bodySmall },
   actions: { gap: spacing.md },
 });

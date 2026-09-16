@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     backgroundColor: colors.gold,
     color: colors.white,
-    fontSize: 10,
+    fontSize: typography.label,
     fontWeight: "700",
     textAlign: "center",
     lineHeight: 17,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   searchResultMeta: {
     color: colors.textMuted,
     fontSize: typography.caption,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   noResults: { color: colors.textMuted, paddingVertical: spacing.md },
   heroCard: {
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: spacing.sm,
   },
-  heroText: { color: colors.textMuted, marginTop: spacing.xs },
+  heroText: { color: colors.textMuted, fontSize: typography.bodySmall, marginTop: spacing.xs },
   heroPrice: {
     color: colors.text,
     fontSize: typography.h3,
@@ -380,7 +380,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    fontWeight: "600",
   },
-  chipText: { color: colors.text, fontWeight: "600" },
+  chipText: { color: colors.text, fontSize: typography.bodySmall, fontWeight: "600" },
 });

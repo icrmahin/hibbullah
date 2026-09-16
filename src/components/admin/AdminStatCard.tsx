@@ -49,9 +49,8 @@ export default function AdminStatCard({
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    minWidth: "45%",
+    minWidth: "46%",
     backgroundColor: colors.backgroundAlt,
-    // Controlled industrial radius: slightly rounded, never pill-like.
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
@@ -67,6 +66,6 @@ const styles = StyleSheet.create({
   goldMarker: { backgroundColor: colors.gold },
   // Uppercase micro-label: the "technical" read comes from type, not decoration.
   label: { color: colors.textMuted, fontSize: typography.label, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase" },
-  value: { color: colors.text, fontSize: 22, fontWeight: "700", marginTop: spacing.xs, letterSpacing: -0.2 },
-  detail: { color: colors.textMuted, fontSize: typography.caption, marginTop: 2 },
+  value: { color: colors.text, fontSize: typography.h2, fontWeight: "700", marginTop: spacing.xs, letterSpacing: -0.2 },
+  detail: { color: colors.textMuted, fontSize: typography.caption, marginTop: spacing.xs },
 });

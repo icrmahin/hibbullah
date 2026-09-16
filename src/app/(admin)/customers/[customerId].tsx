@@ -5,7 +5,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AdminHeader from '../../../components/admin/AdminHeader';
 import colors from '../../../constants/colors';
 import spacing from '../../../constants/spacing';
+import typography from '../../../constants/typography';
 import { mockCustomerList } from '../../../services/mockData';
+import { formatCurrency } from '../../../utils/currency';
 
 export default function AdminCustomerDetailScreen() {
   const params = useLocalSearchParams<{ customerId: string }>();
@@ -21,7 +23,7 @@ export default function AdminCustomerDetailScreen() {
           <Text style={styles.label}>Orders</Text>
           <Text style={styles.value}>{customer.orderCount}</Text>
           <Text style={styles.label}>Total spending</Text>
-          <Text style={styles.value}>KSh {customer.totalSpent}</Text>
+          <Text style={styles.value}>{formatCurrency(customer.totalSpent)}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -32,6 +34,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   card: { backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
-  label: { color: colors.text, fontWeight: '700', marginTop: spacing.md },
-  value: { color: colors.textMuted, marginTop: spacing.xs },
+  label: { color: colors.text, fontSize: typography.bodySmall, fontWeight: '700', marginTop: spacing.md },
+  value: { color: colors.textMuted, fontSize: typography.body, marginTop: spacing.xs },
 });

@@ -145,6 +145,7 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, paddingBottom: spacing.xxl },
   label: {
     color: colors.text,
+    fontSize: typography.bodySmall,
     fontWeight: "700",
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     marginRight: spacing.sm,
   },
-  chipText: { color: colors.text, fontWeight: "600" },
+  chipText: { color: colors.text, fontSize: typography.bodySmall, fontWeight: "600" },
   chipSelected: {
     backgroundColor: colors.primarySoft,
     borderColor: colors.primary,

@@ -123,10 +123,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   header: {
-    gap: 2,
+    gap: spacing.xs,
   },
   title: {
-    fontSize: 20,
+    fontSize: typography.h2,
     fontWeight: "700",
     color: colors.text,
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: colors.white,
-    fontSize: 17,
+    fontSize: typography.body,
     fontWeight: "700",
   },
   userInfo: {
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   optionHint: {
     fontSize: typography.caption,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   logoutButton: {
     borderWidth: 1,

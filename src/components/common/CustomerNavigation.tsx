@@ -3,6 +3,8 @@ import { SymbolView } from "expo-symbols";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import colors from "../../constants/colors";
+import spacing from "../../constants/spacing";
+import typography from "../../constants/typography";
 import { useCart } from "../../providers/CartProvider";
 
 const navigationItems = [
@@ -103,16 +105,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundAlt,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: 8,
+    paddingTop: spacing.sm,
   },
   item: {
     flex: 1,
     minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
+    gap: spacing.xs,
     position: "relative",
-    paddingTop: 6,
+    paddingTop: spacing.sm,
   },
   activeBar: {
     position: "absolute",
@@ -136,12 +138,12 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: colors.white,
-    fontSize: 9,
+    fontSize: typography.label,
     fontWeight: "700",
   },
   label: {
     color: colors.textMuted,
-    fontSize: 10,
+    fontSize: typography.label,
     fontWeight: "700",
     letterSpacing: 0.6,
     textTransform: "uppercase",

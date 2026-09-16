@@ -1,3 +1,4 @@
+import React from "react";
 import { router } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -9,6 +10,7 @@ import Input from "../../components/common/Input";
 import LoadingState from "../../components/common/LoadingState";
 import colors from "../../constants/colors";
 import spacing from "../../constants/spacing";
+import typography from "../../constants/typography";
 import { useAuth } from "../../hooks/useAuth";
 import { useCart } from "../../hooks/useCart";
 import { submitOrder } from "../../services/orderService";
@@ -144,6 +146,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
+    fontSize: typography.body,
     fontWeight: "700",
     marginBottom: spacing.md,
   },
@@ -158,7 +161,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     marginTop: spacing.md,
   },
-  totalText: { color: colors.text, fontWeight: "800" },
+  totalText: { color: colors.text, fontSize: typography.body, fontWeight: "800" },
   paymentBox: {
     backgroundColor: colors.backgroundAlt,
     borderRadius: 16,
@@ -166,7 +169,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
   },
-  paymentMethod: { color: colors.textMuted },
-  error: { color: colors.danger, fontSize: 14, textAlign: "center" },
-  success: { color: colors.success, fontSize: 14, textAlign: "center" },
+  paymentMethod: { color: colors.textMuted, fontSize: typography.bodySmall },
+  error: { color: colors.danger, fontSize: typography.bodySmall, textAlign: "center" },
+  success: { color: colors.success, fontSize: typography.bodySmall, textAlign: "center" },
 });

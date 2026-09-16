@@ -166,9 +166,9 @@ const styles = StyleSheet.create({
   generic: { color: colors.textMuted, fontSize: typography.bodySmall },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
   price: { color: colors.text, fontSize: typography.title, fontWeight: "800" },
-  original: { color: colors.textMuted, textDecorationLine: "line-through" },
+  original: { color: colors.textMuted, fontSize: typography.body, textDecorationLine: "line-through" },
   metaRow: { flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" },
-  description: { color: colors.textMuted, lineHeight: 22 },
+  description: { color: colors.textMuted, fontSize: typography.bodySmall, lineHeight: 22 },
   infoBlock: {
     backgroundColor: colors.backgroundAlt,
     borderRadius: 16,
@@ -178,16 +178,17 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     color: colors.text,
+    fontSize: typography.body,
     fontWeight: "700",
     marginBottom: spacing.sm,
   },
-  infoText: { color: colors.textMuted, marginBottom: spacing.xs },
+  infoText: { color: colors.textMuted, fontSize: typography.bodySmall, marginBottom: spacing.xs },
   quantityRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  qtyLabel: { color: colors.text, fontWeight: "700" },
+  qtyLabel: { color: colors.text, fontSize: typography.body, fontWeight: "700" },
   qtySelector: {
     flexDirection: "row",
     alignItems: "center",
@@ -200,7 +201,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   qtyAction: { color: colors.primary, fontSize: 24, fontWeight: "700" },
-  qtyValue: { color: colors.text, fontWeight: "700" },
+  qtyValue: { color: colors.text, fontSize: typography.h3, fontWeight: "700" },
   feedback: {
     color: colors.success,
     fontSize: typography.bodySmall,

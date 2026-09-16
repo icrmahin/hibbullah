@@ -33,6 +33,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   card: { backgroundColor: colors.backgroundAlt, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
-  label: { color: colors.textMuted },
+  label: { color: colors.textMuted, fontSize: typography.bodySmall },
   value: { color: colors.text, fontWeight: '700', marginTop: spacing.xs, fontSize: typography.h2 },
 });
