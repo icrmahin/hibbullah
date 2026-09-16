@@ -9,6 +9,11 @@ export async function getAdminOrders(status?: OrderStatus): Promise<Order[]> {
   return store.orders.filter((order) => order.status === status);
 }
 
+export async function getAdminOrderById(orderId: string): Promise<Order | undefined> {
+  await wait(40);
+  return store.orders.find((order) => order.id === orderId);
+}
+
 export async function confirmOrder(orderId: string): Promise<Order> {
   const order = await updateOrderStatus(orderId, "CONFIRMED");
   store.deliveryCycle.status = "APPROVED";
