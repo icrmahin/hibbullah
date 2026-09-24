@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -22,7 +22,9 @@ export default function AdminCustomerDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  // FIX: load was a fresh function per render but the effect only depended on customerId,
+  // tripping react-hooks/exhaustive-deps. Memoized it so the dependency list is correct.
+  const load = useCallback(async () => {
     if (!customerId) return;
     setLoading(true);
     setError(null);
@@ -34,11 +36,11 @@ export default function AdminCustomerDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
 
   useEffect(() => {
     load();
-  }, [customerId]);
+  }, [load]);
 
   if (loading) {
     return (

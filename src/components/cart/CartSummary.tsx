@@ -3,10 +3,12 @@ import { useThemeColors } from "../../providers/ThemeProvider";
 import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import typography from "../../constants/typography";
-import type { CartSummary } from "../../types/cart";
+// FIX: aliased the CartSummary type import — it collided with the default-export component
+// named CartSummary below, which caused an ESLint no-redeclare error and shadowed the type.
+import type { CartSummary as CartSummaryData } from "../../types/cart";
 import { formatCurrency } from "../../utils/currency";
 
-export default function CartSummary({ summary }: { summary: CartSummary }) {
+export default function CartSummary({ summary }: { summary: CartSummaryData }) {
   const colors = useThemeColors();
   return (
     <View style={[styles.box, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>

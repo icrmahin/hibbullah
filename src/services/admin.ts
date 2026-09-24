@@ -252,7 +252,13 @@ export async function fetchAdminProducts(filters?: { status?: string; stockFilte
   if (filters?.stockFilter === 'out') query = query.eq('stock', 0)
   if (filters?.categoryId) query = query.eq('category_id', filters.categoryId)
   if (filters?.query) {
-    query = query.or(`name.ilike.%${filters.query}%,brand.ilike.%${filters.query}%,generic_name.ilike.%${filters.query}%`)
+    // FIX: the raw query was interpolated into a PostgREST .or() filter. Characters like % , and "
+    // are PostgREST metacharacters — typing them in the admin search caused a 400 and the whole
+    // list failed. Sanitize exactly like fetchProducts/searchProducts do (strip , and ", escape %).
+    const sanitized = filters.query.replace(/[,"]/g, ' ').replace(/%/g, '\\%').trim()
+    if (sanitized) {
+      query = query.or(`name.ilike.%${sanitized}%,brand.ilike.%${sanitized}%,generic_name.ilike.%${sanitized}%`)
+    }
   }
   if (filters?.limit) query = query.limit(filters.limit)
   if (filters?.offset) query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1)

@@ -216,9 +216,21 @@ export async function updateProduct(productId: string, input: Partial<Omit<Produ
         if (error) throw error
       }
     } else if (input.stock !== undefined) {
-      const { data: batches } = await supabase.from('inventory_items').select('id').eq('product_id', productId).order('last_updated').limit(1)
+      // FIX: the total-stock branch overwrote ONLY the first batch with the entered value while
+      // leaving every other batch untouched — with 2+ batches the product's real stock was the
+      // entered total PLUS the other batches (and the sync trigger re-summed batches on later
+      // inventory changes, snapping products.stock back up). Distribute instead: set the target
+      // batch to the entered total minus the sum of the other batches (clamped >= 0) so the
+      // batch ledger stays an accurate breakdown of the same total.
+      const { data: batches } = await supabase
+        .from('inventory_items')
+        .select('id, quantity')
+        .eq('product_id', productId)
+        .order('last_updated', { ascending: true })
+      const others = (batches || []).slice(1).reduce((s, b) => s + Number(b.quantity || 0), 0)
+      const target = Math.max(qty - others, 0)
       if (batches && batches.length > 0) {
-        await supabase.from('inventory_items').update({ quantity: qty }).eq('id', batches[0].id)
+        await supabase.from('inventory_items').update({ quantity: target }).eq('id', batches[0].id)
       } else if (qty > 0) {
         await supabase.from('inventory_items').insert({ product_id: productId, batch_number: `BATCH-${productId.slice(0, 8).toUpperCase()}-001`, quantity: qty })
       }

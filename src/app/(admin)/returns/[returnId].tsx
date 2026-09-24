@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -26,7 +26,9 @@ export default function AdminReturnDetailScreen() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = async () => {
+  // FIX: load was inline per render while the effect listed only returnId —
+  // react-hooks/exhaustive-deps flagged the missing load. Memoized on returnId.
+  const load = useCallback(async () => {
     if (!returnId) return;
     setLoading(true);
     setError(null);
@@ -38,11 +40,11 @@ export default function AdminReturnDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [returnId]);
 
   useEffect(() => {
     load();
-  }, [returnId]);
+  }, [load]);
 
   const handleUpdate = async (status: 'APPROVED' | 'REJECTED' | 'PROCESSED') => {
     setUpdating(status);

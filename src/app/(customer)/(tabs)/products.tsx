@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeColors } from "../../../providers/ThemeProvider";
@@ -7,12 +7,10 @@ import SoftHeader from "../../../components/common/SoftHeader";
 import SearchBar from "../../../components/common/SearchBar";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import ProductCard from "../../../components/products/ProductCard";
+import LoadingState from "../../../components/common/LoadingState";
+import ErrorState from "../../../components/common/ErrorState";
 import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
 import { useResponsive } from "../../../hooks/useResponsive";
-import type { Product } from "../../../types/product";
-import type { Category } from "../../../types/category";
-import type { Manufacturer } from "../../../types/manufacturer";
 import { useProducts, useCategories, useManufacturers } from "../../../hooks/useProducts";
 
 export default function CustomerProductsScreen() {
@@ -22,9 +20,13 @@ export default function CustomerProductsScreen() {
   const [manufacturerId, setManufacturerId] = useState<string | null>(null);
   const { isMobile, isTablet, columns } = useResponsive();
 
+  // FIX: loading/error/reload were destructured but never rendered — the tab showed a bare
+  // "No products found" empty state during the initial fetch and on any failure (trip: no
+  // loading spinner / no error surface on the main products tab). categoriesLoading /
+  // manufacturersLoading were also unused; loading/error/reload are now wired into the list.
   const { data: products, loading, error, reload } = useProducts({ categoryId: categoryId || undefined, manufacturerId: manufacturerId || undefined, query });
-  const { data: categories, loading: categoriesLoading } = useCategories();
-  const { data: manufacturers, loading: manufacturersLoading } = useManufacturers();
+  const { data: categories } = useCategories();
+  const { data: manufacturers } = useManufacturers();
 
   const gridColumns = isMobile ? 1 : isTablet ? 2 : columns;
 
@@ -70,13 +72,21 @@ export default function CustomerProductsScreen() {
             <Text style={[styles.resultText, { color: colors.textMuted }]}>{products.length} products</Text>
           </ResponsiveContainer>
         }
-        ListEmptyComponent={<Text style={[styles.resultText, { color: colors.textMuted }]}>No products found</Text>}
+        ListEmptyComponent={
+          loading ? (
+            <LoadingState label="Loading products" />
+          ) : error ? (
+            <ErrorState message={error} onRetry={reload} />
+          ) : (
+            <Text style={[styles.resultText, { color: colors.textMuted }]}>No products found</Text>
+          )
+        }
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         windowSize={5}
         removeClippedSubviews
-        refreshing={false}
-        onRefresh={() => {}}
+        refreshing={!!loading}
+        onRefresh={() => reload()}
       />
     </SafeAreaView>
   );

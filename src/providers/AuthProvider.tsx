@@ -90,6 +90,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // FIX: handleSessionChange/fetchProfile/checkIsAdminRpc remain plain (hoisted) function
+  // declarations. The first fix attempt converted them into useCallback chains, which tripped the
+  // react-hooks compiler rules — the session effect below references handleSessionChange earlier
+  // in the body, and a const there is a TDZ access ("accessed before it is declared") that also
+  // makes the compiler drop the memoization (preserve-manual-memoization). Hoisted function
+  // declarations keep the deep-link effect working exactly as before. refreshUser's [] deps are
+  // safe for the same reason — see the note at refreshUser.
   async function fetchProfile(userId: string): Promise<{ name?: string | null; phone?: string | null; avatar_url?: string | null; role?: 'customer' | 'admin' | null } | null> {
     try {
       const { data, error } = await supabase.from('profiles').select('name, phone, avatar_url, role').eq('id', userId).single()
@@ -98,11 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return null
     }
-  }
-
-  async function fetchProfileRole(userId: string): Promise<'customer' | 'admin' | null> {
-    const p = await fetchProfile(userId)
-    return (p?.role as 'customer' | 'admin' | null) ?? null
   }
 
   async function checkIsAdminRpc(): Promise<boolean | null> {
@@ -250,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const minimalSession = { user: currentUser, access_token: '' } as unknown as Session
       await handleSessionChange(minimalSession)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSessionChange is a plain (per-render) function; depending on it would change refreshUser's identity every render and re-memoize the auth context. The captured first-render closure only uses module singletons (supabase, ADMIN_EMAILS) and stable setState setters, so it is safe.
   }, [])
 
   const value = useMemo<AuthContextType>(() => ({

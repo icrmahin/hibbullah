@@ -57,7 +57,8 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user?.id]) // intentionally exclude loadNotifications to avoid re-subscribing on every render; loadNotifications is stable via user id
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadNotifications is keyed by user.id; including it would re-subscribe whenever the user object identity changes (e.g. after refreshUser), which is churn with no behavior change.
+  }, [user?.id])
 
   const markAsRead = useCallback(async (notificationId: string) => {
     if (!user) throw new Error('User not authenticated')

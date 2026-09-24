@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching and derived state sync require setState inside effects */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -47,7 +47,9 @@ export default function AdminOrderDetailScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const load = async () => {
+  // FIX: load was created inline each render while the effect only listed orderId —
+  // react-hooks/exhaustive-deps flagged the missing load. Memoized on orderId.
+  const load = useCallback(async () => {
     if (!orderId) return;
     setLoading(true);
     setError(null);
@@ -59,11 +61,11 @@ export default function AdminOrderDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
 
   useEffect(() => {
     load();
-  }, [orderId]);
+  }, [load]);
 
   const handleTransition = async (next: OrderStatus) => {
     if (!order) return;

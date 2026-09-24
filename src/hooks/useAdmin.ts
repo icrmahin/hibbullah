@@ -1,11 +1,21 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching and derived state sync require setState inside effects */
- /* eslint-disable react-hooks/refs -- stable filters refs intentionally mutated during render for stable callbacks */
+/* eslint-disable react-hooks/refs -- stable filters refs intentionally mutated during render for stable callbacks */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from './useAuth'
-import { fetchAdminDashboard, fetchAdminProducts, fetchAdminOrders, updateOrderStatus, fetchAdminInventory, createStockAdjustment, type AdminDashboardData } from '../services/admin'
+// FIX: merged the duplicate ../services/admin imports (runtime values on one line, type on another)
+// into a single import — previously this imported the same module twice, tripping import/no-duplicates.
+import {
+  fetchAdminDashboard,
+  fetchAdminProducts,
+  fetchAdminOrders,
+  updateOrderStatus,
+  fetchAdminInventory,
+  createStockAdjustment,
+  type AdminDashboardData,
+  type AdminInventoryRow,
+} from '../services/admin'
 import type { Product } from '../types/product'
 import type { Order } from '../types/order'
-import type { AdminInventoryRow } from '../services/admin'
 
 export function useAdmin() {
   const { user, isAdmin } = useAuth()

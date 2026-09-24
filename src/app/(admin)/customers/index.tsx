@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -22,7 +22,9 @@ export default function AdminCustomersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
-  const load = async () => {
+  // FIX: load was an inline function re-created every render, so the debounced effect's
+  // dependency list (query only) was incomplete per react-hooks/exhaustive-deps. Memoized it.
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -33,12 +35,12 @@ export default function AdminCustomersScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [query]);
 
   useEffect(() => {
-    const t = setTimeout(load, query ? 300 : 0);
+    const t = setTimeout(() => void load(), query ? 300 : 0);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, load]);
 
   if (loading && customers.length === 0) {
     return (
