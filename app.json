@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Hibbullah",
+    "slug": "hibbullah",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo/hibbullah-main.png",
+    "scheme": "hibbullah",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/images/logo/hibbullah-main.png",
+      "bundleIdentifier": "com.hibbullah.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F6F7F4",
+        "foregroundImage": "./assets/images/logo/hibbullah-main.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.hibbullah.app"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/logo/hibbullah-main.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F6F7F4",
+          "image": "./assets/images/logo/hibbullah-main.png",
+          "imageWidth": 88
+        }
+      ],
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "da0ca0c7-a0b9-4f1c-b644-543c22a87b6b"
+      }
+    },
+    "owner": "icrmahin"
+  }
+}
