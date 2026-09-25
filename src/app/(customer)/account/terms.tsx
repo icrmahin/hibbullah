@@ -30,15 +30,15 @@ export default function TermsPrivacyScreen() {
         </Section>
 
         <Section title="Privacy Policy" colors={colors} shadows={shadows}>
-          We collect: email (Auth), name/phone (profiles), addresses, cart/favorites, orders. Phone is stored in profiles (source of truth), never used for Auth — only for delivery (required at checkout). Product images are stored in Cloudinary (webp, max 1024px, max 5MB); all other data (profile, addresses, cart, favorites, orders) stays in our database. Realtime is limited to notifications/favorites/products/inventory (4 tables) with unique channel per screen to avoid free-tier limits. Data is RLS-secured (auth.uid = user_id, admin via is_admin allowlist). Audit logs admin actions. No phone is shared; delivery address is per order.
+          We collect: email (Auth), name/phone/picture (profiles), addresses, cart/favorites, orders. Phone is stored in profiles as a +880 number (source of truth), never used for Auth — only for delivery (required at checkout). Product and profile images are stored in Cloudinary (webp, max 1024px for products and 400px for pictures, max 5MB); replacing a picture overwrites the previous file, and removing one deletes it. All other data (profile, addresses, cart, favorites, orders) stays in our database. Realtime is limited to notifications/favorites/products/inventory (4 tables) with unique channel per screen to avoid free-tier limits. Data is RLS-secured (auth.uid = user_id, admin via is_admin allowlist). Audit logs admin actions. No phone is shared; delivery address is per order.
         </Section>
 
         <Section title="Data retention & rights" colors={colors} shadows={shadows}>
-          Orders and audit logs retained for fulfillment. You can update name/phone in Profile Details, delete addresses, clear cart, unfavorite. To delete account, email {config.supportEmail} with subject “Delete my data” — we remove profiles + auth within 30 days, keeping invoices for legal. Realtime can be disabled by polling on focus if you prefer low data.
+          Orders and audit logs retained for fulfillment. You can update your name, phone and picture from your profile (tap your name at the top of Settings), change your password under Password & Security, delete addresses, clear cart, unfavorite. To delete account, email {config.supportEmail} with subject “Delete my data” — we remove profiles + auth within 30 days, keeping invoices for legal. Realtime can be disabled by polling on focus if you prefer low data.
         </Section>
 
         <Section title="Contact for legal" colors={colors} shadows={shadows}>
-          {config.appName} — House 12, Road 7, Dhanmondi, Dhaka 1209. Email {config.supportEmail} · Phone +880 96 1234 5678. For app permissions: Camera/Media for product images (admin), no phone auth, no SMS OTP.
+          {config.appName} — House 12, Road 7, Dhanmondi, Dhaka 1209. Email {config.supportEmail} · Phone +880 96 1234 5678. For app permissions: Camera/Media for product images (admin) and profile pictures, no phone auth, no SMS OTP.
         </Section>
       </ScrollView>
     </SafeAreaView>

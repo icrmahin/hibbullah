@@ -9,7 +9,8 @@ import {
 } from 'react'
 import * as Linking from 'expo-linking'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, createCredentialCheckClient } from '../lib/supabase'
+import { mapProfile, type MappedProfile } from '../lib/mappers'
 import type { User } from '../types/user'
 import type { AuthSession, AuthContextType, LoginForm, RegisterForm } from '../types/auth'
 
@@ -97,11 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // makes the compiler drop the memoization (preserve-manual-memoization). Hoisted function
   // declarations keep the deep-link effect working exactly as before. refreshUser's [] deps are
   // safe for the same reason — see the note at refreshUser.
-  async function fetchProfile(userId: string): Promise<{ name?: string | null; phone?: string | null; avatar_url?: string | null; role?: 'customer' | 'admin' | null } | null> {
+  async function fetchProfile(userId: string): Promise<MappedProfile | null> {
     try {
       const { data, error } = await supabase.from('profiles').select('name, phone, avatar_url, role').eq('id', userId).single()
       if (error || !data) return null
-      return data as { name?: string | null; phone?: string | null; avatar_url?: string | null; role?: 'customer' | 'admin' | null }
+      return mapProfile({ ...(data as object), id: userId })
     } catch {
       return null
     }
@@ -122,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const email = session.user.email as string | undefined
       // Phone source of truth is profiles.phone (not auth) — auth only for gmail, phone required for placing order
       const profile = await fetchProfile(session.user.id)
-      const profileRole = (profile?.role as 'customer' | 'admin' | null) ?? null
+      const profileRole = profile?.role ?? null
       // DB truth via RPC (when available) otherwise fallback to email allowlist
       const rpcAdmin = await checkIsAdminRpc()
       const emailAdmin = isEmailAllowlisted(email)
@@ -138,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const profilePhone = profile?.phone ?? ''
       const profileName = profile?.name ?? (session.user.user_metadata?.name as string | undefined) ?? session.user.email?.split('@')[0] ?? 'User'
-      const profileAvatar = profile?.avatar_url ?? (session.user.user_metadata?.avatar_url as string | undefined)
+      const profileAvatar = profile?.avatar ?? (session.user.user_metadata?.avatar_url as string | undefined)
 
       const sessionWithId = session as Session & { id?: string }
       const authSession: AuthSession = {
@@ -255,6 +256,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSessionChange is a plain (per-render) function; depending on it would change refreshUser's identity every render and re-memoize the auth context. The captured first-render closure only uses module singletons (supabase, ADMIN_EMAILS) and stable setState setters, so it is safe.
   }, [])
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const email = user?.email
+    if (!email) throw new Error('Not signed in.')
+
+    // Verified on a throwaway client so the live session is never re-issued.
+    const checker = createCredentialCheckClient()
+    const { error: verifyError } = await checker.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    })
+    if (verifyError) {
+      throw new Error(
+        verifyError.message.toLowerCase().includes('invalid')
+          ? 'Your current password is not correct.'
+          : verifyError.message,
+      )
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw new Error(error.message)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `user` is the only dependency used; keeping it listed is enough and does not recreate the callback per render.
+  }, [user?.email])
+
+  const sendPasswordResetEmail = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: Linking.createURL('reset-password'),
+    })
+    if (error) throw new Error(error.message)
+  }, [])
+
   const value = useMemo<AuthContextType>(() => ({
     session,
     user,
@@ -265,7 +296,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     refreshUser,
-  }), [session, user, isAdmin, loading, signOut, login, register, refreshUser])
+    changePassword,
+    sendPasswordResetEmail,
+  }), [session, user, isAdmin, loading, signOut, login, register, refreshUser, changePassword, sendPasswordResetEmail])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

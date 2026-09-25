@@ -7,7 +7,9 @@ import { fontFamily, fontSize } from "../../constants/typography";
 import sizes from "../../constants/sizes";
 import Icon from "../common/Icon";
 import AppLogo from "../common/AppLogo";
+import Avatar from "../common/Avatar";
 import type { IconName } from "../common/Icon";
+import { useAuth } from "../../hooks/useAuth";
 
 type NavItem = {
   label: string;
@@ -128,7 +130,44 @@ export default function AdminSidebar() {
           colors={colors}
         />
       </View>
+
+      <AdminIdentity />
     </View>
+  );
+}
+
+/**
+ * The signed-in admin, with the real uploaded picture rather than a typed
+ * initial. Tapping it opens the shared profile editor, which is the same screen
+ * customers use, so an admin can set their name, phone and picture without
+ * leaving the admin area.
+ */
+function AdminIdentity() {
+  const colors = useThemeColors();
+  const { user } = useAuth();
+
+  if (!user) return null;
+
+  const label = user.name?.trim() || user.email || "Admin";
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.identity, pressed && styles.identityPressed]}
+      onPress={() => router.push("/(customer)/account/profile" as never)}
+      accessibilityRole="button"
+      accessibilityLabel={`Your profile, signed in as ${label}`}
+    >
+      <Avatar uri={user.avatar} name={label} size={34} borderColor={colors.borderLight} borderWidth={1} />
+      <View style={styles.identityText}>
+        <Text style={[styles.identityName, { color: colors.text }]} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={[styles.identityRole, { color: colors.textMuted }]} numberOfLines={1}>
+          {user.email ?? "Administrator"}
+        </Text>
+      </View>
+      <Icon name="settings" size={16} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -203,5 +242,26 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.md,
     borderTopWidth: 1,
+  },
+  identity: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.md,
+    padding: spacing.sm,
+    borderRadius: sizes.borderRadius.md,
+  },
+  identityPressed: { opacity: 0.7 },
+  identityText: { flex: 1, gap: 1 },
+  identityName: {
+    fontFamily: fontFamily.semiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * 1.3,
+  },
+  identityRole: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.tiny,
+    lineHeight: fontSize.tiny * 1.3,
   },
 });

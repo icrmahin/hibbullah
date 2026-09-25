@@ -47,6 +47,8 @@ interface DbProductRow extends DbRecord {
   createdAt?: string | null
   categories?: { name?: string; slug?: string } | null
   manufacturers?: { name?: string } | null
+  category_name?: string | null
+  manufacturer_name?: string | null
 }
 
 export function mapProduct(db: DbProductRow | null | undefined): Product | null | undefined {
@@ -74,9 +76,54 @@ export function mapProduct(db: DbProductRow | null | undefined): Product | null 
     batchNumber: (row.batch_number ?? row.batchNumber ?? undefined) as string | undefined,
     expiryDate: (row.expiry_date ?? row.expiryDate ?? undefined) as string | undefined,
     createdAt: String(row.created_at ?? row.createdAt ?? ''),
+    // The list functions return the joined names alongside the row, so a screen
+    // can label itself without having to load and search the whole category or
+    // manufacturer table to resolve one id. A single-row fetch joins them as
+    // nested objects instead, so both shapes are read here.
+    categoryName: row.category_name ?? row.categories?.name ?? undefined,
+    manufacturerName: row.manufacturer_name ?? row.manufacturers?.name ?? undefined,
     _rawCategory: row.categories ?? undefined,
     _rawManufacturer: row.manufacturers ?? undefined,
   } as Product & { _rawCategory?: Category | null; _rawManufacturer?: Manufacturer | null }
+}
+
+type DbProfileRow = DbRecord & {
+  id: string
+  name?: string | null
+  email?: string | null
+  phone?: string | null
+  role?: string | null
+  avatar_url?: string | null
+  created_at?: string | null
+}
+
+export type MappedProfile = {
+  id: string
+  name: string
+  email: string
+  phone: string
+  role: 'customer' | 'admin'
+  avatar?: string
+  createdAt: string
+}
+
+/**
+ * `avatar_url` -> `avatar` lived as a one-off expression in AuthProvider, so the
+ * admin customer screens had no way to read a profile picture. Single mapping,
+ * reused everywhere a profiles row is read.
+ */
+export function mapProfile(db: DbProfileRow | null | undefined): MappedProfile | null {
+  if (!db) return null
+  const row = db as DbProfileRow
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ''),
+    email: String(row.email ?? ''),
+    phone: String(row.phone ?? ''),
+    role: row.role === 'admin' ? 'admin' : 'customer',
+    avatar: (row.avatar_url ?? undefined) as string | undefined,
+    createdAt: String(row.created_at ?? ''),
+  }
 }
 
 type DbOrderRow = DbRecord & {

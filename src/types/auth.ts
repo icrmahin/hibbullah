@@ -37,4 +37,8 @@ export interface AuthContextType extends AuthState {
   login: (form: LoginForm) => Promise<AuthSession>;
   register: (form: RegisterForm) => Promise<AuthSession>;
   refreshUser: () => Promise<void>;
+  /** Changes the signed-in user's password. Verifies the current one first. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /** Emails a recovery link that deep-links back into the app. */
+  sendPasswordResetEmail: (email: string) => Promise<void>;
 }

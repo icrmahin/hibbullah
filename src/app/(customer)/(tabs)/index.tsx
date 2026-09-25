@@ -13,8 +13,9 @@ import spacing from "../../../constants/spacing";
 import { radius, layout } from "../../../constants/sizes";
 import type { Product } from "../../../types/product";
 import { useNotifications } from "../../../hooks/useNotifications";
-import { useProducts, useCategories } from "../../../hooks/useProducts";
+import { useProducts, useCategories, useProductSearch } from "../../../hooks/useProducts";
 import { useResponsive } from "../../../hooks/useResponsive";
+import { isSearchableTerm } from "../../../services/searchQuery";
 
 type DiscoveryTab = "all" | "trending" | "discount" | "new";
 
@@ -31,29 +32,49 @@ export default function CustomerHomeScreen() {
   const [activeTab, setActiveTab] = useState<DiscoveryTab>("all");
   const [showFilter, setShowFilter] = useState(false);
 
-  const { data: products } = useProducts();
+  const { data: products } = useProducts({ limit: 20 });
   const { data: categories } = useCategories();
+
+  // The overlay used to filter the 20 rows already on screen in JavaScript, so
+  // typing "amox" could only ever match products that happened to be in the
+  // newest 20 of a 4,000-product catalog. It now asks the database, which ranks
+  // the match and returns the real total.
+  const searching = isSearchableTerm(query);
+  const { data: searchData, loading: searchLoading, total: searchTotal } = useProductSearch(query);
 
   const featured = useMemo(() => products.filter((p) => p.isFeatured), [products]);
   const newProducts = useMemo(() => [...products].slice(0, 6), [products]);
   const discounted = useMemo(() => products.filter((p) => (p.discountPercent || 0) > 0), [products]);
 
   const searchResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return products.slice(0, 4);
-    return products.filter((p) => [p.name, p.brand, p.genericName].join(" ").toLowerCase().includes(q)).slice(0, 5);
-  }, [query, products]);
+    if (searching) return searchData.slice(0, 5);
+    return products.slice(0, 4);
+  }, [searching, searchData, products]);
 
+  // While there is a query the grid shows the search results, so the home screen
+  // searches the whole catalog rather than only the page it happens to hold.
   const activeProducts = useMemo(() => {
+    if (searching) return searchData;
     if (activeTab === "all") return products;
     if (activeTab === "trending") return featured;
     if (activeTab === "discount") return discounted;
     return newProducts;
-  }, [activeTab, featured, discounted, newProducts, products]);
+  }, [searching, searchData, activeTab, featured, discounted, newProducts, products]);
+
+  const discoveryLabel = searching
+    ? searchLoading
+      ? "Searching…"
+      : `${searchTotal} ${searchTotal === 1 ? "match" : "matches"}`
+    : "Browse medicines";
 
   const openProduct = (product: Product) => {
     setSearchFocused(false);
     router.push({ pathname: "/(customer)/products/[productId]", params: { productId: product.id } });
+  };
+
+  const openSearchScreen = () => {
+    setSearchFocused(false);
+    router.push({ pathname: "/(customer)/search", params: { query: query.trim() } });
   };
 
   return (
@@ -73,7 +94,7 @@ export default function CustomerHomeScreen() {
                 <Text style={[styles.brandName, { color: colors.text }]}>Hibbullah</Text>
               </View>
               <Pressable
-                onPress={() => router.push("/(customer)/account/notifications" as any)}
+                onPress={() => router.push("/(customer)/account/notifications")}
                 accessibilityRole="button"
                 accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
                 style={[styles.cartButton, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}
@@ -109,23 +130,40 @@ export default function CustomerHomeScreen() {
               <Text style={[styles.searchPanelTitle, { color: colors.textMuted }]}>
                 {query ? "Matches" : "Popular"}
               </Text>
-              <FlatList
-                data={searchResults}
-                keyboardShouldPersistTaps="handled"
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-                renderItem={({ item }) => (
-                  <Pressable style={styles.searchResult} onPress={() => openProduct(item)}>
-                    <Text style={[styles.searchResultName, { color: colors.text }]} numberOfLines={1}>
-                      {item.name}
+              {searching && searchLoading ? (
+                <Text style={[styles.noResults, { color: colors.textMuted }]}>Searching…</Text>
+              ) : (
+                <FlatList
+                  data={searchResults}
+                  keyboardShouldPersistTaps="handled"
+                  keyExtractor={(item) => item.id}
+                  scrollEnabled={false}
+                  renderItem={({ item }) => (
+                    <Pressable style={styles.searchResult} onPress={() => openProduct(item)}>
+                      <Text style={[styles.searchResultName, { color: colors.text }]} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={[styles.searchResultMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                        {item.brand} · {item.genericName}
+                      </Text>
+                    </Pressable>
+                  )}
+                  ListEmptyComponent={
+                    <Text style={[styles.noResults, { color: colors.textMuted }]}>
+                      {searching
+                        ? "No medicines found — try another name or check the spelling."
+                        : "Type a medicine, brand or generic name."}
                     </Text>
-                    <Text style={[styles.searchResultMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                      {item.brand} · {item.genericName}
-                    </Text>
-                  </Pressable>
-                )}
-                ListEmptyComponent={<Text style={[styles.noResults, { color: colors.textMuted }]}>No medicines found — try another name.</Text>}
-              />
+                  }
+                />
+              )}
+              {searching && searchTotal > 0 ? (
+                <Pressable onPress={openSearchScreen} style={styles.searchSeeAll}>
+                  <Text style={[styles.searchCloseText, { color: colors.primary }]}>
+                    See all {searchTotal} {searchTotal === 1 ? "result" : "results"}
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable onPress={() => setSearchFocused(false)} style={styles.searchClose}>
                 <Text style={[styles.searchCloseText, { color: colors.primary }]}>Close</Text>
               </Pressable>
@@ -138,8 +176,8 @@ export default function CustomerHomeScreen() {
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Browse medicines</Text>
-          <Pressable onPress={() => router.push("/(customer)/(tabs)/products" as any)}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{discoveryLabel}</Text>
+          <Pressable onPress={() => router.push("/(customer)/(tabs)/products")}>
             <Text style={[styles.viewAll, { color: colors.primary }]}>View all</Text>
           </Pressable>
         </View>
@@ -277,6 +315,7 @@ const styles = StyleSheet.create({
   searchResultMeta: { fontSize: 11, marginTop: 2 },
   noResults: { paddingVertical: spacing.sm, fontSize: 12 },
   searchClose: { alignSelf: "flex-end", marginTop: spacing.sm },
+  searchSeeAll: { marginTop: spacing.sm, alignSelf: "flex-start" },
   searchCloseText: { fontSize: 12, fontWeight: "600" },
   heroSection: { marginBottom: spacing.sm },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, marginBottom: spacing.sm },

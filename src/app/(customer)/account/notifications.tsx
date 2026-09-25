@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { ScrollView, StyleSheet, Text, View, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import LoadingState from "../../../components/common/LoadingState";
@@ -7,6 +7,7 @@ import EmptyState from "../../../components/common/EmptyState";
 import { goBack } from "@/utils/navigation";
 import spacing from "../../../constants/spacing";
 import typography from "../../../constants/typography";
+import { NOTIFICATION_LIMIT } from "../../../constants/limits";
 import { useNotifications } from "../../../hooks/useNotifications";
 import { formatDateTime } from "../../../utils/date";
 import Icon from "../../../components/common/Icon";
@@ -43,7 +44,31 @@ function statusLabel(type: NotificationItem["type"]) {
 export default function CustomerNotificationsScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { items, loading, error, reload, markAsRead, markAllRead } = useNotifications();
+  const { items, loading, error, reload, unreadCount, readCount, markAsRead, markAllRead, clearAll, clearRead } =
+    useNotifications();
+
+  // Destructive and irreversible, so both are confirmed before they run. `clearRead` is
+  // the safer of the two and is offered first, which matches the common case: someone
+  // tidying up usually wants the things they have not dealt with yet to survive.
+  const confirmClearAll = () =>
+    Alert.alert(
+      "Clear all notifications?",
+      `This permanently removes all ${items.length} of your notifications. It cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Clear all", style: "destructive", onPress: () => void clearAll() },
+      ],
+    );
+
+  const confirmClearRead = () =>
+    Alert.alert(
+      "Clear read notifications?",
+      `This permanently removes ${readCount} notification${readCount === 1 ? "" : "s"} you have already read. Anything unread is kept.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Clear", style: "destructive", onPress: () => void clearRead() },
+      ],
+    );
 
   if (loading) {
     return (
@@ -89,6 +114,63 @@ export default function CustomerNotificationsScreen() {
           ) : null}
         </View>
 
+        {/* The clear actions sit in their own row rather than crowding the title, so
+            the destructive one is a deliberate tap instead of a near-miss on
+            "Mark all read" -- the two sit at opposite ends of the same line otherwise. */}
+        {items.length > 0 ? (
+          <View
+            style={[
+              styles.clearRow,
+              { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
+            ]}
+          >
+            <Pressable
+              onPress={confirmClearRead}
+              disabled={readCount === 0}
+              hitSlop={6}
+              style={({ pressed }) => [
+                styles.clearButton,
+                pressed && readCount > 0 && { opacity: 0.6 },
+                readCount === 0 && styles.clearButtonDisabled,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.clearLabel,
+                  { color: readCount === 0 ? colors.textMuted : colors.text },
+                ]}
+              >
+                Clear read
+              </Text>
+              {readCount > 0 ? (
+                <Text style={[styles.clearCount, { color: colors.textMuted }]}>{readCount}</Text>
+              ) : null}
+            </Pressable>
+
+            <View style={[styles.clearDivider, { backgroundColor: colors.borderLight }]} />
+
+            <Pressable
+              onPress={confirmClearAll}
+              hitSlop={6}
+              style={({ pressed }) => [styles.clearButton, pressed && { opacity: 0.6 }]}
+            >
+              <Icon name="delete-outline" size={14} color={colors.danger} />
+              <Text style={[styles.clearLabel, { color: colors.danger }]}>Clear all</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {items.length > 0 ? (
+          // Stated rather than left to be discovered: the database drops the oldest once
+          // the list passes the cap, and a user who cannot see that happening would
+          // reasonably think notifications had been lost. Phrased as an upper bound
+          // rather than a count, so it stays true for someone with three notifications
+          // as well as someone sitting exactly on the cap.
+          <Text style={[styles.capNote, { color: colors.textMuted }]}>
+            Up to the {NOTIFICATION_LIMIT} most recent are kept. Anything older is removed automatically.
+          </Text>
+        ) : null}
+
         {items.length === 0 ? (
           <EmptyState title="No notifications" message="Order updates and offers will appear here." />
         ) : (
@@ -114,11 +196,20 @@ export default function CustomerNotificationsScreen() {
                     <Text style={[styles.body, { color: colors.textMuted }]}>{notification.body}</Text>
                     <Text style={[styles.time, { color: colors.textMuted }]}>{formatDateTime(notification.createdAt)}</Text>
                   </View>
+                  {!notification.read ? (
+                    <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
+                  ) : null}
                 </View>
               </Pressable>
             ))}
           </View>
         )}
+
+        {unreadCount > 0 && items.length > 0 ? (
+          <Text style={[styles.footnote, { color: colors.textMuted }]}>
+            {unreadCount} unread.
+          </Text>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -143,6 +234,27 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 18, fontWeight: "800" },
   markAll: { fontSize: 12, fontWeight: "700" },
+  clearRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  clearButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: spacing.sm + 2,
+  },
+  clearButtonDisabled: { opacity: 0.55 },
+  clearLabel: { fontSize: 12, fontWeight: "700" },
+  clearCount: { fontSize: 11, fontWeight: "700" },
+  clearDivider: { width: 1, alignSelf: "stretch" },
+  capNote: { fontSize: 11, lineHeight: 15, marginTop: -spacing.xs },
+  footnote: { fontSize: 11, textAlign: "center" },
   list: { gap: spacing.md },
   card: {
     flexDirection: "row",
@@ -153,6 +265,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
   cardBody: { flex: 1, gap: 4 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
   cardTitle: { fontSize: 13, fontWeight: "700", flex: 1 },

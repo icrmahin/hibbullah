@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { useShadows } from "../../constants/shadows";
 import { radius, layout } from "../../constants/sizes";
@@ -6,7 +6,13 @@ import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import Icon from "./Icon";
 
-type SearchBarProps = {
+/**
+ * The remaining TextInput props are accepted so a caller can reach anything the
+ * bare TextInput supports (`autoFocus`, `autoCorrect`, `maxLength`, …) without
+ * this component having to re-declare each one. The input itself keeps priority:
+ * styling, `value` and the clear button are applied after the spread.
+ */
+type SearchBarProps = Omit<TextInputProps, "value" | "onChange" | "style" | "editable"> & {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
@@ -22,6 +28,7 @@ export default function SearchBar({
   onSubmit,
   onFocus,
   onBlur,
+  ...props
 }: SearchBarProps) {
   const colors = useThemeColors();
   const shadows = useShadows();
@@ -39,6 +46,7 @@ export default function SearchBar({
     >
       <Icon name="search" size={20} color={colors.textMuted} />
       <TextInput
+        {...props}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -47,7 +55,9 @@ export default function SearchBar({
         onFocus={onFocus}
         onBlur={onBlur}
         returnKeyType="search"
-        accessibilityLabel="Search products"
+        autoCorrect={false}
+        autoCapitalize="none"
+        accessibilityLabel={props.accessibilityLabel ?? placeholder}
         style={[styles.input, { color: colors.text }]}
       />
       {value ? (

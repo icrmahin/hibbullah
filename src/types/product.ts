@@ -21,6 +21,9 @@ export type Product = {
   isFeatured?: boolean;
   batchNumber?: string;
   expiryDate?: string;
+  /** Joined by the product list functions; absent on a single-row fetch. */
+  categoryName?: string;
+  manufacturerName?: string;
   createdAt: string;
 };
 

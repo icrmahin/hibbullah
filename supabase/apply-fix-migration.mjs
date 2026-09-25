@@ -3,11 +3,11 @@
  * Apply the bug-hunt fix migration to the live Supabase project via the Management API.
  *
  * Usage:
- *   SIFA_SUPABASE_TOKEN=supabase_admin_token_node_... node supabase/apply-fix-migration.mjs
+ *   HIBBULLAH_SUPABASE_TOKEN=supabase_admin_token_node_... node supabase/apply-fix-migration.mjs
  *
  * The token is the Supabase "management API" / personal access token (starts with sbp_... if
  * pasted by the user) OR a project-level admin token. It is read ONLY from the environment or
- * from a file whose path is given in SIFA_SUPABASE_TOKEN_FILE (the token is never written into
+ * from a file whose path is given in HIBBULLAH_SUPABASE_TOKEN_FILE (the token is never written into
  * this repo).
  *
  * Alternative (no token): open supabase/apply-to-hibbullah-hosted.sql in the Supabase Dashboard
@@ -16,15 +16,15 @@
 import { readFileSync } from 'node:fs'
 import { env } from 'node:process'
 
-const PROJECT_REF = env.SIFA_SUPABASE_PROJECT_REF || 'xkvjhvwrzfczymbgapip'
+const PROJECT_REF = env.HIBBULLAH_SUPABASE_PROJECT_REF || 'xkvjhvwrzfczymbgapip'
 const MIGRATION = new URL('./migrations/20260923090000_fix_order_inventory_sync.sql', import.meta.url)
 
-let token = env.SIFA_SUPABASE_TOKEN
-if (!token && env.SIFA_SUPABASE_TOKEN_FILE) {
-  token = readFileSync(env.SIFA_SUPABASE_TOKEN_FILE, 'utf8').trim()
+let token = env.HIBBULLAH_SUPABASE_TOKEN
+if (!token && env.HIBBULLAH_SUPABASE_TOKEN_FILE) {
+  token = readFileSync(env.HIBBULLAH_SUPABASE_TOKEN_FILE, 'utf8').trim()
 }
 if (!token) {
-  console.error('Set SIFA_SUPABASE_TOKEN (or SIFA_SUPABASE_TOKEN_FILE) first.')
+  console.error('Set HIBBULLAH_SUPABASE_TOKEN (or HIBBULLAH_SUPABASE_TOKEN_FILE) first.')
   process.exit(1)
 }
 

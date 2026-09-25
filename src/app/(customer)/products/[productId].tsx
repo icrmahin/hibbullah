@@ -111,6 +111,13 @@ export default function ProductDetailScreen() {
             <View style={styles.desktopLayout}>
               <View style={styles.imageColumn}>
                 <ProductImage uri={product.image} recyclingKey={product.id} style={styles.imageDesktop} />
+                {product.secondaryImage ? (
+                  <ProductImage
+                    uri={product.secondaryImage}
+                    recyclingKey={`${product.id}-2`}
+                    style={styles.imageSecondary}
+                  />
+                ) : null}
               </View>
               <View style={styles.detailsColumn}>
                 <Text style={[styles.name, { color: colors.text }]}>{product.name}</Text>
@@ -139,6 +146,13 @@ export default function ProductDetailScreen() {
           ) : (
             <>
               <ProductImage uri={product.image} recyclingKey={product.id} style={styles.image} />
+              {product.secondaryImage ? (
+                <ProductImage
+                  uri={product.secondaryImage}
+                  recyclingKey={`${product.id}-2`}
+                  style={styles.imageSecondary}
+                />
+              ) : null}
               <Text style={[styles.name, { color: colors.text }]}>{product.name}</Text>
               <View style={styles.priceRow}>
                 <Text style={[styles.price, { color: colors.text }]}>{formatCurrency(product.price)}</Text>
@@ -181,6 +195,14 @@ const styles = StyleSheet.create({
   detailsColumn: { flex: 1, gap: spacing.md },
   image: { width: "100%", height: 280, backgroundColor: "#1A2420", borderRadius: 18 },
   imageDesktop: { width: "100%", height: 380, backgroundColor: "#1A2420", borderRadius: 18 },
+  /** The second picture stacks under the first rather than in a carousel. */
+  imageSecondary: {
+    width: "100%",
+    height: 220,
+    marginTop: spacing.md,
+    backgroundColor: "#1A2420",
+    borderRadius: 18,
+  },
   name: { fontSize: 22, fontWeight: "800", lineHeight: 26 },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
   price: { fontSize: 22, fontWeight: "800" },

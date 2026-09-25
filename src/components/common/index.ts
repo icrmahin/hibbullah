@@ -16,6 +16,8 @@ export { default as Chip } from "./Chip";
 // Inputs
 export { default as Input } from "./Input";
 export { default as Select } from "./Select";
+export { default as SearchableSelect } from "./SearchableSelect";
+export type { SelectOption } from "./SearchableSelect";
 export { default as SearchBar } from "./SearchBar";
 export { default as Toggle } from "./Toggle";
 
@@ -45,6 +47,9 @@ export { default as Modal } from "./Modal";
 
 // Media
 export { default as ImageUpload } from "./ImageUpload";
+export { default as Avatar } from "./Avatar";
+export { default as AvatarPicker } from "./AvatarPicker";
+export { default as PhoneInput } from "./PhoneInput";
 
 // Branding
 export { default as AppLogo } from "./AppLogo";

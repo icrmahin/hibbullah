@@ -7,10 +7,12 @@ import spacing from "../../../constants/spacing";
 import typography from "../../../constants/typography";
 import { radius } from "../../../constants/sizes";
 import Icon from "../../../components/common/Icon";
+import Avatar from "../../../components/common/Avatar";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import { useResponsive } from "../../../hooks/useResponsive";
 import type { IconName } from "../../../components/common/Icon";
 import Toggle from "../../../components/common/Toggle";
+import { formatBdPhone } from "../../../utils/phone";
 
 type SettingsSection = {
   title: string;
@@ -24,13 +26,16 @@ type SettingsSection = {
 };
 
 // Feather-light: core settings first, low-use moved to More Options
+//
+// There is deliberately no "Profile Details" row here. The card at the top of
+// this screen is the single profile entry — it showed name, email and avatar but
+// was one of two identical doors to the same editor.
 const SECTIONS: SettingsSection[] = [
   {
     title: "Account",
     items: [
-      { label: "Profile Details", icon: "person", route: "/(customer)/account/profile" },
       { label: "Notifications", icon: "notifications", route: "/(customer)/account/notifications" },
-      { label: "Password & Security", icon: "lock", route: "/(customer)/account/profile" },
+      { label: "Password & Security", icon: "lock", route: "/(customer)/account/security" },
     ],
   },
   {
@@ -64,8 +69,8 @@ export default function AccountScreen() {
   const { isDesktop } = useResponsive();
 
   const isDark = themeMode === "dark" || (themeMode === "system" && colors.background === "#111A17");
-  const initial = user?.name ? user.name.charAt(0).toUpperCase() : "U";
   const statusText = isAdmin ? "Admin • Verified" : "Member • Active";
+  const displayPhone = formatBdPhone(user?.phone);
 
   const handleItemPress = (item: SettingsSection["items"][0]) => {
     if (item.destructive) {
@@ -93,7 +98,7 @@ export default function AccountScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>Soft • feather-light • {isAdmin ? "admin" : "customer"}</Text>
 
-        {/* Tiny but memorable Profile Card — useful status */}
+        {/* The single profile entry: tap the card to open the editor. */}
         <Pressable
           style={({ pressed }) => [
             styles.profileCard,
@@ -102,10 +107,10 @@ export default function AccountScreen() {
           ]}
           onPress={() => router.push("/(customer)/account/profile")}
           accessibilityRole="button"
-          accessibilityLabel="Open profile"
+          accessibilityLabel="Edit your profile"
         >
-          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.avatarText, { color: colors.white }]}>{initial}</Text>
+          <View style={styles.avatar}>
+            <Avatar uri={user?.avatar} name={user?.name} size={44} priority="high" />
             <View style={[styles.avatarStatus, { backgroundColor: colors.success, borderColor: colors.backgroundAlt }]} />
           </View>
           <View style={styles.profileInfo}>
@@ -120,9 +125,9 @@ export default function AccountScreen() {
             <Text style={[styles.profileEmail, { color: colors.textMuted }]} numberOfLines={1}>
               {user?.email || ""}
             </Text>
-            {user?.phone ? (
+            {displayPhone ? (
               <Text style={[styles.profileEmail, { color: colors.textMuted }]} numberOfLines={1}>
-                {user.phone}
+                {displayPhone}
               </Text>
             ) : null}
           </View>
@@ -229,11 +234,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
     position: "relative",
   },
   avatarStatus: {

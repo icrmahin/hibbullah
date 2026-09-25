@@ -66,3 +66,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 })
+
+/**
+ * A second, throwaway client used only to check a credential (e.g. "enter your
+ * current password" before changing it). It never persists a session, so
+ * verifying a password cannot disturb the signed-in session or write tokens to
+ * storage.
+ */
+export function createCredentialCheckClient() {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storage: undefined,
+    },
+  })
+}

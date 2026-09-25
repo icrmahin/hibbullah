@@ -16,7 +16,10 @@
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://xkvjhvwrzfczymbgapip.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_e0mclR5bUNnbn84iHpvjQg_W9EsmTeX"
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_e0mclR5bUNnbn84iHpvjQg_W9EsmTeX",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "eomwaokm",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "hibbullah_products",
+        "EXPO_PUBLIC_CLOUDINARY_AVATAR_UPLOAD_PRESET": "hibbullah_avatars"
       }
     },
     "production": {
@@ -26,7 +29,10 @@
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://xkvjhvwrzfczymbgapip.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_e0mclR5bUNnbn84iHpvjQg_W9EsmTeX"
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_e0mclR5bUNnbn84iHpvjQg_W9EsmTeX",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "eomwaokm",
+        "EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET": "hibbullah_products",
+        "EXPO_PUBLIC_CLOUDINARY_AVATAR_UPLOAD_PRESET": "hibbullah_avatars"
       }
     }
   },

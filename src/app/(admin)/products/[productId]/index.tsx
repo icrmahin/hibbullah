@@ -15,7 +15,7 @@ import ProductImage from "../../../../components/products/ProductImage";
 import { useThemeColors } from "../../../../providers/ThemeProvider";
 import { useShadows } from "../../../../constants/shadows";
 import { useResponsive } from "../../../../hooks/useResponsive";
-import { useProduct, useCategories, useManufacturers } from "../../../../hooks/useProducts";
+import { useProduct } from "../../../../hooks/useProducts";
 import { updateProduct, deleteProduct } from "../../../../services/products";
 import config from "../../../../constants/config";
 import { radius } from "../../../../constants/sizes";
@@ -41,8 +41,6 @@ export default function AdminProductDetailScreen() {
   const params = useLocalSearchParams<{ productId: string }>();
   const productId = params.productId as string;
   const { product, loading, error, reload } = useProduct(productId);
-  const { data: categories } = useCategories();
-  const { data: manufacturers } = useManufacturers();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -80,8 +78,10 @@ export default function AdminProductDetailScreen() {
     );
   }
 
-  const categoryName = categories.find((c) => c.id === product.categoryId)?.name ?? "";
-  const manufacturerName = manufacturers.find((m) => m.id === product.manufacturerId)?.name ?? "";
+  // The product row already carries the joined names, so this screen does not
+  // have to load the whole category and manufacturer tables to label one row.
+  const categoryName = product.categoryName ?? "";
+  const manufacturerName = product.manufacturerName ?? "";
 
   const handleToggleActive = async () => {
     setUpdating(true);

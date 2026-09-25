@@ -16,7 +16,7 @@ export default function InventoryAdjustmentScreen() {
   const colors = useThemeColors();
   const { user } = useAuth();
   const { data: inventory } = useAdminInventory();
-  const { data: products } = useProducts({ limit: 100 } as any);
+  const { data: products } = useProducts({ limit: 100 });
 
   const [productId, setProductId] = useState("");
   const [batchNumber, setBatchNumber] = useState("");

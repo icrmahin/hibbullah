@@ -1,13 +1,10 @@
 import { supabase } from '../lib/supabase'
-import { mapOrder, mapProduct } from '../lib/mappers'
+import { mapOrder } from '../lib/mappers'
+import { listProducts } from './products'
+import type { ProductCursor } from './products'
+import config from '../constants/config'
 import type { Product } from '../types/product'
 import type { Order } from '../types/order'
-
-interface SupabaseResponse<T> {
-  data: T | null
-  error: unknown
-  count: number | null
-}
 
 interface InventoryItemWithProduct {
   id: string
@@ -94,7 +91,7 @@ async function fetchSalesAggregates(since30Iso: string): Promise<{ totalSalesQty
   for (const r of itemRows) {
     const qty = Number(r.quantity || 0)
     const unit = Number(r.unit_price || 0)
-    const prod = r.products as { cost_price?: number | string | null } | Array<{ cost_price?: number | string | null }> | null | undefined
+    const prod = r.products as { cost_price?: number | string | null } | { cost_price?: number | string | null }[] | null | undefined
     const costRaw = Array.isArray(prod) ? prod[0]?.cost_price : prod?.cost_price
     const cost = Number(costRaw ?? unit * 0.8)
     const profit = (unit - cost) * qty
@@ -240,33 +237,51 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
   }
 }
 
-export async function fetchAdminProducts(filters?: { status?: string; stockFilter?: string; categoryId?: string; query?: string; limit?: number; offset?: number }): Promise<{ data: Product[]; total: number }> {
-  let query = supabase
-    .from('products')
-    .select('*, categories(name, slug), manufacturers(name)', { count: 'exact' })
-    .order('created_at', { ascending: false })
+export type AdminProductFilters = {
+  status?: 'active' | 'inactive'
+  stockFilter?: 'in_stock' | 'low' | 'out'
+  categoryId?: string
+  query?: string
+  limit?: number
+  cursor?: ProductCursor
+  /** Only meaningful for ranked search, which pages by offset. */
+  offset?: number
+}
 
-  if (filters?.status === 'active') query = query.eq('is_active', true)
-  if (filters?.status === 'inactive') query = query.eq('is_active', false)
-  if (filters?.stockFilter === 'low') query = query.lt('stock', 10)
-  if (filters?.stockFilter === 'out') query = query.eq('stock', 0)
-  if (filters?.categoryId) query = query.eq('category_id', filters.categoryId)
-  if (filters?.query) {
-    // FIX: the raw query was interpolated into a PostgREST .or() filter. Characters like % , and "
-    // are PostgREST metacharacters — typing them in the admin search caused a 400 and the whole
-    // list failed. Sanitize exactly like fetchProducts/searchProducts do (strip , and ", escape %).
-    const sanitized = filters.query.replace(/[,"]/g, ' ').replace(/%/g, '\\%').trim()
-    if (sanitized) {
-      query = query.or(`name.ilike.%${sanitized}%,brand.ilike.%${sanitized}%,generic_name.ilike.%${sanitized}%`)
-    }
+/**
+ * The admin product list.
+ *
+ * Was a `count: 'exact'` select with `.or()` ILIKE and OFFSET paging, capped at
+ * 100 rows by the caller — so a 4,000-product catalog silently showed the newest
+ * 100, the exact count scanned the whole table on every keystroke, and the
+ * search term was interpolated raw into a PostgREST filter string. Now it goes
+ * through the same server-side browse/search functions as the customer app, with
+ * filtering, ranking and paging all in the database.
+ */
+export async function fetchAdminProducts(
+  filters?: AdminProductFilters,
+  signal?: AbortSignal,
+): Promise<{ data: Product[]; total: number; hasMore: boolean; cursor: ProductCursor }> {
+  const result = await listProducts(
+    {
+      status: filters?.status,
+      stock: filters?.stockFilter,
+      lowStockThreshold: config.lowStockThreshold,
+      categoryId: filters?.categoryId,
+      query: filters?.query,
+      limit: filters?.limit,
+      cursor: filters?.cursor,
+      offset: filters?.offset,
+    },
+    signal,
+  )
+
+  return {
+    data: result.data,
+    total: result.total,
+    hasMore: result.hasMore,
+    cursor: result.cursor,
   }
-  if (filters?.limit) query = query.limit(filters.limit)
-  if (filters?.offset) query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1)
-
-  const { data, error, count } = await query
-  if (error) throw error
-
-  return { data: (data || []).map((row) => mapProduct(row as unknown as Parameters<typeof mapProduct>[0])).filter(Boolean) as Product[], total: count || 0 }
 }
 
 export async function fetchAdminOrders(filters?: { status?: string; limit?: number; offset?: number }): Promise<{ data: Order[]; total: number }> {

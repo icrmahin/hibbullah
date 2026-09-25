@@ -1,23 +1,19 @@
-import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { useShadows } from "../../constants/shadows";
 import spacing from "../../constants/spacing";
 import typography from "../../constants/typography";
+import { radius } from "../../constants/sizes";
 import Icon from "./Icon";
+import { useImagePicker } from "../../hooks/useImagePicker";
 
 type ImageUploadProps = {
   label: string;
+  /** The stored URL, or a local file URI before it finishes uploading. */
   uri?: string | null;
+  /** Receives the picked file. Uploading is the caller's job. */
   onPick: (localUri: string) => void;
   onRemove: () => void;
   uploading?: boolean;
@@ -35,38 +31,12 @@ export default function ImageUpload({
   const colors = useThemeColors();
   const shadows = useShadows();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { pick, error: pickerError } = useImagePicker({ aspect: [1, 1] });
 
-  const pickFromLibrary = async () => {
+  const choose = async (source: "library" | "camera") => {
     setMenuOpen(false);
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      onPick(result.assets[0].uri);
-    }
-  };
-
-  const takePhoto = async () => {
-    setMenuOpen(false);
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") return;
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      onPick(result.assets[0].uri);
-    }
+    const picked = await pick(source);
+    if (picked) onPick(picked);
   };
 
   return (
@@ -74,42 +44,21 @@ export default function ImageUpload({
       <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
 
       {uri ? (
-        <View style={[styles.previewContainer, { borderColor: colors.borderLight, backgroundColor: colors.background, ...shadows.sm }]}>
-          <Image source={{ uri }} style={[styles.preview, { backgroundColor: colors.borderSoft }]} resizeMode="cover" />
+        <View
+          style={[
+            styles.previewContainer,
+            { borderColor: colors.borderLight, backgroundColor: colors.background, ...shadows.sm },
+          ]}
+        >
+          <Image
+            source={{ uri }}
+            style={[styles.preview, { backgroundColor: colors.borderSoft }]}
+            contentFit="cover"
+            transition={180}
+          />
           {uploading ? (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="small" color={colors.white} />
-            </View>
-          ) : null}
-          <View style={[styles.previewActions, { backgroundColor: colors.backgroundAlt }]}>
-            <TouchableOpacity
-              style={[styles.previewActionBtn, { borderColor: colors.borderLight, backgroundColor: colors.background }]}
-              activeOpacity={0.7}
-              onPress={() => setMenuOpen(!menuOpen)}
-            >
-              <Icon name="edit" size={14} color={colors.white} />
-              <Text style={[styles.previewActionText, { color: colors.text }]}>Replace</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.previewActionBtn, { borderColor: colors.redSoft, backgroundColor: colors.redSoft }]}
-              activeOpacity={0.7}
-              onPress={onRemove}
-            >
-              <Icon name="delete" size={14} color={colors.danger} />
-              <Text style={[styles.previewActionText, { color: colors.danger }]}>Remove</Text>
-            </TouchableOpacity>
-          </View>
-          {menuOpen ? (
-            <View style={[styles.dropdown, { backgroundColor: colors.backgroundAlt, borderTopColor: colors.borderLight }]}>
-              <TouchableOpacity style={styles.dropdownItem} activeOpacity={0.7} onPress={pickFromLibrary}>
-                <Icon name="photo-library" size={18} color={colors.primary} />
-                <Text style={[styles.dropdownText, { color: colors.text }]}>Choose from library</Text>
-              </TouchableOpacity>
-              <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
-              <TouchableOpacity style={styles.dropdownItem} activeOpacity={0.7} onPress={takePhoto}>
-                <Icon name="camera-alt" size={18} color={colors.primary} />
-                <Text style={[styles.dropdownText, { color: colors.text }]}>Take photo</Text>
-              </TouchableOpacity>
             </View>
           ) : null}
         </View>
@@ -124,7 +73,10 @@ export default function ImageUpload({
             },
             pressed && styles.pressed,
           ]}
-          onPress={() => setMenuOpen(!menuOpen)}
+          onPress={() => setMenuOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: choose an image`}
+          disabled={uploading}
         >
           {uploading ? (
             <ActivityIndicator size="small" color={colors.primary} />
@@ -135,23 +87,78 @@ export default function ImageUpload({
             {uploading ? "Uploading..." : "Add image"}
           </Text>
           <Text style={[styles.emptyHint, { color: colors.textMuted }]}>Tap to select</Text>
-          {menuOpen ? (
-            <View style={[styles.dropdown, { backgroundColor: colors.backgroundAlt, borderTopColor: colors.borderLight }]}>
-              <TouchableOpacity style={styles.dropdownItem} activeOpacity={0.7} onPress={pickFromLibrary}>
-                <Icon name="photo-library" size={18} color={colors.primary} />
-                <Text style={[styles.dropdownText, { color: colors.text }]}>Choose from library</Text>
-              </TouchableOpacity>
-              <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
-              <TouchableOpacity style={styles.dropdownItem} activeOpacity={0.7} onPress={takePhoto}>
-                <Icon name="camera-alt" size={18} color={colors.primary} />
-                <Text style={[styles.dropdownText, { color: colors.text }]}>Take photo</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
         </Pressable>
       )}
 
-      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+      <View style={styles.actions}>
+        {uri ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.action,
+              { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
+              pressed && styles.pressed,
+            ]}
+            onPress={() => setMenuOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={`${label}: replace the image`}
+            disabled={uploading}
+          >
+            <Icon name="edit" size={14} color={colors.primary} />
+            <Text style={[styles.actionText, { color: colors.text }]}>Replace</Text>
+          </Pressable>
+        ) : null}
+        {uri ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.action,
+              { backgroundColor: colors.redSoft, borderColor: colors.danger },
+              pressed && styles.pressed,
+            ]}
+            onPress={onRemove}
+            accessibilityRole="button"
+            accessibilityLabel={`${label}: remove the image`}
+            disabled={uploading}
+          >
+            <Icon name="delete" size={14} color={colors.danger} />
+            <Text style={[styles.actionText, { color: colors.danger }]}>Remove</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/*
+        The menu is a sibling of the preview rather than an absolutely positioned
+        child. It used to be `position: absolute; bottom: 0` inside the preview,
+        which has `overflow: hidden` and a border radius — so the menu rendered on
+        top of the Replace/Remove buttons and was clipped by the rounded corners.
+      */}
+      {menuOpen ? (
+        <View
+          style={[
+            styles.menu,
+            { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight, ...shadows.sm },
+          ]}
+        >
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+            onPress={() => void choose("library")}
+          >
+            <Icon name="photo-library" size={18} color={colors.primary} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Choose from library</Text>
+          </Pressable>
+          <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+            onPress={() => void choose("camera")}
+          >
+            <Icon name="camera-alt" size={18} color={colors.primary} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Take photo</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {error || pickerError ? (
+        <Text style={[styles.error, { color: colors.danger }]}>{error || pickerError}</Text>
+      ) : null}
     </View>
   );
 }
@@ -163,8 +170,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   previewContainer: {
-    position: "relative",
-    borderRadius: 8,
+    borderRadius: radius.md,
     overflow: "hidden",
     borderWidth: 1,
   },
@@ -178,12 +184,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  previewActions: {
+  actions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
-    padding: spacing.sm,
   },
-  previewActionBtn: {
+  action: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -192,13 +198,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
   },
-  previewActionText: {
+  actionText: {
     fontSize: typography.label,
     fontWeight: "600",
   },
   emptyState: {
     aspectRatio: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderStyle: "dashed",
     alignItems: "center",
@@ -212,23 +218,19 @@ const styles = StyleSheet.create({
   emptyHint: {
     fontSize: typography.caption,
   },
-  dropdown: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopWidth: 1,
-    borderRadius: 0,
-    zIndex: 10,
+  menu: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    overflow: "hidden",
   },
-  dropdownItem: {
+  menuItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },
-  dropdownText: {
+  menuText: {
     fontSize: typography.bodySmall,
     fontWeight: "600",
   },

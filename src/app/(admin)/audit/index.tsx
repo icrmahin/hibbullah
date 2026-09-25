@@ -11,6 +11,7 @@ import spacing from '../../../constants/spacing';
 import typography from '../../../constants/typography';
 import { formatDateTime } from '../../../utils/date';
 import { fetchAuditEntries } from '../../../services/audit';
+import { AUDIT_LOG_LIMIT } from '../../../constants/limits';
 import type { AuditEntry } from '../../../types/audit';
 
 export default function AuditLogScreen() {
@@ -23,7 +24,7 @@ export default function AuditLogScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchAuditEntries(50);
+      const data = await fetchAuditEntries();
       setEntries(data);
     } catch (e: any) {
       setError(e.message || 'Failed to load audit log');
@@ -61,22 +62,30 @@ export default function AuditLogScreen() {
         {entries.length === 0 ? (
           <EmptyState title="No audit entries" message="Operational activity will appear here." />
         ) : (
-          entries.map((entry) => (
-            <View
-              key={entry.id}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.backgroundAlt,
-                  borderColor: colors.borderLight,
-                },
-              ]}
-            >
-              <Text style={[styles.action, { color: colors.text }]}>{entry.action} · {entry.recordType}</Text>
-              <Text style={[styles.meta, { color: colors.textMuted }]}>{entry.actor}</Text>
-              <Text style={[styles.meta, { color: colors.textMuted }]}>{formatDateTime(entry.timestamp)}</Text>
-            </View>
-          ))
+          <>
+            {/* Stated rather than left to be discovered. The database drops the oldest
+                entry once the cap is passed, so without this an admin would watch rows
+                vanish and reasonably conclude the log was unreliable. */}
+            <Text style={[styles.note, { color: colors.textMuted }]}>
+              The {AUDIT_LOG_LIMIT} most recent entries are kept. Older activity is removed automatically.
+            </Text>
+            {entries.map((entry) => (
+              <View
+                key={entry.id}
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: colors.backgroundAlt,
+                    borderColor: colors.borderLight,
+                  },
+                ]}
+              >
+                <Text style={[styles.action, { color: colors.text }]}>{entry.action} · {entry.recordType}</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>{entry.actor}</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>{formatDateTime(entry.timestamp)}</Text>
+              </View>
+            ))}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -86,6 +95,7 @@ export default function AuditLogScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  note: { fontSize: typography.bodySmall, lineHeight: 16 },
   card: {
     borderRadius: 16,
     borderWidth: 1,

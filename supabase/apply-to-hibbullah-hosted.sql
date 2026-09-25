@@ -2755,7 +2755,14 @@ insert into supabase_migrations.schema_migrations (version, name) values
 ('20260922170000_fix_audit_log'),
 ('20260922180000_customers_stats'),
 ('20260922200000_create_order_append_pending'),
-('20260922210000_stock_auto_deactivate')
+('20260922210000_stock_auto_deactivate'),
+('20260923090000_fix_order_inventory_sync'),
+('20260926100000_phone_e164_canonical'),
+('20260926110000_customers_avatar'),
+('20260926120000_product_search_indexes'),
+('20260926130000_product_browse_search_rpc'),
+('20260926140000_create_product_atomic'),
+('20260926150000_manufacturer_name_unique')
 on conflict (version) do nothing;
 
 
@@ -3087,3 +3094,904 @@ begin
   return true;
 end;
 $$ language plpgsql;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 20260926100000_phone_e164_canonical.sql
+-- ═══════════════════════════════════════════════════════════════════════
+-- Canonical E.164 phone storage.
+--
+-- Problem: the previous check allowed the leading '+' to be optional
+-- (phone ~* '^\+?8801[0-9]{9}$'), so '8801865858544' and '+8801865858544'
+-- were two different values for the same human number and could occupy two
+-- different slots in the partial unique index. The client also had no
+-- normalizer, so '01865858544' was rejected outright instead of converted.
+--
+-- This migration collapses existing rows onto one canonical representation and
+-- then makes the database enforce it.
+
+alter table public.profiles drop constraint if exists profiles_phone_format;
+
+-- 1) Collapse rows that normalize to the same E.164 number.
+--    The earliest-created row wins; later duplicates get phone = null.
+--    This must run before normalization, otherwise the unique index is violated.
+with normalized as (
+  select
+    p.id,
+    p.created_at,
+    case
+      when d like '880%' then '+' || d
+      when d like '0%'   then '+880' || substr(d, 2)
+      else '+880' || d
+    end as e164
+  from public.profiles p
+  cross join lateral (select regexp_replace(p.phone, '\D', '', 'g') as d) s
+  where p.phone is not null and btrim(p.phone) <> ''
+),
+ranked as (
+  select
+    id,
+    e164,
+    row_number() over (partition by e164 order by created_at asc, id asc) as rn
+  from normalized
+)
+update public.profiles p
+set phone = null, updated_at = now()
+from ranked r
+where p.id = r.id and r.rn > 1;
+
+-- 2) Normalize the survivors to '+8801XXXXXXXXX'.
+update public.profiles p
+set phone = n.e164, updated_at = now()
+from (
+  select
+    id,
+    case
+      when d like '880%' then '+' || d
+      when d like '0%'   then '+880' || substr(d, 2)
+      else '+880' || d
+    end as e164
+  from (
+    select id, regexp_replace(phone, '\D', '', 'g') as d
+    from public.profiles
+    where phone is not null and btrim(phone) <> ''
+  ) s
+) n
+where p.id = n.id and p.phone <> n.e164;
+
+-- 3) The leading '+' is now mandatory. The constraint name is reused so future
+--    drop/replace cycles stay a one-liner.
+alter table public.profiles
+  add constraint profiles_phone_format
+  check (phone is null or btrim(phone) = '' or phone ~ '^\+8801[0-9]{9}$');
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 20260926110000_customers_avatar.sql
+-- ═══════════════════════════════════════════════════════════════════════
+-- Expose profiles.avatar_url through the admin customer RPC.
+--
+-- get_customers_with_stats is SECURITY DEFINER and is the only data path the
+-- admin customer list/detail screens use, so without avatar_url here the
+-- admin can never see a customer's profile picture.
+--
+-- The signature and the body are otherwise identical to the 20260922180000
+-- definition: same defaults, same p.role = 'customer' filter, same
+-- pre-aggregated subquery (which is what keeps this one round trip instead of
+-- N+1). Only the return table and select list gain avatar_url.
+
+-- CREATE OR REPLACE cannot change a function's return type, and adding
+-- avatar_url to the return table is exactly that. Postgres rejects it with
+-- "cannot change return type of existing function", so the old signature is
+-- dropped first. Nothing else depends on this function.
+drop function if exists public.get_customers_with_stats(text, int, int);
+
+create or replace function public.get_customers_with_stats(
+  p_query text default null,
+  p_limit int default 20,
+  p_offset int default 0
+)
+returns table (
+  id uuid,
+  name text,
+  email text,
+  phone text,
+  role text,
+  avatar_url text,
+  created_at timestamptz,
+  order_count bigint,
+  total_spent numeric
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    p.id,
+    p.name,
+    p.email,
+    p.phone,
+    p.role,
+    p.avatar_url,
+    p.created_at,
+    coalesce(o.order_count, 0) as order_count,
+    coalesce(o.total_spent, 0) as total_spent
+  from public.profiles p
+  left join (
+    select customer_id, count(*)::bigint as order_count, sum(total)::numeric as total_spent
+    from public.orders
+    group by customer_id
+  ) o on o.customer_id = p.id
+  where p.role = 'customer'
+    and (
+      p_query is null or p_query = ''
+      or p.name ilike '%' || p_query || '%'
+      or coalesce(p.email,'') ilike '%' || p_query || '%'
+      or coalesce(p.phone,'') ilike '%' || p_query || '%'
+    )
+  order by p.created_at desc
+  limit p_limit offset p_offset;
+$$;
+
+-- Postgres grants EXECUTE on new functions to PUBLIC by default. This function
+-- is SECURITY DEFINER and reads every customer profile, so close that off.
+revoke execute on function public.get_customers_with_stats(text, int, int) from public;
+grant execute on function public.get_customers_with_stats(text, int, int) to authenticated;
+
+
+-- ──────────────────────────────────────────────────────────────────────
+-- 20260926120000_product_search_indexes.sql
+-- ──────────────────────────────────────────────────────────────────────
+-- Indexes for product browsing and search.
+--
+-- Before this, every list query sorted by products.created_at with no index on
+-- it, so each page was a full sort of the filtered set. OFFSET paging over an
+-- unindexed sort key also has no stable tiebreaker, which is how rows get
+-- skipped or duplicated when two products share a created_at.
+--
+-- (is_active, created_at desc, id desc) also matches the
+-- "Anyone can view active products" RLS predicate, so the visibility filter and
+-- the ordering are served by one index.
+
+create index if not exists idx_products_active_created
+  on public.products (is_active, created_at desc, id desc);
+
+create index if not exists idx_products_created
+  on public.products (created_at desc, id desc);
+
+-- Prefix search support: lower(name) LIKE 'x%' is the query shape the app sends
+-- most often, and text_pattern_ops is what makes that an index range scan. The
+-- existing trigram GIN indexes (initial_schema.sql:152-155) stay for contains
+-- and similarity matching.
+create index if not exists idx_products_name_prefix
+  on public.products (lower(name) text_pattern_ops);
+
+-- Both are order('name')-sorted by fetchCategories / fetchManufacturers.
+create index if not exists idx_categories_name
+  on public.categories (lower(name));
+
+create index if not exists idx_manufacturers_name
+  on public.manufacturers (lower(name));
+
+-- The two lookups above are searched with ilike '%term%', which cannot use a
+-- btree index, so at a few thousand rows each keystroke was a sequential scan.
+-- The trigram GIN index turns the substring match into a bitmap scan, and the
+-- name column is bounded by 120 characters so the index size stays small.
+create extension if not exists pg_trgm;
+
+create index if not exists idx_categories_name_trgm
+  on public.categories using gin (name gin_trgm_ops);
+
+create index if not exists idx_manufacturers_name_trgm
+  on public.manufacturers using gin (name gin_trgm_ops);
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 20260926130000_product_browse_search_rpc.sql
+-- ═══════════════════════════════════════════════════════════════════════
+-- Server-side product browse + search.
+--
+-- Before this, search was a leading-'%' ILIKE OR'd across three columns,
+-- duplicated in four places (products.ts:46, products.ts:135, admin.ts:260, plus
+-- two client-side .includes filters), fired on every keystroke with no debounce,
+-- and paired with count:'exact' — a full table count per keystroke on top of a
+-- per-row is_admin() RLS evaluation. PostgREST's .or() + .eq() + .order() +
+-- .range() combination also frequently could not reach the existing trigram
+-- indexes.
+--
+-- Two functions rather than one, deliberately: a single merged function would be
+-- forced to compute a count(*) over () total, which is exactly the full-count
+-- cost this migration exists to remove. Browse mode returns no total at all.
+
+-- ---------------------------------------------------------------------------
+-- browse_products: keyset (cursor) paging, no count.
+-- ---------------------------------------------------------------------------
+create or replace function public.browse_products(
+  p_category uuid default null,
+  p_manufacturer uuid default null,
+  p_status text default null,
+  p_stock text default null,
+  p_low_stock_threshold integer default 10,
+  p_cursor_created_at timestamptz default null,
+  p_cursor_id uuid default null,
+  p_limit int default 24
+)
+returns table (
+  id uuid,
+  name text,
+  brand text,
+  generic_name text,
+  description text,
+  manufacturer_id uuid,
+  category_id uuid,
+  price numeric,
+  original_price numeric,
+  discount_percent integer,
+  cost_price numeric,
+  stock integer,
+  unit text,
+  image_url text,
+  secondary_image_url text,
+  is_active boolean,
+  is_featured boolean,
+  created_at timestamptz,
+  updated_at timestamptz,
+  category_name text,
+  category_slug text,
+  manufacturer_name text
+)
+language sql
+stable
+-- SECURITY INVOKER is deliberate. It keeps the existing RLS on products
+-- (20260918020000_fix_admin_rls.sql:55-68 — active-only for everyone, all rows
+-- for admins) in force. A SECURITY DEFINER version would bypass RLS and leak
+-- inactive products to customers. Do not "optimize" this into definer.
+security invoker
+set search_path = public
+as $$
+  select
+    p.id,
+    p.name,
+    p.brand,
+    p.generic_name,
+    p.description,
+    p.manufacturer_id,
+    p.category_id,
+    p.price,
+    p.original_price,
+    p.discount_percent,
+    p.cost_price,
+    p.stock,
+    p.unit,
+    p.image_url,
+    p.secondary_image_url,
+    p.is_active,
+    p.is_featured,
+    p.created_at,
+    p.updated_at,
+    c.name,
+    c.slug,
+    m.name
+  from public.products p
+  join public.categories c on c.id = p.category_id
+  join public.manufacturers m on m.id = p.manufacturer_id
+  where (p_category is null or p.category_id = p_category)
+    and (p_manufacturer is null or p.manufacturer_id = p_manufacturer)
+    and (
+      p_status is null
+      or (p_status = 'active' and p.is_active)
+      or (p_status = 'inactive' and not p.is_active)
+    )
+    and (
+      p_stock is null
+      or (p_stock = 'in_stock' and p.stock > 0)
+      or (p_stock = 'out' and p.stock <= 0)
+      or (
+        p_stock = 'low'
+        and p.stock > 0
+        and p.stock < coalesce(p_low_stock_threshold, 10)
+      )
+    )
+    and (
+      p_cursor_created_at is null
+      or p_cursor_id is null
+      or (p.created_at, p.id) < (p_cursor_created_at, p_cursor_id)
+    )
+  order by p.created_at desc, p.id desc
+  limit least(greatest(coalesce(p_limit, 24), 1), 100);
+$$;
+
+-- ---------------------------------------------------------------------------
+-- search_products: ranked, total included in the same round trip.
+--
+-- Ranking ladder, cheapest and most predictable first:
+--   0 exact name  1 name prefix  2 brand prefix  3 generic prefix
+--   4-6 trigram similarity (typo tolerance)  7 everything else
+-- Exact/prefix hits always outrank a fuzzy match, so a short or misspelled term
+-- degrades to "close enough" instead of noise.
+-- ---------------------------------------------------------------------------
+create or replace function public.search_products(
+  p_query text,
+  p_category uuid default null,
+  p_manufacturer uuid default null,
+  p_status text default null,
+  p_stock text default null,
+  p_low_stock_threshold integer default 10,
+  p_limit int default 24,
+  p_offset int default 0
+)
+returns table (
+  id uuid,
+  name text,
+  brand text,
+  generic_name text,
+  description text,
+  manufacturer_id uuid,
+  category_id uuid,
+  price numeric,
+  original_price numeric,
+  discount_percent integer,
+  cost_price numeric,
+  stock integer,
+  unit text,
+  image_url text,
+  secondary_image_url text,
+  is_active boolean,
+  is_featured boolean,
+  created_at timestamptz,
+  updated_at timestamptz,
+  category_name text,
+  category_slug text,
+  manufacturer_name text,
+  total_count bigint
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with term as (
+    select lower(btrim(coalesce(p_query, ''))) as v
+  ),
+  matched as (
+    select
+      p.*,
+      c.name as category_name,
+      c.slug as category_slug,
+      m.name as manufacturer_name,
+      case
+        when btrim(coalesce(p_query, '')) = '' then 0
+        when lower(p.name) = (select v from term) then 0
+        when lower(p.name) like (select v from term) || '%' then 1
+        when lower(p.brand) like (select v from term) || '%' then 2
+        when lower(p.generic_name) like (select v from term) || '%' then 3
+        when p.name % (select v from term) then 4
+        when p.generic_name % (select v from term) then 5
+        when p.brand % (select v from term) then 6
+        else 7
+      end as rank
+    from public.products p
+    join public.categories c on c.id = p.category_id
+    join public.manufacturers m on m.id = p.manufacturer_id
+    where (p_category is null or p.category_id = p_category)
+      and (p_manufacturer is null or p.manufacturer_id = p_manufacturer)
+      and (
+        p_status is null
+        or (p_status = 'active' and p.is_active)
+        or (p_status = 'inactive' and not p.is_active)
+      )
+      and (
+        p_stock is null
+        or (p_stock = 'in_stock' and p.stock > 0)
+        or (p_stock = 'out' and p.stock <= 0)
+        or (
+          p_stock = 'low'
+          and p.stock > 0
+          and p.stock < coalesce(p_low_stock_threshold, 10)
+        )
+      )
+      and (
+        btrim(coalesce(p_query, '')) = ''
+        or lower(p.name) like (select v from term) || '%'
+        or p.name % (select v from term)
+        or p.generic_name % (select v from term)
+        or p.brand % (select v from term)
+        or p.description % (select v from term)
+      )
+  )
+  select
+    mt.id,
+    mt.name,
+    mt.brand,
+    mt.generic_name,
+    mt.description,
+    mt.manufacturer_id,
+    mt.category_id,
+    mt.price,
+    mt.original_price,
+    mt.discount_percent,
+    mt.cost_price,
+    mt.stock,
+    mt.unit,
+    mt.image_url,
+    mt.secondary_image_url,
+    mt.is_active,
+    mt.is_featured,
+    mt.created_at,
+    mt.updated_at,
+    mt.category_name,
+    mt.category_slug,
+    mt.manufacturer_name,
+    count(*) over ()
+  from matched mt
+  order by mt.rank, mt.name, mt.id
+  limit least(greatest(coalesce(p_limit, 24), 1), 100)
+  offset least(greatest(coalesce(p_offset, 0), 0), 5000);
+$$;
+
+grant execute on function public.browse_products(uuid, uuid, text, text, integer, timestamptz, uuid, int)
+  to anon, authenticated;
+grant execute on function public.search_products(text, uuid, uuid, text, text, integer, int, int)
+  to anon, authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 20260926140000_create_product_atomic.sql
+-- ═══════════════════════════════════════════════════════════════════════
+-- Atomic product creation.
+--
+-- Before this, createProduct() inserted the product row and then inserted the
+-- first inventory_items row as a second round trip (products.ts:146-181). A
+-- failure on the second left a product with stock = 0 and the form still on
+-- screen with a thrown error.
+--
+-- The product id is supplied by the caller so the client can upload the product
+-- image to a stable Cloudinary public_id (products/<productId>) before the
+-- insert, and get a single-row insert carrying the final URL.
+--
+-- products.stock is deliberately inserted as 0: trg_inventory_sync_stock
+-- (AFTER INSERT on inventory_items) is what maintains it, so writing it here
+-- would be redundant and could drift from the inventory sum.
+
+create or replace function public.create_product(
+  p_id uuid,
+  p_name text,
+  p_brand text,
+  p_generic_name text,
+  p_manufacturer_id uuid,
+  p_category_id uuid,
+  p_price numeric,
+  p_description text default '',
+  p_original_price numeric default null,
+  p_discount_percent integer default 0,
+  p_cost_price numeric default null,
+  p_unit text default 'pack',
+  p_image_url text default null,
+  p_secondary_image_url text default null,
+  p_is_active boolean default true,
+  p_is_featured boolean default false,
+  p_initial_stock integer default 0,
+  p_batch_number text default null,
+  p_expiry_date date default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_batch text;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+
+  insert into public.products (
+    id,
+    name,
+    brand,
+    generic_name,
+    description,
+    manufacturer_id,
+    category_id,
+    price,
+    original_price,
+    discount_percent,
+    cost_price,
+    unit,
+    image_url,
+    secondary_image_url,
+    is_active,
+    is_featured,
+    stock
+  ) values (
+    p_id,
+    p_name,
+    p_brand,
+    p_generic_name,
+    coalesce(p_description, ''),
+    p_manufacturer_id,
+    p_category_id,
+    p_price,
+    p_original_price,
+    coalesce(p_discount_percent, 0),
+    p_cost_price,
+    coalesce(p_unit, 'pack'),
+    p_image_url,
+    p_secondary_image_url,
+    coalesce(p_is_active, true),
+    coalesce(p_is_featured, false),
+    0
+  )
+  returning id into v_id;
+
+  if coalesce(p_initial_stock, 0) > 0 then
+    -- inventory_items.batch_number is NOT NULL and unique per product, so the
+    -- default is derived from the product id.
+    v_batch := coalesce(
+      nullif(btrim(coalesce(p_batch_number, '')), ''),
+      'BATCH-' || upper(left(v_id::text, 8)) || '-001'
+    );
+
+    insert into public.inventory_items (product_id, batch_number, quantity, expiry_date)
+    values (v_id, v_batch, p_initial_stock, p_expiry_date);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+revoke execute on function public.create_product(
+  uuid, text, text, text, uuid, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date
+) from public;
+
+grant execute on function public.create_product(
+  uuid, text, text, text, uuid, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date
+) to authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 20260926150000_manufacturer_name_unique.sql
+-- ═══════════════════════════════════════════════════════════════════════
+-- Stop near-duplicate manufacturer rows.
+--
+-- Duplicate/near-duplicate manufacturer names pollute ILIKE search results and
+-- bloat the trigram index, and the inline "add manufacturer" path in
+-- ProductForm (ProductForm.tsx:177-217) can currently create unlimited of them.
+--
+-- Guarded rather than plain: if duplicates already exist the index creation is
+-- skipped with a notice instead of failing the whole migration. Dedupe first,
+-- then re-run. This matches how the app behaves — report and continue.
+
+do $$
+declare
+  v_dupes bigint;
+begin
+  select count(*) into v_dupes
+  from (
+    select lower(btrim(name))
+    from public.manufacturers
+    group by 1
+    having count(*) > 1
+  ) d;
+
+  if v_dupes > 0 then
+    raise notice 'Skipping idx_manufacturers_name_unique: % duplicate manufacturer name group(s) exist. Dedupe then re-run this migration.', v_dupes;
+    return;
+  end if;
+
+  execute 'create unique index if not exists idx_manufacturers_name_unique
+           on public.manufacturers (lower(btrim(name)))';
+end $$;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 20260926160000_backfill_missing_profiles.sql
+-- ═══════════════════════════════════════════════════════════════════════
+-- Backfill profiles for auth users that have none.
+--
+-- Problem: public.profiles rows are created by trg_auth_user_created, an
+-- AFTER INSERT trigger on auth.users. A user whose profile row was deleted (or who
+-- predates that trigger) is left permanently inconsistent: the row never comes back,
+-- because nothing re-runs the trigger.
+--
+-- Why that breaks more than it looks: is_admin() reads auth.users.email, so such a
+-- user can still sign in and still pass every admin check. But every read of
+-- public.profiles for them returns no row, so updateProfile() updates 0 rows and
+-- reports success, the profile editor cannot load, the admin sidebar has no identity,
+-- and setAvatarUrl() writes to a row that does not exist. The failure is silent.
+--
+-- This is the idempotent half of handle_new_user(), run as a set-based backfill.
+-- It only inserts rows that are missing, so it is safe to re-run and safe to apply to
+-- a database that is already consistent.
+
+insert into public.profiles (id, name, email, phone, role)
+select
+  u.id,
+  coalesce(nullif(u.raw_user_meta_data ->> 'name', ''), split_part(u.email, '@', 1)),
+  u.email,
+  -- Only carry a phone across when it is already canonical. The raw metadata value
+  -- has not been through normalizeBdPhone, and profiles_phone_format rejects
+  -- anything that is not '+8801XXXXXXXXX', so a loose value would fail the whole
+  -- statement. The user retypes it in the profile editor instead.
+  case
+    when u.raw_user_meta_data ->> 'phone' ~ '^\+8801[0-9]{9}$'
+      then u.raw_user_meta_data ->> 'phone'
+    else null
+  end,
+  -- Mirrors the allowlist in is_admin() and enforce_profile_role(). The trigger
+  -- trg_profiles_enforce_role rewrites this on insert anyway; setting it correctly
+  -- up front just keeps the value stable.
+  case
+    when lower(u.email) in ('icrmahin@gmail.com', 'hibbullah82026@gmail.com')
+      then 'admin'
+    else 'customer'
+  end
+from auth.users u
+where u.email is not null
+  and not exists (select 1 from public.profiles p where p.id = u.id)
+on conflict (id) do nothing;
+
+-- Keep the trigger honest for the future: make profile creation self-healing rather
+-- than dependent on a one-shot INSERT trigger. sync_profile_on_email_change already
+-- covers email changes, so the only remaining gap was a missing row, handled above.
+-- This assertion is the migration's own regression guard: if a new auth user can
+-- exist without a profile, the invariant the app relies on is broken again.
+do $$
+declare
+  v_missing integer;
+begin
+  select count(*) into v_missing
+  from auth.users u
+  where u.email is not null
+    and not exists (select 1 from public.profiles p where p.id = u.id);
+
+  if v_missing > 0 then
+    raise warning 'backfill incomplete: % auth user(s) still have no profile row', v_missing;
+  end if;
+end;
+$$;
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 20260926170000_notifications_and_audit_limits.sql
+-- Notifications and the audit log: real wiring, and hard limits.
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Source of truth: supabase/migrations/20260926170000_notifications_and_audit_limits.sql
+-- Keep the two in step; this file is what a fresh hosted project is bootstrapped from.
+
+-- 1. notify_user -- the single way a notification gets created.
+--    Every producer goes through this rather than inserting directly, so the type
+--    validation and the length clamps are applied once instead of at each call site.
+create or replace function public.notify_user(
+  p_user_id uuid,
+  p_title text,
+  p_body text,
+  p_type text default 'info'
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  -- The table constrains `type` to four values. Validating here turns a typo into a
+  -- sensible default instead of aborting the caller's transaction -- and the callers
+  -- are triggers on orders and returns, so a raised error would roll back the very
+  -- status change the notification is describing.
+  v_type text := case
+    when p_type in ('info', 'success', 'warning', 'alert') then p_type
+    else 'info'
+  end;
+begin
+  if p_user_id is null then
+    return null;
+  end if;
+
+  insert into public.notifications (user_id, title, body, type)
+  values (p_user_id, left(coalesce(p_title, 'Notice'), 200), left(coalesce(p_body, ''), 1000), v_type)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+-- 2. Order updates reach the customer.
+--    Fires on insert (the order was placed) and on a real status change. A status that
+--    has not changed produces nothing: the app also rewrites `timeline` and
+--    `updated_at`, and a customer does not need to be told their order was placed every
+--    time a status row is appended to.
+create or replace function public.notify_order_status()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_number text := coalesce(NEW.order_number, OLD.order_number);
+  v_title text;
+  v_body text;
+  v_type text;
+begin
+  if tg_op = 'INSERT' then
+    v_title := 'Order placed';
+    v_body := 'We have received your order ' || v_number || '. We will confirm it shortly.';
+    v_type := 'info';
+  elsif NEW.status is distinct from OLD.status then
+    case NEW.status
+      when 'CONFIRMED' then
+        v_title := 'Order confirmed';
+        v_body := 'Your order ' || v_number || ' has been confirmed.';
+        v_type := 'info';
+      when 'PROCESSING' then
+        v_title := 'Preparing your order';
+        v_body := 'We are packing your order ' || v_number || '.';
+        v_type := 'info';
+      when 'OUT_FOR_DELIVERY' then
+        v_title := 'Out for delivery';
+        v_body := 'Your order ' || v_number || ' is on the way.';
+        v_type := 'success';
+      when 'DELIVERED' then
+        v_title := 'Order delivered';
+        v_body := 'Your order ' || v_number || ' has been delivered.';
+        v_type := 'success';
+      when 'CANCELLED' then
+        v_title := 'Order cancelled';
+        v_body := 'Your order ' || v_number || ' has been cancelled. Contact us if this was not expected.';
+        v_type := 'alert';
+      when 'RETURNED' then
+        v_title := 'Order returned';
+        v_body := 'Your order ' || v_number || ' has been returned.';
+        v_type := 'alert';
+      else
+        -- A status this app does not narrate yet (PENDING reached by an update rather
+        -- than an insert). Nothing useful to say, so say nothing.
+        return null;
+    end case;
+  else
+    return null;
+  end if;
+
+  perform public.notify_user(NEW.customer_id, v_title, v_body, v_type);
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_orders_notify on public.orders;
+create trigger trg_orders_notify
+  after insert or update of status on public.orders
+  for each row execute function public.notify_order_status();
+
+-- 3. Return requests reach the customer. A customer who has asked for money back wants
+--    to know the answer, so the decision notifies, not just the request.
+create or replace function public.notify_return_status()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_title text;
+  v_body text;
+  v_type text;
+begin
+  if tg_op = 'INSERT' then
+    v_title := 'Return requested';
+    v_body := 'We received your return request for ' || NEW.product_name || '. We will review it shortly.';
+    v_type := 'info';
+  elsif NEW.status is distinct from OLD.status then
+    case NEW.status
+      when 'APPROVED' then
+        v_title := 'Return approved';
+        v_body := 'Your return request for ' || NEW.product_name || ' has been approved.';
+        v_type := 'success';
+      when 'REJECTED' then
+        v_title := 'Return declined';
+        v_body := 'Your return request for ' || NEW.product_name || ' was declined. Contact us if you need help.';
+        v_type := 'alert';
+      when 'PROCESSED' then
+        v_title := 'Return completed';
+        v_body := 'Your return for ' || NEW.product_name || ' has been processed.';
+        v_type := 'success';
+      else
+        return null;
+    end case;
+  else
+    return null;
+  end if;
+
+  perform public.notify_user(NEW.customer_id, v_title, v_body, v_type);
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_return_requests_notify on public.return_requests;
+create trigger trg_return_requests_notify
+  after insert or update of status on public.return_requests
+  for each row execute function public.notify_return_status();
+
+-- 4. Notifications: keep the newest 50 per user. Per user, not global, so one noisy
+--    account cannot empty everyone else's list. AFTER INSERT only, and the trim deletes
+--    rather than inserting, so the trigger cannot re-fire on its own work.
+create or replace function public.trim_user_notifications()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.notifications
+  where id in (
+    select id
+    from public.notifications
+    where user_id = NEW.user_id
+    order by created_at desc, id desc
+    offset 50 -- public.notification_cap()
+  );
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_notifications_trim on public.notifications;
+create trigger trg_notifications_trim
+  after insert on public.notifications
+  for each row execute function public.trim_user_notifications();
+
+-- 5. Audit log: keep the newest 20, drop the rest. Deliberately global and
+--    deliberately small -- the log is written by a trigger on every product, order,
+--    inventory and return mutation, so it is the fastest-growing table in the database
+--    once the catalog is large. FOR EACH STATEMENT, because this examines the whole
+--    table and there is no reason to run it once per row of a bulk import. Nothing has
+--    a foreign key onto audit_entries, so deleting is safe.
+create or replace function public.trim_audit_entries()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.audit_entries
+  where id in (
+    select id
+    from public.audit_entries
+    order by timestamp desc, id desc
+    offset 20 -- public.audit_log_cap()
+  );
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_audit_entries_trim on public.audit_entries;
+create trigger trg_audit_entries_trim
+  after insert on public.audit_entries
+  for each statement execute function public.trim_audit_entries();
+
+-- Apply the audit cap to what is already there, so the invariant holds immediately
+-- rather than only after the next write.
+delete from public.audit_entries
+where id in (
+  select id from public.audit_entries order by timestamp desc, id desc offset 20
+);
+
+-- 6. Clients may read, mark read, and clear their own notifications. Nothing else.
+--    The old FOR ALL policy read as "a customer can do anything to their own
+--    notifications". Notably absent: INSERT. A notification is a claim that something
+--    happened, so it may only come from the triggers above; leaving INSERT permitted
+--    would let any signed-in client invent an "Out of stock" alert for themselves.
+drop policy if exists "Customers can manage own notifications" on public.notifications;
+
+create policy "Customers can mark own notifications read"
+  on public.notifications for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Customers can clear own notifications"
+  on public.notifications for delete
+  using (auth.uid() = user_id);
+
+-- The triggers above are SECURITY DEFINER, so they write as the table owner and are
+-- unaffected by these revokes.
+revoke insert, truncate on public.notifications from anon, authenticated;
