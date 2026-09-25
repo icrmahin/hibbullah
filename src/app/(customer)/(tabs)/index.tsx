@@ -14,6 +14,7 @@ import { radius, layout } from "../../../constants/sizes";
 import type { Product } from "../../../types/product";
 import { useNotifications } from "../../../hooks/useNotifications";
 import { useProducts, useCategories } from "../../../hooks/useProducts";
+import { useResponsive } from "../../../hooks/useResponsive";
 
 type DiscoveryTab = "all" | "trending" | "discount" | "new";
 
@@ -22,6 +23,7 @@ export default function CustomerHomeScreen() {
   const shadows = useShadows();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { isMobile } = useResponsive();
   const { unreadCount } = useNotifications();
 
   const [query, setQuery] = useState("");
@@ -56,37 +58,39 @@ export default function CustomerHomeScreen() {
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {/* Feather-light island header */}
-      <View style={[styles.headerWrap, { paddingTop: insets.top + spacing.sm }]}>
-        <View
-          style={[
-            styles.headerIsland,
-            { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm },
-          ]}
-        >
-          <View style={styles.headerRow}>
-            <View style={styles.brandRow}>
-              <AppLogo size={30} />
-              <Text style={[styles.brandName, { color: colors.text }]}>Hibbullah</Text>
+      {/* Mobile keeps its in-content header; wider layouts use CustomerDesktopHeader. */}
+      {isMobile ? (
+        <View style={[styles.headerWrap, { paddingTop: insets.top + spacing.sm }]}>
+          <View
+            style={[
+              styles.headerIsland,
+              { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm },
+            ]}
+          >
+            <View style={styles.headerRow}>
+              <View style={styles.brandRow}>
+                <AppLogo size={30} />
+                <Text style={[styles.brandName, { color: colors.text }]}>Hibbullah</Text>
+              </View>
+              <Pressable
+                onPress={() => router.push("/(customer)/account/notifications" as any)}
+                accessibilityRole="button"
+                accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+                style={[styles.cartButton, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}
+              >
+                <Icon name="notifications" size={18} color={colors.primary} />
+                {unreadCount > 0 ? (
+                  <View style={[styles.cartBadge, { backgroundColor: colors.danger }]}>
+                    <Text style={[styles.cartBadgeText, { color: colors.white }]}>
+                      {unreadCount > 99 ? "99+" : String(unreadCount)}
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
             </View>
-            <Pressable
-              onPress={() => router.push("/(customer)/account/notifications" as any)}
-              accessibilityRole="button"
-              accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
-              style={[styles.cartButton, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}
-            >
-              <Icon name="notifications" size={18} color={colors.primary} />
-              {unreadCount > 0 ? (
-                <View style={[styles.cartBadge, { backgroundColor: colors.danger }]}>
-                  <Text style={[styles.cartBadgeText, { color: colors.white }]}>
-                    {unreadCount > 99 ? "99+" : String(unreadCount)}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
           </View>
         </View>
-      </View>
+      ) : null}
 
       <ScrollView
         contentContainerStyle={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.lg) + 8 }]}

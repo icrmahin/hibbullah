@@ -5,7 +5,7 @@ import { useTheme, useThemeColors } from "../../../providers/ThemeProvider";
 import { useShadows } from "../../../constants/shadows";
 import spacing from "../../../constants/spacing";
 import typography from "../../../constants/typography";
-import { radius, layout } from "../../../constants/sizes";
+import { radius } from "../../../constants/sizes";
 import Icon from "../../../components/common/Icon";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import { useResponsive } from "../../../hooks/useResponsive";
@@ -52,6 +52,9 @@ const SECTIONS: SettingsSection[] = [
   },
 ];
 
+const ROW_ICON_SIZE = 28;
+const ROW_CONTENT_INSET = spacing.md * 2 + ROW_ICON_SIZE;
+
 export default function AccountScreen() {
   const router = useRouter();
   const { user, isAdmin, signOut } = useAuth();
@@ -83,7 +86,10 @@ export default function AccountScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
     >
-      <ResponsiveContainer maxWidth={isDesktop ? 800 : 1320}>
+      <ResponsiveContainer
+        maxWidth={isDesktop ? 800 : 1320}
+        style={styles.responsiveContainer}
+      >
         <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>Soft • feather-light • {isAdmin ? "admin" : "customer"}</Text>
 
@@ -179,7 +185,7 @@ export default function AccountScreen() {
                       )}
                     </Pressable>
                     {index < section.items.length - 1 ? (
-                      <View style={[styles.divider, { backgroundColor: colors.borderSoft, marginLeft: spacing.lg + 32 + spacing.md }]} />
+                      <View style={[styles.divider, { backgroundColor: colors.borderSoft, marginLeft: ROW_CONTENT_INSET }]} />
                     ) : null}
                   </View>
                 ))}
@@ -199,6 +205,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.xxxl,
     gap: spacing.xs,
+  },
+  responsiveContainer: {
+    alignItems: "center",
   },
   title: {
     fontSize: typography.title2,
@@ -282,7 +291,12 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   section: { marginBottom: spacing.lg },
-  sectionDesktop: { flexBasis: "48%", marginBottom: 0 },
+  sectionDesktop: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    flexShrink: 1,
+    marginBottom: 0,
+  },
   sectionTitle: {
     fontSize: 10,
     fontWeight: "700",
@@ -305,9 +319,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   rowIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: ROW_ICON_SIZE,
+    height: ROW_ICON_SIZE,
+    borderRadius: ROW_ICON_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
   },
