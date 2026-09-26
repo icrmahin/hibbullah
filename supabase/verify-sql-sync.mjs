@@ -91,8 +91,9 @@ const migrationFiles = readdirSync(MIGRATIONS_DIR)
 const migrations = migrationFiles.map((f) => ({ f, sql: readFileSync(`${MIGRATIONS_DIR}/${f}`, 'utf8') }))
 
 let problems = 0
-const report = (ok, msg) => {
+const report = (ok, msg, extra = '') => {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${msg}`)
+  if (extra) console.log(`        ${extra}`)
   if (!ok) problems += 1
 }
 
@@ -232,6 +233,56 @@ for (const [file, label] of [
     )
   }
 }
+
+// ── the client-side allowlist must match the database ──────────────────────────────
+//
+// The single-source refactor collapsed six *database* copies into one. It did not remove
+// the client copy, and that is the more dangerous half: AuthProvider.tsx keeps an
+// ADMIN_EMAILS set that it consults whenever the is_admin() RPC is unreachable, and
+// UnifiedAuth.tsx keeps another for the sign-in copy. The RPC is authoritative, so a drift
+// between these and is_admin_email() is invisible on a healthy network -- the app behaves
+// perfectly -- and then locks a real administrator out on precisely the request where the
+// RPC fails.
+//
+// It is also silent in the direction that matters most: adding an administrator to the
+// database and forgetting the client does not look like a bug, it looks like the new
+// administrator not existing.
+//
+// So all three lists are compared here, as a set, against the migration that owns them.
+const dbAdmins = emailLiterals(
+  functionBodies(readFileSync(`${MIGRATIONS_DIR}/20260927030000_add_third_admin.sql`, 'utf8')).get(
+    'public.is_admin_email',
+  ) ?? '',
+)
+  .map((e) => e.replace(/'/g, ''))
+  .sort()
+const same = (a) => a.join('|') === dbAdmins.join('|')
+
+for (const file of ['src/providers/AuthProvider.tsx', 'src/components/auth/UnifiedAuth.tsx']) {
+  const set = readFileSync(file, 'utf8').match(/ADMIN_EMAILS\s*=\s*new Set\(\[([\s\S]*?)\]/)
+  const client = (set?.[1].match(/['"][^'"]+@[^'"]+['"]/g) ?? []).map((e) => e.replace(/['"]/g, '')).sort()
+  report(same(client), `${file} ADMIN_EMAILS matches the database`, `client: ${client.join(', ') || '(not found)'} · db: ${dbAdmins.join(', ') || '(not found)'}`)
+}
+
+// Scoped to the array literal, not the whole file. Scanning the module for email-looking
+// text also matches its own regex source -- `/'[^']+@[^']+'/g` -- which shows up as the
+// nonsense address "]+@[^" and makes a correct list look wrong.
+const toolingAdmins = (
+  readFileSync('supabase/lib/admin-allowlist.mjs', 'utf8').match(/REAL_ADMINS\s*=\s*\[([\s\S]*?)\]/)?.[1] ??
+    ''
+)
+  .match(/'[^']+@[^']+'/g)
+  ?.map((e) => e.replace(/'/g, ''))
+  .sort() ?? []
+report(
+  same(toolingAdmins),
+  'the test tooling REAL_ADMINS matches the database',
+  // Stale here does not merely fail a test: sanitise() rebuilds is_admin_email() from
+  // REAL_ADMINS, so a mismatch deletes a real administrator the next time any probe runs.
+  `tooling: ${toolingAdmins.join(', ') || '(not found)'} · db: ${dbAdmins.join(', ') || '(not found)'}`,
+)
+
+report(dbAdmins.length === 3, `the allowlist holds exactly 3 administrators`, dbAdmins.join(', '))
 
 console.log(problems === 0 ? '\n=== IN SYNC ===' : `\n=== ${problems} DIFFERENCE(S) ===`)
 process.exitCode = problems === 0 ? 0 : 1

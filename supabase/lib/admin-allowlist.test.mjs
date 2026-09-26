@@ -16,7 +16,7 @@
  */
 import assert from 'node:assert/strict'
 
-const REAL = "'icrmahin@gmail.com', 'hibbullah82026@gmail.com'"
+const REAL = "'icrmahin@gmail.com', 'hibbullah82026@gmail.com', 'hibbullah2027@gmail.com'"
 const OWNER = 'is_admin_email'
 
 /** Copied from the live project, with a stray test address left in on purpose. */
@@ -27,7 +27,7 @@ const OWNER_DEF = `CREATE OR REPLACE FUNCTION public.is_admin_email(p_email text
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  select lower(coalesce(p_email, '')) in ('icrmahin@gmail.com', 'hibbullah82026@gmail.com', 'e2e-1@hibbullah.test')
+  select lower(coalesce(p_email, '')) in ('icrmahin@gmail.com', 'hibbullah82026@gmail.com', 'hibbullah2027@gmail.com', 'e2e-1@hibbullah.test')
 $function$
 `
 
@@ -85,7 +85,7 @@ $function$
  */
 const DUPLICATED_COPY = ROLE_TRIGGER.replace(
   'if public.is_admin_email(v_email) then',
-  "if v_email in ('icrmahin@gmail.com', 'hibbullah82026@gmail.com', 'e2e-9@hibbullah.test') then",
+  "if v_email in ('icrmahin@gmail.com', 'hibbullah82026@gmail.com', 'hibbullah2027@gmail.com', 'e2e-9@hibbullah.test') then",
 )
 
 const emailsIn = (def) => [...new Set(def.match(/'[^']+@[^']+'/g) ?? [])]
@@ -99,7 +99,9 @@ const EXPECTED_SHAPE = [/lower\s*\(\s*coalesce\s*\(/i, /\bin\s*\(/i, /language\s
 const shapeGaps = (def) => EXPECTED_SHAPE.filter((re) => !re.test(def))
 
 let passed = 0
+let total = 0
 const check = (name, fn) => {
+  total += 1
   try {
     fn()
     console.log(`  PASS  ${name}`)
@@ -113,9 +115,13 @@ const check = (name, fn) => {
 console.log('=== admin allowlist: one owner, no second copies ===\n')
 
 // ── the owner function ────────────────────────────────────────────────────────────
-check('the owner function is rebuilt with exactly the two real admins', () => {
+check('the owner function is rebuilt with exactly the real admins', () => {
   const emails = emailsIn(ownerSql(REAL))
-  assert.deepEqual(emails, ["'icrmahin@gmail.com'", "'hibbullah82026@gmail.com'"])
+  assert.deepEqual(emails, [
+      "'icrmahin@gmail.com'",
+      "'hibbullah82026@gmail.com'",
+      "'hibbullah2027@gmail.com'",
+    ])
 })
 
 check('a stray test address in the owner is removed by rebuilding it', () => {
@@ -126,10 +132,11 @@ check('a stray test address in the owner is removed by rebuilding it', () => {
 
 check('appending a test address adds exactly one entry', () => {
   const out = ownerSql(`${REAL}, 'lc-99@hibbullah.test'`)
-  assert.equal(emailsIn(out).length, 3)
+  assert.equal(emailsIn(out).length, emailsIn(ownerSql(REAL)).length + 1)
   assert.ok(out.includes('lc-99@hibbullah.test'))
   assert.ok(out.includes('icrmahin@gmail.com'))
   assert.ok(out.includes('hibbullah82026@gmail.com'))
+  assert.ok(out.includes('hibbullah2027@gmail.com'))
 })
 
 check('the owner stays null-safe and case-insensitive', () => {
@@ -197,8 +204,7 @@ check('a stray address in an unrelated comment is still not a false positive... 
   assert.ok(emailsIn(commented).length > 0, 'strict mode should flag even a comment')
 })
 
-console.log(
-  process.exitCode
-    ? `\n=== ${10 - passed} FAILURE(S) ===`
-    : `\n=== ALL ${passed} CHECKS PASSED ===`,
-)
+// Counted from `total` rather than a literal. The first version printed `10 - passed`
+// against a file with 13 checks, so two failures were reported as "-2 FAILURE(S)" -- a
+// negative count, which reads as a broken counter rather than as two real failures.
+console.log(process.exitCode ? `\n=== ${total - passed} of ${total} CHECKS FAILED ===` : `\n=== ALL ${passed} CHECKS PASSED ===`)

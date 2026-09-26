@@ -12,7 +12,7 @@
 - [x] **End-to-end backend test passed**: signup → instant session (no email confirm), `handle_new_user` trigger auto-created profile `role=customer`, `is_admin()` RPC works, public tables readable. Test user cleaned up afterwards.
 - [x] **Cloudinary verified** (real unsigned upload → HTTP 200 + `secure_url`).
 - [x] **App code clean**: `shadow*` → `boxShadow` migration (shadows.ts + 5 screens) — deprecation warning gone; cart/orders/products error handling shows real/friendly messages; console noise removed.
-- [x] Full rebrand to Hibbullah (identity, deep links, logo, allowlist = exactly `icrmahin@gmail.com` + `hibbullah82026@gmail.com`, empty seed).
+- [x] Full rebrand to Hibbullah (identity, deep links, logo, allowlist owned solely by `public.is_admin_email()` = `icrmahin@gmail.com` + `hibbullah82026@gmail.com` + `hibbullah2027@gmail.com`, empty seed).
 
 ### Profile, avatars, and a 4k-product catalog
 
@@ -39,7 +39,7 @@ Storage split, unchanged in spirit and now enforced in code: **every** product a
 - [ ] **Create the `hibbullah_avatars` unsigned upload preset**, folder-scoped to `avatars/`. Reusing the product preset fails: Cloudinary rejects a folder outside the preset's allowed folders.
 - [ ] `supabase secrets set CLOUDINARY_API_SECRET=… CLOUDINARY_API_KEY=… CLOUDINARY_CLOUD_NAME=eomwaokm` then `supabase functions deploy delete-cloudinary-asset`. Until then "remove picture" clears the database row but leaves the file in Cloudinary.
 - [ ] **Apply the 6 new migrations** (`20260926100000`–`20260926150000`) to the hosted project, and keep `supabase/apply-to-hibbullah-hosted.sql` in sync — migrations are the source of truth, that file is the bootstrap for a fresh project.
-- [ ] Sign in with `icrmahin@gmail.com` **and** `hibbullah82026@gmail.com` in the app → each gets `role=admin` automatically (allowlist in `handle_new_user`).
+- [ ] Sign in with `icrmahin@gmail.com`, `hibbullah82026@gmail.com` **and** `hibbullah2027@gmail.com` in the app → each gets `role=admin` automatically. The allowlist lives in `public.is_admin_email()` only; `handle_new_user`, the JWT hook, `is_admin` and `transition_order_status` all delegate to it, so adding an admin is a one-line migration (see `20260927030000_add_third_admin.sql`). `verify:sql-sync` fails if any other function grows its own copy, or if the client-side `ADMIN_EMAILS` fallback sets stop matching.
 - [ ] Add your first category → product (with and without an image) → check customer catalog.
 - [ ] Place a test order (customer) → confirm (admin) → track delivery.
 - [ ] Seed ~4,000 products and confirm the catalog still scrolls and searches smoothly, and that `explain (analyze)` on `browse_products` / `search_products` stays index-only. Designed for it; not yet measured.

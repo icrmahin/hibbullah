@@ -4214,6 +4214,15 @@ $$;
 -- bodies. Six copies of the decision that decides who is an administrator is how a new
 -- admin gets half-promoted, and it already caused a test suite to report green while every
 -- order transition failed. It lives here now, and the other five ask it.
+-- ================================================================================
+-- A third administrator: hibbullah2027@gmail.com
+-- (migration 20260927030000_add_third_admin.sql)
+--
+-- Applied after the single-source section above, so it re-states the list with three
+-- addresses. Nothing else in the file changes: the other five functions that decide admin
+-- rights delegate to is_admin_email, which is what makes adding an admin a one-line change
+-- rather than six edits that must all agree.
+-- ================================================================================
 create or replace function public.is_admin_email(p_email text)
 returns boolean
 language sql
@@ -4221,11 +4230,15 @@ stable
 security definer
 set search_path = 'public'
 as $fn$
-  select lower(coalesce(p_email, '')) in ('icrmahin@gmail.com', 'hibbullah82026@gmail.com')
+  select lower(coalesce(p_email, '')) in (
+    'icrmahin@gmail.com',
+    'hibbullah82026@gmail.com',
+    'hibbullah2027@gmail.com'
+  )
 $fn$;
 
 comment on function public.is_admin_email(text) is
-  'The single owner of the admin allowlist. No other function may hard-code an admin email; they must call this, so the list cannot drift between code paths.';
+  'The single owner of the admin allowlist. No other function may hard-code an admin email; they must call this, so the list cannot drift between code paths. To add or remove an administrator, change it here only -- supabase/verify-sql-sync.mjs fails if any other function grows its own copy, or if the client-side ADMIN_EMAILS sets in src/providers/AuthProvider.tsx and src/components/auth/UnifiedAuth.tsx stop matching this list.';
 
 create or replace function public.is_admin()
 returns boolean

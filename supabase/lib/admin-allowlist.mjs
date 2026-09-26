@@ -53,10 +53,20 @@ const REF = process.env.HIBBULLAH_SUPABASE_PROJECT_REF || 'xkvjhvwrzfczymbgapip'
 const MGMT = process.env.HIBBULLAH_SUPABASE_TOKEN
 
 /**
- * The only two addresses that may ever hold admin. Everything else -- including a test
+ * The only addresses that may ever hold admin. Everything else -- including a test
  * account -- is a temporary addition made by grantTestAdmin() and removed by sanitise().
+ *
+ * MUST match the list inside public.is_admin_email() exactly, in the same order and
+ * spelling. It is used two ways, and both are load-bearing:
+ *
+ *   - sanitise() rebuilds is_admin_email() from this list, so a stale copy here does not
+ *     merely fail a test, it **deletes a real administrator from the live project** the
+ *     next time any verification script runs.
+ *   - verify-sql-sync.mjs asserts the two agree, so a drift is caught before that happens.
+ *
+ * To add an administrator, change the migration and this list together.
  */
-export const REAL_ADMINS = ['icrmahin@gmail.com', 'hibbullah82026@gmail.com']
+export const REAL_ADMINS = ['icrmahin@gmail.com', 'hibbullah82026@gmail.com', 'hibbullah2027@gmail.com']
 
 /** The one function permitted to hard-code an email address. */
 export const OWNER_FUNCTION = 'is_admin_email'

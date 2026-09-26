@@ -16,8 +16,17 @@ import type { AuthSession, AuthContextType, LoginForm, RegisterForm } from '../t
 
 type VerifyOtpType = 'signup' | 'recovery' | 'invite' | 'magiclink' | 'email_change' | 'email'
 
-// Production allowlist — must match DB is_admin() allowlist exactly
-const ADMIN_EMAILS = new Set(['icrmahin@gmail.com', 'hibbullah82026@gmail.com'])
+// Production allowlist. This is a FALLBACK, not the authority: the primary check is the
+// is_admin() RPC, and `hardenedIsAdmin` above trusts that whenever it answers. This set is
+// consulted only when the RPC is unreachable, plus as a client-side guard so a
+// profiles.role of 'admin' on a non-allowlisted address is logged and refused rather than
+// honoured.
+//
+// It must therefore match public.is_admin_email() exactly -- a mismatch does not show up
+// while the RPC is healthy, and then silently locks a real admin out on the one network
+// where the RPC fails. supabase/verify-sql-sync.mjs asserts the two agree, so a drift here
+// fails the test run instead of the app.
+const ADMIN_EMAILS = new Set(['icrmahin@gmail.com', 'hibbullah82026@gmail.com', 'hibbullah2027@gmail.com'])
 
 function isEmailAllowlisted(email?: string | null): boolean {
   if (!email) return false

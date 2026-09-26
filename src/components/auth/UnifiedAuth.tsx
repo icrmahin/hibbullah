@@ -39,7 +39,11 @@ function humanizeAuthError(raw: string): string {
   return raw;
 }
 
-const ADMIN_EMAILS = new Set(["icrmahin@gmail.com", "hibbullah82026@gmail.com"]);
+// Mirrors public.is_admin_email() and the ADMIN_EMAILS set in src/providers/AuthProvider.tsx.
+// All three must agree; supabase/verify-sql-sync.mjs asserts it. Used only to adjust the
+// copy shown on the sign-in form, so the app never advertises a feature the owner cannot
+// actually use -- but if it ever drifts the authoritative check is still the is_admin() RPC.
+const ADMIN_EMAILS = new Set(["icrmahin@gmail.com", "hibbullah82026@gmail.com", "hibbullah2027@gmail.com"]);
 
 function isAdminEmail(email: string): boolean {
   return ADMIN_EMAILS.has(email.trim().toLowerCase());
