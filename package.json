@@ -49,7 +49,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "verify": "npm run verify:sql-sync && npm run verify:allowlist && npm run verify:stack && npm run verify:notifications && npm run verify:edge && npm run verify:avatar",
+    "verify": "npm run verify:sql-sync && npm run verify:allowlist && npm run verify:allowlist:live && npm run verify:stack && npm run verify:lifecycle && npm run verify:notifications && npm run verify:edge && npm run verify:avatar",
     "verify:sql-sync": "node supabase/verify-sql-sync.mjs",
     "verify:allowlist": "node supabase/lib/admin-allowlist.test.mjs",
     "verify:stack": "node supabase/verify-stack.mjs",
@@ -58,7 +58,12 @@
     "verify:avatar": "node supabase/verify-avatar-flow.mjs",
     "db:apply": "node supabase/apply-new-migrations.mjs",
     "db:clean-test-data": "node supabase/clean-test-data.mjs",
-    "db:clean-test-emails": "node supabase/clean-test-emails.mjs"
+    "db:clean-test-emails": "node supabase/clean-test-emails.mjs",
+    "verify:allowlist:live": "node supabase/verify-allowlist-live.mjs",
+    "verify:lifecycle": "node supabase/verify-lifecycle.mjs",
+    "verify:order-address": "node supabase/probe-order-address.mjs",
+    "verify:audit-actor": "node supabase/probe-audit-actor.mjs",
+    "verify:address": "node supabase/probe-address.mjs"
   },
   "private": true
 }

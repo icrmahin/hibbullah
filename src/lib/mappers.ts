@@ -257,10 +257,17 @@ export function mapReturnRequest(db: DbRecord | null | undefined): ReturnRequest
 
 export function mapAuditEntry(db: DbRecord | null | undefined): AuditEntry | null | undefined {
   if (!db) return db as unknown as AuditEntry | null | undefined
-  const row = db as DbRecord & { id: string; actor_id?: string | null; actor?: string | null; action: string; timestamp?: string | null; created_at?: string | null; record_type?: string | null; recordType?: string | null; old_value?: unknown; oldValue?: unknown; new_value?: unknown; newValue?: unknown }
+  const row = db as DbRecord & { id: string; actor_id?: string | null; actor?: string | null; profiles?: { name?: string | null } | null; action: string; timestamp?: string | null; created_at?: string | null; record_type?: string | null; recordType?: string | null; old_value?: unknown; oldValue?: unknown; new_value?: unknown; newValue?: unknown }
+  // Three cases, in the order an admin can act on them: a real person, a system action,
+  // and a uuid whose profile has since been deleted. The middle case is the common one --
+  // every row written by a trigger has a null actor_id -- and it used to render as a
+  // blank line under the action.
+  const actorId = row.actor_id ?? row.actor ?? ''
+  const actorName = row.profiles?.name?.trim() || (actorId ? `${actorId.slice(0, 8)}…` : 'System')
   return {
     id: String(row.id),
-    actor: String(row.actor_id ?? row.actor ?? ''),
+    actor: String(actorId),
+    actorName,
     action: String(row.action),
     timestamp: String(row.timestamp ?? row.created_at ?? new Date().toISOString()),
     recordType: String(row.record_type ?? row.recordType ?? ''),

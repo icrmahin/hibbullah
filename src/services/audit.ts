@@ -19,7 +19,12 @@ import type { AuditEntry } from '../types/audit'
 export async function fetchAuditEntries(limit: number = AUDIT_LOG_LIMIT): Promise<AuditEntry[]> {
   const { data, error } = await supabase
     .from('audit_entries')
-    .select('*')
+    // profiles(...) rather than actor_id alone: the column holds a bare uuid, and the
+    // screen used to show that uuid as if it were a name. Admins may read any profile
+    // (`auth.uid() = id OR is_admin()`), so the embed is permitted. It comes back null for
+    // the rows a trigger wrote with no signed-in actor, which mapAuditEntry renders as
+    // "System".
+    .select('*, profiles(name)')
     .order('timestamp', { ascending: false })
     .limit(limit)
   if (error) throw error

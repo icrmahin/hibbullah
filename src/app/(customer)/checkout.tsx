@@ -22,7 +22,7 @@ import Icon from "../../components/common/Icon";
 export default function CheckoutScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { items, summary, loading: cartLoading } = useCart();
+  const { items, summary, loading: cartLoading, reload: reloadCart } = useCart();
   const { user, isAdmin } = useAuth();
   const { data: addresses, loading: addressesLoading, remove: removeAddress } = useAddresses();
   const { create: createOrder } = useCreateOrder();
@@ -41,7 +41,26 @@ export default function CheckoutScreen() {
   }, [addresses, selectedAddressId]);
 
   const handleSubmit = async () => {
-    if (!items.length || submitting || !selectedAddressId) return;
+    // `!selectedAddressId` used to be part of this guard. That made the address check
+    // below unreachable, and because the Submit button was also disabled on the same
+    // condition, tapping it did nothing at all -- no order, no message, no error. The
+    // button is now always pressable while not submitting, and pressing it is what
+    // surfaces the reason.
+    if (!items.length || submitting) return;
+
+    setError(null);
+
+    // Checked before the phone, because a missing address is the far more common reason
+    // and the database now refuses one outright rather than storing an empty string.
+    if (!selectedAddressId) {
+      setError(
+        addresses.length === 0
+          ? "Add a delivery address to place this order. We need somewhere to send it."
+          : "Choose a delivery address for this order."
+      );
+      return;
+    }
+
     if (!isAdmin) {
       const phone = user?.phone || "";
       if (!phone || !/^\+?8801[0-9]{9}$/.test(phone)) {
@@ -49,15 +68,15 @@ export default function CheckoutScreen() {
         return;
       }
     }
-    if (!selectedAddressId) {
-      setError("Please select or add a delivery address.");
-      return;
-    }
+
     setSubmitting(true);
-    setError(null);
     try {
       await createOrder(selectedAddressId);
       setSuccess(true);
+      // create_order deletes the cart server-side, so the local copy is now stale and the
+      // cart badge would keep counting items the customer has already bought. Without
+      // this the count only corrects itself on a full app restart.
+      await reloadCart();
     } catch (nextError) {
       setError(normalizeError(nextError).message);
     } finally {
@@ -140,6 +159,25 @@ export default function CheckoutScreen() {
         })}
         {addresses.length === 0 ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No saved addresses — add one below.</Text> : null}
       </View>
+      {/* Shown before the button is pressed, not only after. A disabled button with no
+          visible reason is indistinguishable from a broken one, which is exactly what was
+          reported. */}
+      {!selectedAddressId && !success ? (
+        <View
+          style={[
+            styles.notice,
+            { backgroundColor: colors.warningSoft, borderColor: colors.warningBorder },
+          ]}
+          accessibilityRole="alert"
+        >
+          <Icon name="error-outline" size={16} color={colors.warning} />
+          <Text style={[styles.noticeText, { color: colors.text }]}>
+            {addresses.length === 0
+              ? "No delivery address yet. Add one to place this order."
+              : "Select a delivery address to place this order."}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 
@@ -218,7 +256,7 @@ export default function CheckoutScreen() {
                       title={success ? "View cycle" : "Submit order"}
                       onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
                       loading={submitting}
-                      disabled={success ? false : !selectedAddressId || submitting}
+                      disabled={success ? false : submitting}
                       fullWidth
                     />
                   </View>
@@ -242,7 +280,7 @@ export default function CheckoutScreen() {
                     title={success ? "View cycle" : "Submit order"}
                     onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
                     loading={submitting}
-                    disabled={success ? false : !selectedAddressId || submitting}
+                    disabled={success ? false : submitting}
                     fullWidth
                   />
                 </View>
@@ -292,6 +330,17 @@ const styles = StyleSheet.create({
   addressActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   deleteBtn: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   emptyHint: { fontSize: 12, paddingVertical: spacing.sm },
+  notice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 17 },
   summaryBox: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, marginBottom: spacing.xs },
   rowLabel: { fontSize: 12, flex: 1 },

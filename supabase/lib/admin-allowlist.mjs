@@ -2,40 +2,51 @@
  * Test-admin access to the live project, without leaving the door unlocked.
  *
  * ── The problem this replaces ──────────────────────────────────────────────────────
- * The admin allowlist is a hard-coded list of email addresses, and it lives in TWO
- * independent places:
+ * The admin allowlist is a list of email addresses that decides who is an administrator.
+ * It used to be hard-coded inline in SIX function bodies -- is_admin(), handle_new_user(),
+ * sync_profile_on_email_change(), custom_access_token_hook(), enforce_profile_role() and
+ * transition_order_status() -- and a verification script needing admin rights had to edit
+ * whichever copies it knew about.
  *
- *   is_admin()                 -- the boolean every policy and RPC checks
- *   enforce_profile_role()     -- the BEFORE trigger that rewrites profiles.role
+ * That failed in production, twice, in two different ways.
  *
- * Neither `profiles.role` nor an UPDATE can grant admin, so a verification script that
- * needs admin rights has to edit those two function bodies. The obvious approach is
- * snapshot-and-restore: read the definitions, patch them, put them back afterwards.
+ * First: snapshot-and-restore. Read the definitions, patch them, put them back afterwards.
+ * A snapshot-restore pair only works if the script reaches its restore step; a Ctrl-C, a
+ * timeout or a crash in between leaves the test address sitting in the live role trigger,
+ * where it grants nothing (the auth.users row is gone) but is still a third party's email
+ * embedded in the function that decides who is an admin. It also compounds: the next run
+ * snapshots the already-dirty definition and restores that dirt back.
  *
- * That is fragile, and it failed here in production twice. A snapshot-restore pair only
- * works if the script reaches its restore step; a Ctrl-C, a network timeout or a crash
- * in between leaves the test address sitting in the live role trigger, where it grants
- * nothing (the auth.users row is gone) but is still a third party's email embedded in
- * the function that decides who is an admin. It also compounds: the next run snapshots
- * the already-dirty definition and restores that dirt back.
+ * Second, and more quietly: the copies drifted apart from each other and from the tooling.
+ * The tooling patched is_admin() and enforce_profile_role(). transition_order_status()
+ * carried a sixth inline copy that nobody patched, so a test admin could open the admin
+ * panel and then got "Only allowlisted admins can change order status" from every order
+ * transition. Because that guard fires *before* the transition rules, the suite's "skipping
+ * a step is refused" assertion passed for entirely the wrong reason -- green tests over a
+ * feature that was dead. That is the failure mode this module now makes structurally
+ * impossible rather than merely unlikely.
  *
  * ── What this does instead ─────────────────────────────────────────────────────────
+ * The list lives in exactly one place, `public.is_admin_email(text)`. Everything else asks
+ * it. So there is one function to patch, and no second copy to forget.
+ *
  * Nothing is snapshotted. "The allowlist is exactly the two real admins" is an absolute
  * that can be reasserted at any moment, so the scripts reassert it:
  *
- *   1. on the way in,  sanitise()          -- drop anything that is not a real admin
- *   2. grant the test account admin
- *   3. on the way out, sanitise()          -- back to exactly the two real admins
+ *   1. on the way in,  sanitise()   -- reset the owner function to the two real admins
+ *   2. grant the test account admin by rewriting that one function
+ *   3. on the way out, sanitise()   -- back to exactly the two real admins
  *
- * There is no stored "previous" state that can be wrong, and running sanitise twice is
- * a no-op. An interrupted run still leaves at most the test address, and the next run
- * removes it before doing anything else. `supabase/clean-test-data.mjs` sweeps the
- * remaining residue.
+ * There is no stored "previous" state that can be wrong, and running sanitise twice is a
+ * no-op. An interrupted run still leaves at most the test address, and the next run removes
+ * it before doing anything else. `supabase/clean-test-data.mjs` sweeps the rest.
  *
- * Both functions are rewritten from a *known-good template* built here, not by editing
- * a snapshot. That is deliberate: the template is checked against the live definition
- * before it is applied, so a change to either function in a migration shows up as a
- * refusal rather than being silently reverted.
+ * Two guards make a mistake loud instead of silent:
+ *
+ *   - the owner function is rebuilt from a template, but only after its shape is checked, so
+ *     a real change to it in a migration refuses rather than being quietly reverted
+ *   - every other function is asserted to contain NO email literal at all, so a migration
+ *     that re-introduces a second copy fails the test run instead of drifting for weeks
  */
 
 const REF = process.env.HIBBULLAH_SUPABASE_PROJECT_REF || 'xkvjhvwrzfczymbgapip'
@@ -47,7 +58,22 @@ const MGMT = process.env.HIBBULLAH_SUPABASE_TOKEN
  */
 export const REAL_ADMINS = ['icrmahin@gmail.com', 'hibbullah82026@gmail.com']
 
-const FUNCTIONS = ['is_admin', 'enforce_profile_role']
+/** The one function permitted to hard-code an email address. */
+export const OWNER_FUNCTION = 'is_admin_email'
+
+/**
+ * Every function that decides admin rights. None of these may contain an email literal;
+ * they must call OWNER_FUNCTION. Listed explicitly rather than discovered, so that adding
+ * a seventh copy of the decision is a deliberate act someone has to write down.
+ */
+export const DERIVED_FUNCTIONS = [
+  'is_admin',
+  'handle_new_user',
+  'sync_profile_on_email_change',
+  'custom_access_token_hook',
+  'enforce_profile_role',
+  'transition_order_status',
+]
 
 async function query(sql) {
   const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
@@ -60,99 +86,132 @@ async function query(sql) {
   return text.trim()
 }
 
-const definition = async (fn) =>
-  JSON.parse(await query(`select pg_get_functiondef('public.${fn}()'::regprocedure) as def`))[0].def
-
-const emailsIn = (def) => [...new Set(def.match(/'[^']+@[^']+'/g) ?? [])]
-
 /**
- * Replace the address list inside a function body.
+ * Every definition of a function name, in pg_proc order.
  *
- * Anchored on an identifier ending in `email` immediately before the `in`, because the
- * two functions express the list in different shapes: `pg_get_functiondef` renders
- * `is_admin` as a SQL body (`lower(auth.users.email) in (...)`) and
- * `enforce_profile_role` as plpgsql (`if v_email in (...) then`). A pattern that assumed
- * the plpgsql form silently failed to match the SQL one -- which is exactly how a stray
- * address came to be left behind by a "successful" cleanup.
- *
- * The anchor also stops a bare `in (...)` from matching something unrelated that happens
- * to appear earlier in the body, and the result is verified before it is used: a rewrite
- * based on a misread pattern would lock the owners out of their own admin panel, which
- * is far worse than a test that cannot run.
+ * Lookup is by name rather than by `'public.fn()'::regprocedure` because that only resolves
+ * when a function takes no arguments, and two of the functions that decide admin rights do
+ * take them: custom_access_token_hook(jsonb) and transition_order_status(uuid, text, uuid).
+ * With empty parens those throw "function does not exist", which reads exactly like a
+ * missing function rather than a bad lookup.
  */
-function replaceList(fn, def, list) {
-  // The optional `\)` is load-bearing: `pg_get_functiondef` renders is_admin as
-  // `lower(auth.users.email) in (...)`, so the clause ends with a closing paren, while
-  // the trigger reads `if v_email in (...) then`. Requiring exactly one of the two
-  // shapes is how the earlier version failed to match is_admin at all.
-  const patched = def.replace(/(\w*email\)?\s+in\s*)\([^)]*\)/i, `$1(${list})`)
-  if (patched === def) {
-    throw new Error(
-      `${fn}(): no allowlist found (looked for an "email in (...)" clause); refusing to rewrite the function blindly`,
-    )
-  }
-  // Post-condition: everything asked for is present, and nothing else is left over.
-  const wanted = list.split(',').map((e) => e.trim())
-  const actual = emailsIn(patched)
-  const missing = wanted.filter((e) => !actual.includes(e))
-  const extra = actual.filter((e) => !wanted.includes(e))
-  if (missing.length > 0 || extra.length > 0) {
-    throw new Error(
-      `${fn}(): the rewrite did not produce the intended list ` +
-        `(missing ${JSON.stringify(missing)}, unexpected ${JSON.stringify(extra)}); not applying it`,
-    )
-  }
-  return patched
+async function definitionsByName(fn) {
+  const rows = JSON.parse(
+    await query(
+      `select pg_get_functiondef(p.oid) as def
+       from pg_proc p
+       join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = '${fn}'
+       order by p.oid`,
+    ),
+  )
+  return rows.map((r) => r.def)
 }
 
-/**
- * Guard against silently reverting a legitimate change.
- *
- * If either function's body has been altered by a migration since this template was
- * written -- a new policy check, a different search_path, a renamed variable -- then
- * writing the template back would quietly undo that work in production. So the shape is
- * checked first, and the caller is told to look rather than being allowed to clobber.
- */
-function assertShapeIntact(fn, def) {
-  const expectations = {
-    is_admin: [/security definer/i, /auth\.uid\(\)/, /auth\.users/],
-    enforce_profile_role: [/returns\s+trigger/i, /security definer/i, /new\.role/],
+const definition = async (fn) => {
+  const defs = await definitionsByName(fn)
+  if (defs.length === 0) throw new Error(`public.${fn}() does not exist`)
+  // An overload here would mean the scan below silently only covers one of two paths that
+  // can grant admin, so refuse rather than pick.
+  if (defs.length > 1) {
+    throw new Error(`public.${fn}() has ${defs.length} definitions; refusing to guess which one governs admin rights`)
   }
-  const missing = expectations[fn].filter((re) => !re.test(def))
+  return defs[0]
+}
+
+export const emailsIn = (def) => [...new Set(def.match(/'[^']+@[^']+'/g) ?? [])]
+
+/** The canonical body of the owner function, for a given list. */
+const ownerSql = (list) => `create or replace function public.${OWNER_FUNCTION}(p_email text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = 'public'
+as $fn$
+  select lower(coalesce(p_email, '')) in (${list})
+$fn$`
+
+/**
+ * Guard against silently reverting a legitimate change to the one function we rebuild.
+ *
+ * If a migration adds a condition, changes the signature or renames the parameter, writing
+ * the template back would quietly undo that work. So the shape is checked first and the
+ * caller is told to look, rather than being allowed to clobber.
+ */
+function assertOwnerShapeIntact(def) {
+  const expectations = [
+    /lower\s*\(\s*coalesce\s*\(/i, // null-safe, case-insensitive
+    /\bin\s*\(/i, // an actual list, not a single equality
+    /language\s+sql/i,
+    /security\s+definer/i,
+  ]
+  const missing = expectations.filter((re) => !re.test(def))
   if (missing.length > 0) {
     throw new Error(
-      `${fn}() no longer matches the expected shape (missing ${missing.map(String).join(', ')}). ` +
+      `${OWNER_FUNCTION}() no longer matches the expected shape (missing ${missing.map(String).join(', ')}). ` +
         'The template would revert a real change -- update this module, do not force it.',
     )
   }
 }
 
 /**
- * Reduce both functions to exactly the real admins. Idempotent.
+ * Assert that no function other than the owner has a hard-coded address in it.
  *
- * Returns the stray addresses it removed, so a caller can report them rather than
- * silently repairing something it did not know was broken.
+ * This is the invariant that would have caught the sixth copy on the day it was written.
+ * It is checked on every sanitise() rather than only in the test suite, because the thing
+ * it protects is a live role decision, and a test nobody runs is not a guard.
+ *
+ * Returns the offenders as `[{ function, emails }]`; empty means the invariant holds.
+ */
+export async function findHardcodedAllowlists() {
+  const offenders = []
+  for (const fn of DERIVED_FUNCTIONS) {
+    for (const def of await definitionsByName(fn)) {
+      const emails = emailsIn(def)
+      if (emails.length > 0) offenders.push({ function: fn, emails })
+    }
+  }
+  return offenders
+}
+
+/**
+ * Reduce the allowlist to exactly the real admins, and prove nothing else holds a copy.
+ * Idempotent.
+ *
+ * Returns the stray addresses it removed, so a caller can report them rather than silently
+ * repairing something it did not know was broken.
  */
 export async function sanitise() {
   if (!MGMT) throw new Error('Set HIBBULLAH_SUPABASE_TOKEN first.')
   const list = REAL_ADMINS.map((e) => `'${e}'`).join(', ')
   const removed = []
 
-  for (const fn of FUNCTIONS) {
-    const def = await definition(fn)
-    assertShapeIntact(fn, def)
+  const def = await definition(OWNER_FUNCTION)
+  assertOwnerShapeIntact(def)
 
-    const strays = emailsIn(def).filter((e) => !REAL_ADMINS.includes(e.replace(/'/g, '')))
-    if (strays.length === 0) continue
-
-    // Both real admins must be present before anything is rewritten, or a typo here
-    // would lock the owners out of their own admin panel.
+  const strays = emailsIn(def).filter((e) => !REAL_ADMINS.includes(e.replace(/'/g, '')))
+  if (strays.length > 0) {
+    // Both real admins must be present before anything is rewritten, or a typo here would
+    // lock the owners out of their own admin panel.
     for (const email of REAL_ADMINS) {
-      if (!def.includes(email)) throw new Error(`${email} missing from ${fn}(); refusing to rewrite`)
+      if (!def.includes(email)) throw new Error(`${email} missing from ${OWNER_FUNCTION}(); refusing to rewrite`)
     }
+    await query(ownerSql(list))
+    removed.push(...strays.map((e) => `${OWNER_FUNCTION}(): ${e}`))
+  }
 
-    await query(replaceList(fn, def, list))
-    removed.push(...strays.map((e) => `${fn}(): ${e}`))
+  // Now the structural check. If a migration has re-introduced a second copy somewhere,
+  // say so loudly -- and say which function, because "somewhere" is not actionable.
+  const offenders = await findHardcodedAllowlists()
+  if (offenders.length > 0) {
+    const detail = offenders.map((o) => `${o.function}() contains ${o.emails.join(', ')}`).join('; ')
+    throw new Error(
+      `The admin allowlist is duplicated outside ${OWNER_FUNCTION}(). ${detail}. ` +
+        'A second copy is how the owners get locked out of their own admin panel, and how a ' +
+        'test suite reports success over a broken feature. Point those functions at ' +
+        `${OWNER_FUNCTION}() -- do not patch them here.`,
+    )
   }
 
   return removed
@@ -166,29 +225,10 @@ export async function sanitise() {
  * `finally` to take it away again -- that step is idempotent and cannot fail silently.
  */
 export async function grantTestAdmin(email) {
+  if (!email || !email.includes('@')) throw new Error(`grantTestAdmin: ${email} does not look like an email`)
   const list = [...REAL_ADMINS, email].map((e) => `'${e}'`).join(', ')
   await sanitise()
-
-  // is_admin() is rebuilt from a template because it is a single expression over the
-  // allowlist with no other behaviour to preserve. The shape check runs first, so a real
-  // change to it in a migration stops the test rather than being quietly undone.
-  const isAdmin = await definition('is_admin')
-  assertShapeIntact('is_admin', isAdmin)
-  await query(
-    `create or replace function public.is_admin() returns boolean language sql security definer set search_path = 'public','auth','pg_catalog' as $fn$
-       select exists (
-         select 1 from auth.users
-         where auth.users.id = auth.uid()
-           and lower(auth.users.email) in (${list})
-       );
-     $fn$`,
-  )
-
-  // enforce_profile_role() is edited in place, because it also carries the admin phone
-  // allowance and the updated_at stamp. Only the hard-coded list changes.
-  const roleTrigger = await definition('enforce_profile_role')
-  assertShapeIntact('enforce_profile_role', roleTrigger)
-  await query(replaceList('enforce_profile_role', roleTrigger, list))
+  await query(ownerSql(list))
 }
 
 /**

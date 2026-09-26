@@ -32,14 +32,6 @@ interface OrderWithStatus {
   created_at: string
 }
 
-interface AuditEntry {
-  id: string
-  action: string
-  actor: string
-  record_type: string
-  timestamp: string
-}
-
 export interface AdminDashboardData {
   // 30-day window
   totalSalesQty: number // total items sold last 30d
@@ -56,7 +48,6 @@ export interface AdminDashboardData {
   lowStockBatches: { id: string; productName: string; batchNumber: string; quantity: number; status: 'healthy' | 'low' | 'out_of_stock'; expiryDate?: string }[]
   expiringBatches: { id: string; productName: string; batchNumber: string; quantity: number; status: 'healthy' | 'low' | 'out_of_stock'; expiryDate?: string }[]
   recentOrders: { id: string; orderNumber: string; customerName: string; total: number; status: string; createdAt: string }[]
-  recentActivity: { id: string; action: string; actor: string; recordType: string; timestamp: string }[]
 }
 
 type DashboardSalesJson = { totalSalesQty?: number; totalSalesRevenue?: number; totalEarning?: number; salesTrend?: number[]; earningTrend?: number[] }
@@ -122,7 +113,6 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     lowStockItemsResult,
     expiringResult,
     recentOrdersResult,
-    recentActivityResult,
     pendingReturnsResult,
     salesAgg,
   ] = await Promise.all([
@@ -153,11 +143,6 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
       .from('orders')
       .select('id, order_number, customer_name, total, status, created_at')
       .order('created_at', { ascending: false })
-      .limit(10),
-    supabase
-      .from('audit_entries')
-      .select('id, action, actor, record_type, timestamp')
-      .order('timestamp', { ascending: false })
       .limit(10),
     supabase.from('return_requests').select('id, product_name, customer_name, quantity').eq('status', 'PENDING').order('created_at', { ascending: false }).limit(5),
     fetchSalesAggregates(since30),
@@ -202,14 +187,6 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     createdAt: order.created_at,
   }))
 
-  const transformedActivity = (recentActivityResult.data as AuditEntry[] || []).map(activity => ({
-    id: activity.id,
-    action: activity.action,
-    actor: activity.actor,
-    recordType: activity.record_type,
-    timestamp: activity.timestamp,
-  }))
-
   type PendingReturnRow = { id: string; product_name: string; customer_name: string; quantity: number }
   const pendingReturns = ((pendingReturnsResult.data as PendingReturnRow[] | null) || []).map((r) => ({
     id: r.id,
@@ -233,7 +210,6 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     lowStockBatches: transformedLowStock,
     expiringBatches: transformedExpiring,
     recentOrders: transformedRecentOrders,
-    recentActivity: transformedActivity,
   }
 }
 

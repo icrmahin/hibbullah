@@ -1,5 +1,5 @@
-/* eslint-disable react-hooks/set-state-in-effect -- data fetching and derived state sync require setState inside effects */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useFocusEffect } from 'expo-router'
 import { useAuth } from './useAuth'
 import type { Address } from '../types/address'
 import { fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress } from '../services/addresses'
@@ -28,9 +28,24 @@ export function useAddresses() {
     }
   }, [user])
 
-  useEffect(() => {
-    loadAddresses()
-  }, [loadAddresses])
+  // Reload every time the screen comes back to the foreground.
+  //
+  // This is the second half of "adding an address does not work". The address IS saved --
+  // the insert returns 201 -- but the screen that sent you to the form keeps its own copy
+  // of `data`, and `router.push` leaves it mounted rather than remounting it. Nothing
+  // re-reads on the way back, so the list still said "No saved addresses" and the customer
+  // tapped Save again. `create()` calling `loadAddresses()` does not help: that is the hook
+  // instance *inside the form*, not the one on the screen behind it.
+  //
+  // This replaces a plain useEffect on mount, which it also covers -- useFocusEffect runs
+  // on first focus as well as on every return, so keeping both just double-fetched. And
+  // because it re-runs when the callback identity changes, the read still happens once
+  // `user` finishes loading, which a focus-only trigger would otherwise miss.
+  useFocusEffect(
+    useCallback(() => {
+      loadAddresses()
+    }, [loadAddresses])
+  )
 
   const create = useCallback(async (address: Omit<Address, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) throw new Error('User not authenticated')

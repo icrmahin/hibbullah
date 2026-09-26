@@ -81,7 +81,7 @@ export default function AuditLogScreen() {
                 ]}
               >
                 <Text style={[styles.action, { color: colors.text }]}>{entry.action} · {entry.recordType}</Text>
-                <Text style={[styles.meta, { color: colors.textMuted }]}>{entry.actor}</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>{entry.actorName}</Text>
                 <Text style={[styles.meta, { color: colors.textMuted }]}>{formatDateTime(entry.timestamp)}</Text>
               </View>
             ))}

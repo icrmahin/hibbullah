@@ -3553,6 +3553,7 @@ grant execute on function public.search_products(text, uuid, uuid, text, text, i
 -- (AFTER INSERT on inventory_items) is what maintains it, so writing it here
 -- would be redundant and could drift from the inventory sum.
 
+-- create_product, hardened (migration 20260926180000_create_product_harden.sql):
 create or replace function public.create_product(
   p_id uuid,
   p_name text,
@@ -3582,10 +3583,18 @@ as $$
 declare
   v_id uuid;
   v_batch text;
+  v_discount integer;
 begin
   if not public.is_admin() then
     raise exception 'not authorized' using errcode = '42501';
   end if;
+
+  -- Backstop for the strict check_discount trigger: without an original price
+  -- any discount is meaningless, so drop it instead of failing the upload.
+  v_discount := case
+    when p_original_price is null then 0
+    else coalesce(p_discount_percent, 0)
+  end;
 
   insert into public.products (
     id,
@@ -3615,7 +3624,7 @@ begin
     p_category_id,
     p_price,
     p_original_price,
-    coalesce(p_discount_percent, 0),
+    v_discount,
     p_cost_price,
     coalesce(p_unit, 'pack'),
     p_image_url,
@@ -3641,6 +3650,17 @@ begin
   return v_id;
 end;
 $$;
+
+revoke execute on function public.create_product(
+  uuid, text, text, text, uuid, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date
+) from public;
+
+grant execute on function public.create_product(
+  uuid, text, text, text, uuid, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date
+) to authenticated;
+
 
 revoke execute on function public.create_product(
   uuid, text, text, text, uuid, uuid, numeric, text,
@@ -3995,3 +4015,422 @@ create policy "Customers can clear own notifications"
 -- The triggers above are SECURITY DEFINER, so they write as the table owner and are
 -- unaffected by these revokes.
 revoke insert, truncate on public.notifications from anon, authenticated;
+
+-- ================================================================================
+-- Orders require a delivery address the customer actually owns
+-- (migration 20260927010000_create_order_require_own_address.sql)
+--
+-- Applies the same three guards described there, so a rebuilt environment cannot accept
+-- the orders the live one refuses:
+--   * p_address_id IS NULL      -> refused, instead of silently becoming ''
+--   * a non-existent address id -> refused
+--   * ANOTHER customer's address -> refused. create_order is SECURITY DEFINER, so it reads
+--     any addresses row regardless of RLS; without the ownership predicate in the lookup,
+--     anyone who learned an address id could read that stranger's street address back out
+--     of their own order.
+-- ================================================================================
+create or replace function public.create_order(p_customer_id uuid, p_address_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path to 'public'
+as $fn$
+declare
+  v_order_id uuid;
+  v_existing_id uuid;
+  v_existing_subtotal numeric;
+  v_existing_discount numeric;
+  v_existing_delivery_fee numeric;
+  v_subtotal numeric := 0;
+  v_cart_subtotal numeric := 0;
+  v_discount numeric := 0;
+  v_delivery_fee numeric := 150;
+  v_total numeric := 0;
+  v_customer_name text;
+  v_address_text text;
+  v_cart_item record;
+  v_product record;
+  v_inv record;
+  v_remaining integer;
+  v_total_stock integer;
+begin
+  select name into v_customer_name from public.profiles where id = p_customer_id;
+  if not found then
+    raise exception 'Customer not found';
+  end if;
+  if not exists (select 1 from public.cart_items where user_id = p_customer_id) then
+    raise exception 'Cart is empty';
+  end if;
+
+  -- Refuse a missing address outright rather than defaulting it to an empty string.
+  if p_address_id is null then
+    raise exception 'Delivery address is required';
+  end if;
+
+  -- Ownership is part of the lookup, not a separate check afterwards. SECURITY DEFINER
+  -- bypasses RLS on `addresses`, so the `user_id = p_customer_id` predicate here is the
+  -- ONLY thing standing between a caller and another customer's address.
+  --
+  -- An address that does not exist and one that belongs to somebody else are deliberately
+  -- reported the same way, so this cannot be used to confirm whether an id is real.
+  select street || ', ' || city || coalesce(', ' || county, '') || coalesce(', ' || postal_code, '')
+    into v_address_text
+  from public.addresses
+  where id = p_address_id and user_id = p_customer_id;
+
+  if v_address_text is null then
+    raise exception 'Delivery address not found';
+  end if;
+
+  -- NOT NULL on street/city does not stop an empty string, and the client-side check is
+  -- bypassable, so an unusable address is refused here rather than at delivery time.
+  if btrim(v_address_text) in ('', ',') then
+    raise exception 'Delivery address is incomplete';
+  end if;
+
+  -- Check for existing PENDING invoice for this customer (row-level lock to prevent race)
+  select id, subtotal, discount, delivery_fee into v_existing_id, v_existing_subtotal, v_existing_discount, v_existing_delivery_fee
+  from public.orders
+  where customer_id = p_customer_id and status = 'PENDING'
+  order by created_at desc
+  limit 1
+  for update;
+
+  -- Validate cart items and compute cart subtotal (products must exist and be active)
+  for v_cart_item in select * from public.cart_items where user_id = p_customer_id loop
+    select * into v_product from public.products where id = v_cart_item.product_id and is_active = true;
+    if not found then
+      raise exception 'Product not available';
+    end if;
+    -- Authoritative available stock = non-expired inventory sum, falling back to
+    -- products.stock only for legacy products with no inventory rows at all.
+    select coalesce(sum(quantity), 0) into v_total_stock
+    from public.inventory_items
+    where product_id = v_cart_item.product_id
+      and (expiry_date is null or expiry_date >= current_date);
+    if v_total_stock = 0 and not exists (select 1 from public.inventory_items where product_id = v_cart_item.product_id) then
+      v_total_stock := v_product.stock;
+    end if;
+    if v_total_stock < v_cart_item.quantity then
+      raise exception 'Insufficient stock for product %', v_product.name;
+    end if;
+    v_cart_subtotal := v_cart_subtotal + (v_product.price * v_cart_item.quantity);
+  end loop;
+
+  if v_existing_id is not null then
+    -- Append to existing PENDING invoice
+    v_order_id := v_existing_id;
+    for v_cart_item in select * from public.cart_items where user_id = p_customer_id loop
+      select * into v_product from public.products where id = v_cart_item.product_id;
+      -- Handle duplicate product in same order: merge quantity if already exists
+      if exists (select 1 from public.order_items where order_id = v_order_id and product_id = v_cart_item.product_id) then
+        update public.order_items
+        set quantity = quantity + v_cart_item.quantity,
+            total = (quantity + v_cart_item.quantity) * v_product.price
+        where order_id = v_order_id and product_id = v_cart_item.product_id;
+      else
+        insert into public.order_items (order_id, product_id, product_name, quantity, unit_price, discount_percent, total)
+        values (v_order_id, v_cart_item.product_id, v_product.name, v_cart_item.quantity, v_product.price, 0, v_product.price * v_cart_item.quantity);
+      end if;
+      perform public.deduct_inventory_fifo(v_cart_item.product_id, v_cart_item.quantity);
+    end loop;
+    -- Recalc totals: subtotal + cart, keep single delivery fee
+    v_subtotal := coalesce(v_existing_subtotal, 0) + v_cart_subtotal;
+    v_total := v_subtotal - coalesce(v_existing_discount, 0) + coalesce(v_existing_delivery_fee, v_delivery_fee);
+    update public.orders
+    set subtotal = v_subtotal,
+        total = v_total,
+        updated_at = now(),
+        -- Always the address just validated. This used to be
+        -- `case when v_address_text <> '' then v_address_text else address end`, which kept
+        -- whatever was there before; with the guard above v_address_text is never empty,
+        -- so the fallback is dead code that would only ever preserve a stale address.
+        address = v_address_text,
+        timeline = coalesce(timeline, '[]'::jsonb) || jsonb_build_array(jsonb_build_object('label', 'ITEMS_ADDED', 'time', now()::text, 'note', v_cart_subtotal::text || ' added'))
+    where id = v_order_id;
+  else
+    -- No pending invoice: create new as before
+    v_subtotal := v_cart_subtotal;
+    v_total := v_subtotal - v_discount + v_delivery_fee;
+    insert into public.orders (order_number, customer_id, customer_name, status, subtotal, discount, delivery_fee, total, payment_method, address)
+    values (null, p_customer_id, v_customer_name, 'PENDING', v_subtotal, v_discount, v_delivery_fee, v_total, 'CASH_ON_DELIVERY', v_address_text)
+    returning id into v_order_id;
+    for v_cart_item in select * from public.cart_items where user_id = p_customer_id loop
+      select * into v_product from public.products where id = v_cart_item.product_id;
+      insert into public.order_items (order_id, product_id, product_name, quantity, unit_price, discount_percent, total)
+      values (v_order_id, v_cart_item.product_id, v_product.name, v_cart_item.quantity, v_product.price, 0, v_product.price * v_cart_item.quantity);
+      perform public.deduct_inventory_fifo(v_cart_item.product_id, v_cart_item.quantity);
+    end loop;
+  end if;
+
+  delete from public.cart_items where user_id = p_customer_id;
+  return v_order_id;
+end;
+$fn$;
+
+-- Cancel PENDING orders that predate the guard above and can never be delivered. The ids
+-- are collected first and the notification is driven off that list, so it cannot
+-- accidentally notify about an unrelated old non-PENDING order with an empty address.
+do $$
+declare
+  v_ids uuid[];
+begin
+  select coalesce(array_agg(id), '{}'::uuid[])
+    into v_ids
+  from public.orders
+  where btrim(coalesce(address, '')) in ('', ',')
+    and status = 'PENDING';
+
+  if coalesce(array_length(v_ids, 1), 0) = 0 then
+    return;
+  end if;
+
+  update public.orders
+  set status = 'CANCELLED',
+      updated_at = now(),
+      timeline = coalesce(timeline, '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+        'label', 'CANCELLED',
+        'time', now()::text,
+        'note', 'No delivery address was recorded for this order, so it could not be delivered. Please place a new order.'))
+  where id = any(v_ids);
+
+  insert into public.notifications (user_id, title, body, type)
+  select o.customer_id,
+    'Order ' || coalesce(o.order_number, left(o.id::text, 8)) || ' cancelled',
+    'We could not deliver this order because no delivery address was recorded. Please add an address and place a new order.',
+    'info'
+  from public.orders o
+  where o.id = any(v_ids)
+    and o.customer_id is not null;
+end;
+$$;
+
+-- ================================================================================
+-- One owner for the admin allowlist, and returns that match their order
+-- (migration 20260927020000_admin_allowlist_single_source_and_return_rls.sql)
+-- ================================================================================
+
+-- The list of addresses that may hold admin used to be hard-coded inline in SIX function
+-- bodies. Six copies of the decision that decides who is an administrator is how a new
+-- admin gets half-promoted, and it already caused a test suite to report green while every
+-- order transition failed. It lives here now, and the other five ask it.
+create or replace function public.is_admin_email(p_email text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = 'public'
+as $fn$
+  select lower(coalesce(p_email, '')) in ('icrmahin@gmail.com', 'hibbullah82026@gmail.com')
+$fn$;
+
+comment on function public.is_admin_email(text) is
+  'The single owner of the admin allowlist. No other function may hard-code an admin email; they must call this, so the list cannot drift between code paths.';
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = 'public', 'auth', 'pg_catalog'
+as $fn$
+  select exists (
+    select 1
+    from auth.users
+    where auth.users.id = auth.uid()
+      and public.is_admin_email(auth.users.email)
+  )
+$fn$;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public', 'auth', 'pg_catalog'
+as $fn$
+declare
+  v_role text := 'customer';
+  v_email_lower text;
+  v_phone text;
+begin
+  v_email_lower := lower(new.email);
+  if public.is_admin_email(v_email_lower) then
+    v_role := 'admin';
+  else
+    v_role := 'customer';
+  end if;
+
+  v_phone := coalesce(new.raw_user_meta_data->>'phone', '');
+  -- Normalize empty to null for admin convenience (keeps partial index clean)
+  if v_phone = '' and v_role = 'admin' then
+    v_phone := null;
+  end if;
+
+  insert into public.profiles (id, name, email, phone, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
+    new.email,
+    v_phone,
+    v_role
+  )
+  on conflict (id) do update set
+    email = excluded.email,
+    role = excluded.role,
+    name = coalesce(public.profiles.name, excluded.name),
+    -- Keep phone if already present, else use new
+    phone = coalesce(public.profiles.phone, excluded.phone),
+    updated_at = now();
+  return new;
+end;
+$fn$;
+
+create or replace function public.sync_profile_on_email_change()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public', 'auth', 'pg_catalog'
+as $fn$
+declare
+  v_new_role text;
+begin
+  if public.is_admin_email(lower(new.email)) then
+    v_new_role := 'admin';
+  else
+    v_new_role := 'customer';
+  end if;
+
+  update public.profiles
+    set email = new.email,
+        role = v_new_role,
+        updated_at = now()
+    where id = new.id;
+
+  return new;
+end;
+$fn$;
+
+create or replace function public.custom_access_token_hook(event jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public', 'auth', 'pg_catalog'
+as $fn$
+declare
+  v_email text;
+  v_role text;
+begin
+  select lower(email) into v_email from auth.users where id = (event->>'user_id')::uuid;
+  if public.is_admin_email(v_email) then
+    v_role := 'admin';
+  else
+    v_role := 'customer';
+  end if;
+  event := jsonb_set(event, '{claims,app_role}', to_jsonb(v_role));
+  event := jsonb_set(event, '{claims,is_admin}', to_jsonb(v_role = 'admin'));
+  return event;
+exception when others then
+  return event;
+end;
+$fn$;
+
+create or replace function public.enforce_profile_role()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public', 'auth', 'pg_catalog'
+as $fn$
+declare
+  v_email text;
+  v_allowed_role text;
+begin
+  select lower(email) into v_email from auth.users where id = new.id;
+  if v_email is null then
+    v_email := lower(new.email);
+  end if;
+
+  if public.is_admin_email(v_email) then
+    v_allowed_role := 'admin';
+  else
+    v_allowed_role := 'customer';
+  end if;
+
+  if new.role is distinct from v_allowed_role then
+    new.role := v_allowed_role;
+  end if;
+
+  -- For admin, allow phone null/'' regardless of format
+  if v_allowed_role = 'admin' and (new.phone is null or new.phone = '') then
+    new.phone := null;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$fn$;
+
+create or replace function public.transition_order_status(p_order_id uuid, p_new_status text, p_admin_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = 'public', 'auth', 'pg_catalog'
+as $fn$
+declare
+  v_current_status text;
+  v_allowed boolean := false;
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can change order status';
+  end if;
+  if p_admin_id is distinct from auth.uid() then
+    raise exception 'Admin ID must match authenticated user';
+  end if;
+  if not exists (select 1 from auth.users where id = p_admin_id and public.is_admin_email(email)) then
+    raise exception 'Only allowlisted admins can change order status';
+  end if;
+  select status into v_current_status from public.orders where id = p_order_id;
+  if not found then
+    raise exception 'Order not found';
+  end if;
+  v_allowed := (
+    (v_current_status = 'PENDING' and p_new_status in ('CONFIRMED', 'CANCELLED')) or
+    (v_current_status = 'CONFIRMED' and p_new_status in ('PROCESSING', 'CANCELLED')) or
+    (v_current_status = 'PROCESSING' and p_new_status in ('OUT_FOR_DELIVERY', 'CANCELLED')) or
+    (v_current_status = 'OUT_FOR_DELIVERY' and p_new_status in ('DELIVERED')) or
+    (v_current_status = 'DELIVERED' and p_new_status in ('RETURNED'))
+  );
+  if not v_allowed then
+    raise exception 'Invalid status transition from % to %', v_current_status, p_new_status;
+  end if;
+  update public.orders
+  set status = p_new_status,
+      updated_at = now(),
+      timeline = coalesce(timeline, '[]'::jsonb) || jsonb_build_array(
+        jsonb_build_object('label', 'STATUS_CHANGED', 'time', now()::text, 'note', v_current_status || ' → ' || p_new_status)
+      )
+  where id = p_order_id;
+  return true;
+end;
+$fn$;
+
+-- A return request must belong to the order it names. The old INSERT policy checked only
+-- `auth.uid() = customer_id` -- that the row claims to belong to whoever is inserting it --
+-- and never that the ORDER belongs to that customer, so any signed-in user could file a
+-- return against any order in the shop. The app calls validate_return() first, which does
+-- check, but that is a client-side call, so it is advice rather than enforcement.
+drop policy if exists "Customers can create returns" on public.return_requests;
+
+create policy "Customers can create returns"
+on public.return_requests
+for insert
+to public
+with check (
+  auth.uid() = customer_id
+  and exists (
+    select 1
+    from public.orders o
+    where o.id = return_requests.order_id
+      and o.customer_id = return_requests.customer_id
+      and o.status = 'DELIVERED'
+  )
+);
