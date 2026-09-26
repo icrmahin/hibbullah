@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import { mapReturnRequest } from '../lib/mappers'
 import type { ReturnRequest } from '../types/return'
 import { supabaseErrorToAppError } from '../lib/errors'
+import { requireAffected } from '../lib/requireAffected'
 import { ok, fail, type ServiceResult } from '../lib/result'
 
 export async function fetchReturns(userId?: string): Promise<ReturnRequest[]> {
@@ -89,6 +90,11 @@ export async function createReturnRequests(inputs: {
 }
 
 export async function updateReturnStatus(returnId: string, status: 'APPROVED' | 'REJECTED' | 'PROCESSED'): Promise<void> {
-  const { error } = await supabase.from('return_requests').update({ status }).eq('id', returnId)
+  // `.select()` is what makes the write verifiable. Without it PostgREST answers a PATCH
+  // matching no rows with the same 204 as one that matched, so an admin whose approval was
+  // declined by the `using: is_admin()` policy — or whose return had been deleted in the
+  // meantime — was told it worked and saw the status unchanged.
+  const { data, error } = await supabase.from('return_requests').update({ status }).eq('id', returnId).select('id')
   if (error) throw supabaseErrorToAppError(error)
+  requireAffected(data, 'this return request')
 }

@@ -33,29 +33,104 @@ Big picture: [`docs/ROADMAP.md`](./ROADMAP.md).
 - [x] Removed the `as any` at `(admin)/inventory/adjustment.tsx:19`. `AGENT.md` is satisfied.
 - [x] `npx tsc --noEmit` = 0 errors · ESLint = 0 errors · `expo export --platform web` = clean bundle.
 
+### Admin dashboard: customers, reports, returns, audit log
+
+- [x] **Five unauthenticated data paths closed.** `get_customers_with_stats`,
+      `get_customer_stats`, `deduct_inventory_fifo`, `notify_user` and `is_admin_email`
+      were `SECURITY DEFINER` with EXECUTE open to `public` — reachable with an anonymous
+      key. Migration `20260928010000` revokes them and adds an in-body admin guard, and is
+      generated from live `prosrc` by `supabase/build-lockdown.mjs` rather than
+      hand-written, so the rewritten body is provably the old one plus a guard. Proved
+      live: `401` for anon, `403`/`400` for a signed-in customer, admin unaffected, and
+      `products`/`categories` still readable by anon so the shop still opens.
+- [x] **`create_order` and `validate_return` refuse a foreign `p_customer_id`** —
+      "Customer ID must match authenticated user".
+- [x] **Reports aggregate in the database** via a new `get_reports()` RPC that takes
+      `p_low_stock_threshold` / `p_expiry_warning_days` as parameters, so `config` stays
+      the single source of truth. The old client-side two-request version and a hard-coded
+      90-day expiry window are gone; `reports/index.tsx` now makes one round trip.
+- [x] **Report and customer-spend scope is deliberate and documented** — revenue and
+      discounts count `DELIVERED` orders only, while a customer's "total spent" is
+      everything except `CANCELLED` because it is lifetime value; their order *count*
+      still includes cancelled ones.
+- [x] **The audit log says what changed** — `src/utils/auditDiff.ts` derives an
+      INSERT/DELETE/UPDATE-aware diff from `old_value` / `new_value`, honouring the
+      dropped-field cap with "+N more".
+- [x] **Returns retries on error, confirms before approving or rejecting, and shows
+      quantity and date**; the customers screen paginates for real (fetches `pageSize + 1`),
+      deduplicates by id, and surfaces `totalSpent`.
+- [x] **A write that changed nothing can no longer report success.** PostgREST answers an
+      `UPDATE`/`DELETE` matching no rows with the same `204` as one that matched, so
+      `updateReturnStatus`, `deleteAddress`, `setDefaultAddress` and
+      `markNotificationAsRead` now append `.select()` and assert a row came back, via
+      `src/lib/requireAffected.ts`. Bulk writes are deliberately excluded — "clear all"
+      matching nothing is the outcome the user asked for.
+- [x] **`supabase/verify-admin-areas.mjs`** — 68 live checks across all four areas plus the
+      lockdown negatives: admin-only reads, report and spend arithmetic checked against
+      independently hand-written SQL, the full return lifecycle, ownership on every write,
+      and the `deduct_inventory_fifo` / `notify_user` / `is_admin_email` refusals. Wired
+      into `npm run verify`, and it asserts it left no residue behind.
+- [x] **The static guards are not decorative.** `supabase/mutation-test-sql-sync.mjs`
+      breaks each of the 20 assertions in `verify-sql-sync.mjs` in turn and requires every
+      one to fail. Also wired into `npm run verify`.
+
 ## 👉 User follow-up (no code)
 
-- [ ] **Create the `hibbullah_avatars` unsigned upload preset** in the Cloudinary console: unsigned, folder-scoped to `avatars/`. The existing `hibbullah_products` preset is scoped to `products/`, so Cloudinary rejects avatar uploads until this exists.
-- [ ] **Set the Cloudinary secrets and deploy the function**:
-      `supabase secrets set CLOUDINARY_API_SECRET=… CLOUDINARY_API_KEY=… CLOUDINARY_CLOUD_NAME=eomwaokm`
-      `supabase functions deploy delete-cloudinary-asset`
-      Until then "remove picture" clears the database row but the file stays in Cloudinary (removal is deliberately best-effort so it is never blocked by the cleanup).
-- [ ] **Rotate the `sbp_…` Management API token** shared in chat, then apply the 6 new migrations. See `supabase/apply-fix-migration.mjs` for the shape of the script; it needs `HIBBULLAH_SUPABASE_TOKEN` and must never be run without it.
-- [ ] Apply the 6 migrations to the hosted project **and** keep `supabase/apply-to-hibbullah-hosted.sql` in sync (migrations are the source of truth; the hosted file is the bootstrap for a fresh project).
-- [ ] Sign in with both admin Gmails → confirm `role=admin` shows in app (dashboard → Auth → Users)
-- [ ] Add catalog content: categories → manufacturers → products (images optional)
-- [ ] Place & confirm a test order end-to-end
-- [ ] Rotate the `sbp_…` access token + secret/service-role keys shared in chat
-- [ ] Optional: enable `custom_access_token_hook` (not needed by app)
+Everything in this list is something only the account owner can do. It is split by whether
+the item is still owed, and the finished ones say **how** they were confirmed — a checklist
+that marks work done without saying how is worth nothing.
+
+### Still owed
+
+- [ ] **Rotate the `sbp_…` Supabase Management API token.** It was shared in chat, so treat
+      it as disclosed. Nothing can be applied or verified until a fresh one is in
+      `HIBBULLAH_SUPABASE_TOKEN`; see `supabase/apply-and-diff.mjs` for the script shape.
+- [ ] **Rotate `CLOUDINARY_API_SECRET` and the Supabase service-role keys**, which were
+      also shared in chat. The secret is live in the `delete-cloudinary-asset` function:
+      `supabase secrets set CLOUDINARY_API_SECRET=… CLOUDINARY_API_KEY=… CLOUDINARY_CLOUD_NAME=eomwaokm && supabase functions deploy delete-cloudinary-asset`.
+- [ ] **Sign in with the two other admin Gmails** — `hibbullah82026@gmail.com` and
+      `hibbullah2027@gmail.com`. They are on the allowlist but have no `auth.users` row, so
+      they cannot sign in yet; the `handle_new_user` trigger assigns `role=admin` on signup.
+      Verified still outstanding: `profiles` holds exactly one row, `icrmahin@gmail.com`.
+
+### Confirmed done
+
+- [x] **The `hibbullah_avatars` unsigned upload preset exists**, folder-scoped to
+      `avatars/`. Probed against the live Cloudinary API with a stub image: the preset
+      resolves and authorises the upload, failing only at the image decoder — a missing
+      preset is rejected before it ever gets that far.
+- [x] **The Cloudinary secrets are set and `delete-cloudinary-asset` is deployed** —
+      `npm run verify:edge` and `npm run verify:avatar` exercise the live function.
+- [x] **Every migration is applied to the hosted project and the bootstrap is in sync** —
+      `npm run verify:sql-sync` diffs `supabase/apply-to-hibbullah-hosted.sql` against all
+      of `supabase/migrations/` and reports `IN SYNC` across 36.
+- [x] **Catalog content exists** — one category, one manufacturer, one product
+      (`Napa 500 mg Tablet`).
+- [x] **An order was placed and driven to `DELIVERED` end to end** by
+      `npm run verify:lifecycle` (57 checks: address → cart → `create_order` → status
+      transitions → FIFO stock deduction → notifications). Proven by script, not by a
+      person tapping the app — see the browser item below.
+- [x] `custom_access_token_hook` — deliberately not enabled; the app does not need it.
 
 ## 🔬 Verification still owed
 
 - [ ] Seed ~4,000 products, then capture `explain (analyze, buffers)` for `browse_products` and `search_products` before/after. The indexes and the two-function split are designed for it, but the numbers have not been measured.
 - [ ] If trigram similarity returns noise for 2–3 character terms, fall back to prefix-only ranking in `search_products` (the default 0.3 threshold should already suppress it — unverified).
-- [ ] Compare the layout in a real browser at 390 / 768 / 1440 px. Never done in this session.
+- [ ] **Look at every screen in a real browser at 390 / 768 / 1440 px.** Never done. No
+      desktop browser was attached during any of this work, so every UI change has been
+      checked by types, lint, a clean web export and the database — and not once by a human
+      eye. This is the largest gap in the project.
+- [ ] Local `supabase db reset` sanity check (needs Docker). The migrations this session
+      were applied to the hosted project over the Management API instead, so a cold start
+      from the files is the one path never exercised.
 
 ## 🔜 Backlog ideas
 
-- [ ] Dedicated admin Categories & Manufacturers management screens (creation is inline in ProductForm and in the searchable pickers)
+- [ ] **Refine the dashboard's earning / sales / order / log cards** — the admin dashboard
+      summary cards are the weakest part of the app.
+- [ ] **Fix the card layout** — card sizing and gutters are inconsistent between the admin
+      and customer surfaces.
+- [ ] Dedicated admin Categories & Manufacturers management screens (creation is inline in ProductForm and in the searchable pickers).
 - [ ] First-run admin help banner for empty catalog
-- [ ] Local `supabase db reset` sanity check (needs Docker)
+- [ ] Give each suite its own residue assertion in `clean-test-data.mjs`, so an interrupted
+      run reports itself instead of waiting to be noticed.

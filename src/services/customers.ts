@@ -13,12 +13,23 @@ export interface CustomerRecord {
   createdAt: string
 }
 
+/**
+ * PostgREST's codes for "there is no such function in the schema cache".
+ *
+ * `PGRST202` is what it reports for a missing function; `42883` is the SQLSTATE for an
+ * undefined function, which is what surfaces if the call reaches Postgres without a cached
+ * entry. Either one means the RPC is absent, which is the only situation the client-side
+ * fallback is for.
+ */
+const RPC_MISSING = new Set(['PGRST202', '42883'])
+
 export async function fetchCustomers(query?: string, options?: { limit?: number; offset?: number }): Promise<CustomerRecord[]> {
   const limit = options?.limit ?? 20
   const offset = options?.offset ?? 0
   const trimmed = query?.trim() || null
 
-  // Try RPC server-side aggregation (paginated, filtered)
+  // Server-side aggregation: filtered and paginated in the database, which is what keeps
+  // the customers screen usable at 4,000 products rather than paging by hand.
   const { data: rpcData, error: rpcError } = await supabase.rpc('get_customers_with_stats', {
     p_query: trimmed,
     p_limit: limit,
@@ -36,10 +47,15 @@ export async function fetchCustomers(query?: string, options?: { limit?: number;
       createdAt: p.created_at,
     }))
   }
-  if (rpcError) {
-    // If RPC missing/permissions, fallback silently; otherwise surface AppError
-    const appErr = supabaseErrorToAppError(rpcError)
-    if (appErr.type !== 'UNEXPECTED') throw appErr
+  // The fallback below exists for one narrow case: a database that has not had the RPC
+  // deployed yet. It used to run for *any* RPC error, which turned a real refusal into a
+  // silent empty list — the customers RPC raises "Only admins can query customers" for a
+  // non-admin, that message matches no branch in supabaseErrorToAppError, so it arrived as
+  // UNEXPECTED and the fallback answered with zero customers instead of an error.
+  //
+  // Only "this function does not exist" may fall through. Anything else propagates.
+  if (rpcError && !RPC_MISSING.has(rpcError.code ?? '')) {
+    throw supabaseErrorToAppError(rpcError)
   }
 
   // Fallback to client-side (legacy) if RPC not yet deployed
@@ -51,19 +67,26 @@ export async function fetchCustomers(query?: string, options?: { limit?: number;
     .range(offset, offset + limit - 1)
   if (error) throw supabaseErrorToAppError(error)
 
-  let q = query?.trim().toLowerCase() || ''
-  if (q) {
-    // server filter in fallback: crude ilike via or (covers basic search)
-    // if RPC failed, we already have page; filter locally as before
+  // Scoped to the customers on this page rather than the whole orders table, and filtered
+  // to exclude cancelled orders so the fallback agrees with the RPC. It used to read every
+  // order row in the shop to build a map keyed by customer, and counted cancelled orders as
+  // money spent — the two screens would then show different totals for the same customer
+  // depending on whether the RPC was reachable.
+  const pageIds = (profiles || []).map((p: any) => p.id as string)
+  let orders: any[] = []
+  if (pageIds.length > 0) {
+    const { data: orderRows } = await supabase
+      .from('orders')
+      .select('customer_id, total, status')
+      .in('customer_id', pageIds)
+    orders = (orderRows || []) as any[]
   }
 
-  const { data: orders } = await supabase.from('orders').select('customer_id, total')
-
   const stats = new Map<string, { count: number; total: number }>()
-  for (const o of (orders || []) as any[]) {
+  for (const o of orders) {
     const s = stats.get(o.customer_id) || { count: 0, total: 0 }
     s.count += 1
-    s.total += Number(o.total || 0)
+    if (o.status !== 'CANCELLED') s.total += Number(o.total || 0)
     stats.set(o.customer_id, s)
   }
 
@@ -97,6 +120,7 @@ export async function fetchCustomerById(customerId: string): Promise<CustomerRec
     throw supabaseErrorToAppError(error)
   }
   const { data: stats, error: statsError } = await supabase.rpc('get_customer_stats', { p_customer_id: customerId })
+  if (statsError && !RPC_MISSING.has(statsError.code ?? '')) throw supabaseErrorToAppError(statsError)
   if (!statsError && stats && (stats as any[])[0]) {
     const row = (stats as any[])[0]
     return {
@@ -110,9 +134,11 @@ export async function fetchCustomerById(customerId: string): Promise<CustomerRec
       createdAt: profile.created_at,
     }
   }
-  const { data: orders } = await supabase.from('orders').select('total').eq('customer_id', customerId)
-  const orderCount = (orders || []).length
-  const totalSpent = (orders || []).reduce((sum: number, o: any) => sum + Number(o.total || 0), 0)
+  const { data: orders } = await supabase.from('orders').select('total, status').eq('customer_id', customerId)
+  const rows = (orders || []) as any[]
+  const orderCount = rows.length
+  // Cancelled orders are counted but not charged, matching the RPC's filter above.
+  const totalSpent = rows.reduce((sum: number, o: any) => (o.status === 'CANCELLED' ? sum : sum + Number(o.total || 0)), 0)
   return {
     id: profile.id,
     name: profile.name,

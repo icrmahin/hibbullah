@@ -8,6 +8,7 @@ import ErrorState from '../../../components/common/ErrorState';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useAdminInventory } from '../../../hooks/useAdmin';
 import spacing from '../../../constants/spacing';
+import { config } from '../../../constants/config';
 import { formatDate } from '../../../utils/date';
 
 export default function ExpiryManagementScreen() {
@@ -32,8 +33,12 @@ export default function ExpiryManagementScreen() {
     );
   }
 
+  // The window comes from config rather than a literal, because this screen and the
+  // reports screen answer the same question — what is expiring soon — and they were
+  // answering it differently: 90 days here, config's 60 everywhere else. An admin who
+  // compared the two numbers had no way to tell which was the real threshold.
   const now = new Date();
-  const in90 = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const inWindow = new Date(now.getTime() + config.expiryWarningDays * 24 * 60 * 60 * 1000);
   const batches = (data || [])
     .map((row: any) => ({
       id: row.id,
@@ -42,7 +47,7 @@ export default function ExpiryManagementScreen() {
       quantity: row.quantity,
       expiryDate: row.expiry_date,
     }))
-    .filter((b) => b.expiryDate && new Date(b.expiryDate) <= in90)
+    .filter((b) => b.expiryDate && new Date(b.expiryDate) <= inWindow)
     .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
 
   return (
@@ -50,7 +55,10 @@ export default function ExpiryManagementScreen() {
       <AdminHeader title="Expiry" subtitle="Monitor expiring batches" />
       <ScrollView contentContainerStyle={styles.container}>
         {batches.length === 0 ? (
-          <EmptyState title="Nothing expiring" message="No batches expire within the next 90 days." />
+          <EmptyState
+            title="Nothing expiring"
+            message={`No batches expire within the next ${config.expiryWarningDays} days.`}
+          />
         ) : (
           batches.map((item) => (
             <View

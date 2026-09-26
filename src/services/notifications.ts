@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { mapNotification } from '../lib/mappers'
+import { requireAffected } from '../lib/requireAffected'
 import { NOTIFICATION_LIMIT } from '../constants/limits'
 import type { NotificationItem } from '../types/notification'
 
@@ -30,12 +31,16 @@ export async function fetchNotifications(
 }
 
 export async function markNotificationAsRead(notificationId: string, userId: string): Promise<void> {
-  const { error } = await supabase
+  // One row, so the write is checked. A user tapping a notification that has already been
+  // trimmed away by the cap, or that is not theirs, was previously told it worked.
+  const { data, error } = await supabase
     .from('notifications')
     .update({ read: true })
     .eq('id', notificationId)
     .eq('user_id', userId)
+    .select('id')
   if (error) throw error
+  requireAffected(data, 'this notification')
 }
 
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
@@ -56,6 +61,10 @@ export async function markAllNotificationsAsRead(userId: string): Promise<void> 
  * with RLS — it is what keeps the intent obvious, and RLS is the backstop.
  */
 export async function clearAllNotifications(userId: string): Promise<void> {
+  // Deliberately not checked with `requireAffected`, unlike the single-row writes in this
+  // file. A bulk clear that matched nothing means there was nothing to clear, which is the
+  // outcome the user asked for -- raising "nothing was updated" at someone who just
+  // emptied an already-empty list would be a bug, not a safety net.
   const { error } = await supabase.from('notifications').delete().eq('user_id', userId)
   if (error) throw error
 }

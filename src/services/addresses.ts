@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { mapAddress } from '../lib/mappers'
+import { requireAffected } from '../lib/requireAffected'
 import type { Address } from '../types/address'
 
 function toDbAddress(userId: string, address: Partial<Address>) {
@@ -65,12 +66,17 @@ export async function updateAddress(addressId: string, userId: string, updates: 
 }
 
 export async function deleteAddress(addressId: string, userId: string): Promise<void> {
-  const { error } = await supabase
+  // Verified, not assumed. A DELETE that matches nothing answers 204 exactly like one that
+  // matched, so the bin button used to report success while the address stayed put — which
+  // is the same "it did not work" symptom as the dialog that never opened.
+  const { data, error } = await supabase
     .from('addresses')
     .delete()
     .eq('id', addressId)
     .eq('user_id', userId)
+    .select('id')
   if (error) throw error
+  requireAffected(data, 'this address')
 }
 
 export async function setDefaultAddress(userId: string, addressId: string): Promise<void> {
@@ -82,10 +88,15 @@ export async function setDefaultAddress(userId: string, addressId: string): Prom
     .eq('is_default', true)
 
   // Then set the new default
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('addresses')
     .update({ is_default: true, updated_at: new Date().toISOString() })
     .eq('id', addressId)
     .eq('user_id', userId)
+    .select('id')
   if (error) throw error
+  // Checked, because the step above has already cleared the previous default. If this one
+  // matched nothing the user is left with no default address at all, having been told
+  // nothing went wrong.
+  requireAffected(data, 'this address')
 }

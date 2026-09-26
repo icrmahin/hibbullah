@@ -75,6 +75,7 @@ const PREFIXES = [
   'LC Cat %', // verify-lifecycle.mjs (categories)
   'LC Maker %', // verify-lifecycle.mjs (manufacturers)
   'Notif Maker %', // verify-notifications.mjs
+  'aa-%', // verify-admin-areas.mjs (products, categories, manufacturers, orders)
 ]
 
 /**

@@ -9,7 +9,7 @@ import { useThemeColors } from '../../../providers/ThemeProvider';
 import spacing from '../../../constants/spacing';
 import typography from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
-import { fetchSalesReport, fetchInventoryReport } from '../../../services/reports';
+import { fetchReports } from '../../../services/reports';
 
 export default function AdminReportsScreen() {
   const colors = useThemeColors();
@@ -22,7 +22,7 @@ export default function AdminReportsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [s, inv] = await Promise.all([fetchSalesReport(), fetchInventoryReport()]);
+      const { sales: s, inventory: inv } = await fetchReports();
       setSales(s);
       setInventory(inv);
     } catch (e: any) {

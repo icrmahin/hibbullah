@@ -303,6 +303,263 @@ report(
   'checkout does not show the cart page\'s address-free delivery figure',
 )
 
+// ── SECURITY DEFINER functions must not be reachable by a logged-out visitor ─────────
+//
+// Postgres grants EXECUTE to PUBLIC on a new function by default, so every SECURITY
+// DEFINER function created without an explicit GRANT was callable by `anon` — including
+// the project's public publishable key, which ships inside the web bundle. A definer
+// function runs as its owner and so ignores the RLS on the tables underneath, which made
+// the inherited grant a way straight past those policies. Five were exploitable that way
+// and all five were confirmed against the live database: the customer list (every name,
+// email, phone and lifetime spend), a single customer's stats, stock destruction,
+// notification injection into a real account, and an admin-email oracle.
+//
+// The check is on the migration text, not on a live connection, so it runs in CI and in a
+// fresh checkout with no credentials. It is deliberately narrow — asserting "every definer
+// function has a guard" would fail on the trigger functions, which cannot be called over
+// PostgREST at all, and a check that is permanently red gets ignored.
+//
+// Two things are asserted instead, because together they are what actually closes the
+// hole: a function that reads protected tables must check is_admin() in its body, and a
+// helper that no screen calls directly must have had EXECUTE revoked.
+const LOCKDOWN_MIGRATION = `${MIGRATIONS_DIR}/20260928010000_secdef_grants_and_guards.sql`
+const REPORTS_MIGRATION = `${MIGRATIONS_DIR}/20260928020000_reports_and_customer_spend.sql`
+
+// Functions a screen calls directly, which therefore need an in-body authorisation check
+// rather than a revoked grant. Named here instead of derived from the code so that adding
+// a screen is a deliberate act: the failure mode of deriving it is a new RPC quietly
+// arriving without a guard, which is the bug this section exists to prevent.
+const DIRECTLY_CALLED = [
+  'public.get_customers_with_stats',
+  'public.get_customer_stats',
+  'public.get_reports',
+  'public.create_order',
+  'public.validate_return',
+]
+
+// Functions that are only ever reached from inside another definer function or from a
+// trigger, and so must be unreachable directly. Owners keep EXECUTE implicitly, which is
+// what lets the revoke be total.
+const INTERNAL_ONLY = [
+  'public.deduct_inventory_fifo',
+  'public.notify_user',
+  'public.is_admin_email',
+  'public.rls_auto_enable',
+]
+
+// The LAST definition of each function across the migration set, for the same reason the
+// delivery-fee checks above read only the last create_order: the bootstrap replays every
+// historical definition, and globbing all of them would validate superseded copies.
+const latestBodies = (() => {
+  const out = new Map()
+  for (const m of migrations) for (const [k, v] of functionBodies(m.sql)) out.set(k, v)
+  return out
+})()
+
+/** Every migration's text, for the grant assertions below. */
+const allMigrationSql = migrations.map((m) => m.sql).join('\n')
+
+for (const fn of DIRECTLY_CALLED) {
+  const body = latestBodies.get(fn) ?? ''
+  report(
+    /if\s+not\s+public\.is_admin\(\)\s+then|if\s+auth\.uid\(\)\s+is\s+distinct\s+from\s+p_customer_id\s+then/.test(
+      body,
+    ),
+    `${fn} authorises its caller in-body (is_admin or own-customer)`,
+  )
+}
+
+for (const fn of INTERNAL_ONLY) {
+  const ident = fn.replace('public.', '')
+  // Matched loosely on the name and argument list so the check does not break if an
+  // argument gains a default; what it must prove is that a revoke exists and names all
+  // three of public/anon/authenticated.
+  //
+  // The revokes are read out of the migration text rather than the catalog because this
+  // file is a static check that runs with no database credentials. `verify-admin-areas.mjs`
+  // asserts the same property against the live grants, which is what proves the statement
+  // here actually took effect rather than merely being present in a file.
+  const revoke = allMigrationSql.match(
+    new RegExp(`revoke\\s+all\\s+on\\s+function\\s+public\\.${ident}\\s*\\([^)]*\\)[^;]*;`, 'i'),
+  )?.[0]
+  report(
+    Boolean(revoke) && /from\s+public\s*,\s*anon\s*,\s*authenticated/i.test(revoke),
+    `${fn} is revoked from public, anon and authenticated`,
+    revoke ? '' : 'no matching revoke statement in the migrations',
+  )
+}
+
+// is_admin is the deliberate exception and must stay executable, because the RLS policies
+// on twenty-four tables evaluate it for role `public`. Revoking it would turn every
+// anonymous read of products or categories into a permission error rather than an empty
+// result, so its openness is load-bearing and is asserted as such.
+const isAdminBody = latestBodies.get('public.is_admin') ?? ''
+report(
+  /auth\.users/.test(isAdminBody) && /is_admin_email/.test(isAdminBody),
+  'is_admin is the single admin predicate, delegating to is_admin_email',
+)
+// is_admin() IS revoked from PUBLIC, in three historical migrations and deliberately: RLS
+// policies evaluate as the invoking role, so leaving it open to PUBLIC would expose the
+// admin allowlist to a logged-out visitor. `anon` and `authenticated` keep EXECUTE
+// explicitly, which is what the twenty-four public policies need — proven live, since
+// anonymous reads of products and categories still work.
+//
+// So the assertion is about the *role* grants, not the absence of a revoke. This is also
+// where the first version of this check was wrong twice over: it forbade any revoke
+// mentioning is_admin, which the migrations legitimately contain, and its subject was
+// ambiguous anyway, because `is_admin()` and `is_admin_email()` differ by one underscore.
+const isAdminRevokes = (allMigrationSql.match(/revoke\s+[^;]*?on\s+function\s+public\.is_admin\s*\(\s*\)[^;]*;/gi) ?? [])
+report(
+  isAdminRevokes.every((r) => /from\s+public\b/i.test(r) && !/from[^;]*\banon\b/i.test(r)),
+  'is_admin is never revoked from anon, which the public RLS policies require',
+  isAdminRevokes.length ? isAdminRevokes[0].replace(/\s+/g, ' ').slice(0, 110) : 'no revoke of is_admin found',
+)
+
+// The lockdown and report RPCs must also be in the bootstrap, or a rebuilt project comes
+// up without the guards. The generic "all migrated functions are in the bootstrap" check
+// above already covers membership; what is added here is that the *bootstrap* copy is not
+// an older, unguarded body — that is the specific way a rebuild would silently lose this.
+// The lockdown and report RPCs must also be in the bootstrap, or a rebuilt project comes
+// up without the guards. The generic "all migrated functions are in the bootstrap" check
+// above already covers membership; what is added here is that the *bootstrap* copy is not
+// an older, unguarded body — that is the specific way a rebuild would silently lose this.
+//
+// Each function is checked only in the files that should define it. get_reports does not
+// exist until the reports migration, so expecting it in the lockdown migration would fail
+// for a reason that has nothing to do with the property being asserted.
+for (const [file, label, expected] of [
+  [HOSTED, 'bootstrap', ['public.get_customers_with_stats', 'public.get_reports']],
+  [LOCKDOWN_MIGRATION, 'lockdown migration', ['public.get_customers_with_stats', 'public.get_customer_stats', 'public.create_order', 'public.validate_return']],
+  [REPORTS_MIGRATION, 'reports migration', ['public.get_reports', 'public.get_customers_with_stats']],
+]) {
+  const bodies = functionBodies(readFileSync(file, 'utf8'))
+  for (const fn of expected) {
+    const body = bodies.get(fn)
+    report(
+      Boolean(body) && /is_admin\(\)|is\s+distinct\s+from\s+p_customer_id/.test(body),
+      `${label}: ${fn} is present and authorised in-body`,
+    )
+  }
+}
+
+// The app must ask for its reports through the aggregating RPC rather than reading the
+// tables, which is what the RPC exists to stop. Asserted because the regression is
+// invisible in review — a `.from('products').select(...)` in a service file reads as
+// perfectly ordinary code, and the 4,000-product cost only shows up in production.
+const reportsTs = readFileSync('src/services/reports.ts', 'utf8')
+report(
+  /rpc\(\s*'get_reports'/.test(reportsTs) && !/\.from\('/.test(reportsTs),
+  'src/services/reports.ts aggregates through get_reports instead of reading tables',
+)
+report(
+  /config\.lowStockThreshold/.test(reportsTs) && /config\.expiryWarningDays/.test(reportsTs),
+  'src/services/reports.ts takes its thresholds from config rather than hard-coding them',
+)
+// The two windows the app uses for the same question. They were 90 days in the reports
+// screen and config.expiryWarningDays (60) everywhere else, so the reports screen and the
+// expiry screen disagreed about what "expiring soon" meant.
+const expiryScreen = readFileSync('src/app/(admin)/inventory/expiry.tsx', 'utf8')
+report(
+  !/\b90\s*\*\s*24\s*\*\s*60\s*\*\s*60\s*\*\s*1000/.test(expiryScreen),
+  'the expiry screen no longer hard-codes a 90-day window',
+)
+report(
+  /config\.expiryWarningDays/.test(expiryScreen),
+  'the expiry screen reads config.expiryWarningDays',
+)
+
+// ── the audit log has to be able to show what changed ──────────────────────────────
+//
+// `audit_entries` carries `old_value` and `new_value`, the mapper turns them into strings,
+// and the type declares the fields -- and the screen rendered none of them, so every entry
+// read as "UPDATE · order_items, System, 22:13:10". The data was arriving; only the display
+// was missing, which is why nothing about the log looked broken.
+//
+// These assert the diffing holds up on the shapes the database actually produces, rather
+// than merely that the file parses. A change that made it render nothing would be invisible
+// in review, because the code still type-checks and the screen still compiles.
+const auditDiffTs = readFileSync('src/utils/auditDiff.ts', 'utf8')
+const auditScreenTs = readFileSync('src/app/(admin)/audit/index.tsx', 'utf8')
+const auditMapperTs = readFileSync('src/lib/mappers.ts', 'utf8')
+
+for (const [why, re] of [
+  ['renders a value that is present', /if \(value === null \|\| value === undefined\) return null/],
+  ['never returns an empty string for a value it has', /return json\.length > 60/],
+  ['compares rendered values so 120 and "120" are not a change', /render\(a\) === render\(b\)/],
+  ['parses defensively, so a malformed blob costs detail not the screen', /catch \{\s*return \{\}/],
+  ['excludes the row primary key', /IGNORED = new Set\(\['id'\]\)/],
+]) {
+  report(re.test(auditDiffTs), `src/utils/auditDiff.ts ${why}`)
+}
+
+// Matched on the *call*, not on the word appearing anywhere in the file. The first version
+// of this matched bare `AuditChange`, which is still present as the component's own
+// definition — so deleting the one line that renders it left the check green while the
+// screen went back to showing nothing but the action. A guard has to point at the thing it
+// is guarding, and the definition of a component is not its use.
+report(
+  /<AuditChange\s+entry=\{entry\}\s*\/>/.test(auditScreenTs),
+  'the audit screen renders the changed fields, not just the action',
+)
+report(
+  /diffAuditValues\(\s*entry\.oldValue\s*,\s*entry\.newValue\s*\)/.test(auditScreenTs),
+  'the audit screen diffs the values the mapper actually populated',
+)
+// The cap must be honest: a card that silently drops fields claims to show the change
+// while hiding part of it.
+report(
+  /hidden\s*>\s*0/.test(auditScreenTs),
+  'the audit screen says when it is not showing every changed field',
+)
+// Both the read and the write are asserted. Matching only the column name passed even when
+// the mapper had stopped carrying the values, because the type declaration that documents
+// them still named both columns — so the check was satisfied by a comment.
+const auditMapperBody = auditMapperTs.slice(auditMapperTs.indexOf('export function mapAuditEntry'))
+report(
+  /row\.old_value/.test(auditMapperBody) && /row\.new_value/.test(auditMapperBody),
+  'mapAuditEntry reads old_value and new_value off the row',
+)
+// Asserted as "the assigned value derives from the row", not "the key appears". The key is
+// present in a mutation that assigns `undefined` to it, which is precisely the regression
+// this is here to catch -- a screen that silently loses every diff it used to show.
+const derives = (field) => new RegExp(`${field}:\\s*[^,\\n]*${field.replace('Value', '_value')}`)
+report(
+  derives('oldValue').test(auditMapperBody) && derives('newValue').test(auditMapperBody),
+  'mapAuditEntry derives the entry values from the row rather than hard-coding them',
+)
+
+// ── a write that changed nothing must not report success ─────────────────────────────
+//
+// PostgREST answers an UPDATE or DELETE matching no rows with the same 204 as one that
+// matched, and supabase-js turns that into a resolved promise with no error. A service
+// that only checks `if (error) throw` therefore reports success for a write that changed
+// nothing -- indistinguishable from a real one.
+//
+// This is not theoretical. The admin returns screen approves a return by PATCHing on the
+// id behind an `using: is_admin()` policy, so a declined write answers a cheerful 204; and
+// the address delete behind the bin button, one of the two bugs reported as "does not
+// work", reported success while leaving the address in place.
+//
+// The four functions below name a single row, where zero affected means the row is gone or
+// not the caller's. Bulk writes are deliberately excluded: `clearAllNotifications`
+// matching nothing is the outcome the user asked for, and a guard that flagged it would be
+// a bug rather than a safety net.
+for (const [file, fn] of [
+  ['src/services/returns.ts', 'updateReturnStatus'],
+  ['src/services/addresses.ts', 'deleteAddress'],
+  ['src/services/addresses.ts', 'setDefaultAddress'],
+  ['src/services/notifications.ts', 'markNotificationAsRead'],
+]) {
+  const src = readFileSync(file, 'utf8')
+  const start = src.indexOf(`export async function ${fn}(`)
+  const body = start === -1 ? '' : src.slice(start, src.indexOf('\n}', start))
+  report(
+    start !== -1 && /\.select\(/.test(body) && /requireAffected\(/.test(body),
+    `${file} ${fn} checks that its write reached a row`,
+    start === -1 ? 'the function was not found' : /\.select\(/.test(body) ? 'no requireAffected() call' : 'no .select(), so the write cannot be verified',
+  )
+}
+
 // ── the guards the live project relies on ──────────────────────────────────────────
 const ORDER_MIGRATION = `${MIGRATIONS_DIR}/20260927010000_create_order_require_own_address.sql`
 for (const [file, label] of [

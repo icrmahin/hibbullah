@@ -13,6 +13,44 @@ import { formatDateTime } from '../../../utils/date';
 import { fetchAuditEntries } from '../../../services/audit';
 import { AUDIT_LOG_LIMIT } from '../../../constants/limits';
 import type { AuditEntry } from '../../../types/audit';
+import { diffAuditValues } from '../../../utils/auditDiff';
+
+/**
+ * What actually changed, for one audit entry.
+ *
+ * The action and the record type say that a row moved; only these lines say where it went.
+ * An INSERT has no previous value and a DELETE has no new one, so each end is labelled from
+ * the action rather than showing a bare arrow to nothing.
+ */
+function AuditChange({ entry }: { entry: AuditEntry }) {
+  const colors = useThemeColors();
+  const { changes, hidden } = diffAuditValues(entry.oldValue, entry.newValue);
+
+  if (changes.length === 0) return null;
+  const verb = entry.action === 'INSERT' ? 'set' : entry.action === 'DELETE' ? 'was' : 'changed';
+
+  return (
+    <View style={styles.changeBox}>
+      {changes.map((c) => (
+        <Text key={c.field} style={[styles.change, { color: colors.textSecondary }]}>
+          <Text style={{ color: colors.textMuted }}>{c.field} </Text>
+          {entry.action === 'INSERT' ? (
+            <Text style={{ color: colors.text }}>{verb} to {c.to}</Text>
+          ) : entry.action === 'DELETE' ? (
+            <Text style={{ color: colors.text }}>{verb} {c.from}</Text>
+          ) : (
+            <Text style={{ color: colors.text }}>
+              {c.from ?? '—'} → {c.to ?? '—'}
+            </Text>
+          )}
+        </Text>
+      ))}
+      {hidden > 0 ? (
+        <Text style={[styles.change, { color: colors.textMuted }]}>+{hidden} more</Text>
+      ) : null}
+    </View>
+  );
+}
 
 export default function AuditLogScreen() {
   const colors = useThemeColors();
@@ -83,6 +121,7 @@ export default function AuditLogScreen() {
                 <Text style={[styles.action, { color: colors.text }]}>{entry.action} · {entry.recordType}</Text>
                 <Text style={[styles.meta, { color: colors.textMuted }]}>{entry.actorName}</Text>
                 <Text style={[styles.meta, { color: colors.textMuted }]}>{formatDateTime(entry.timestamp)}</Text>
+                <AuditChange entry={entry} />
               </View>
             ))}
           </>
@@ -103,4 +142,12 @@ const styles = StyleSheet.create({
   },
   action: { fontSize: typography.body, fontWeight: '700' },
   meta: { fontSize: typography.bodySmall, marginTop: spacing.xs },
+  changeBox: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128,128,128,0.25)',
+    gap: 2,
+  },
+  change: { fontSize: typography.bodySmall, lineHeight: 18 },
 });
