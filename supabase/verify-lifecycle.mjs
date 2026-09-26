@@ -247,9 +247,12 @@ try {
   check(placed.status === 200 && Boolean(orderId), `the order is created (HTTP ${placed.status})`, placed.text.slice(0, 200))
 
   const order = (await api(`/rest/v1/orders?id=eq.${orderId}&select=*,order_items(*)`, { token: adminUser.token })).json?.[0]
+  // 80, not the old flat 150: this address is in Dhaka District, which is the reduced-rate
+  // zone. Asserted here as well as in the pricing section below because this is the order
+  // the rest of the suite walks through, so a wrong fee on *this* row breaks the money.
   check(
-    order?.status === 'PENDING' && order?.subtotal === PRICE * 3 && order?.delivery_fee === 150 && order?.total === PRICE * 3 + 150,
-    'its money adds up: subtotal + fee = total',
+    order?.status === 'PENDING' && order?.subtotal === PRICE * 3 && order?.delivery_fee === 80 && order?.total === PRICE * 3 + 80,
+    'its money adds up: subtotal + reduced Dhaka fee = total',
     `subtotal=${order?.subtotal} fee=${order?.delivery_fee} total=${order?.total} status=${order?.status}`,
   )
   check(String(order?.address ?? '').includes('42 Lifecycle Road'), 'and it carries the chosen address', `address=${JSON.stringify(order?.address)}`)
@@ -265,6 +268,105 @@ try {
 
   const emptied = await api(`/rest/v1/cart_items?user_id=eq.${customer.id}&select=id`, { token: customer.token })
   check(emptied.json?.length === 0, 'and the cart is empty afterwards, so the badge does not lie', emptied.text.slice(0, 200))
+
+  // ── delivery pricing by district ─────────────────────────────────────────────
+  // The fee is the one number where a silent error is a direct financial one: the customer
+  // is quoted a total, a different total is charged, and no error is raised anywhere --
+  // the order just looks wrong when it arrives. These walk the actual pricing function
+  // through create_order for every shape of district input.
+  //
+  // Each case needs its own throwaway customer because create_order reuses an existing
+  // PENDING order per customer rather than making a second one, so a second case on the
+  // same customer would append to the first order and assert the wrong thing.
+  head('Delivery pricing by district')
+
+  const INSIDE = 80
+  const OUTSIDE = 150
+
+  /** Sign up a throwaway customer, save an address in `county`, and place a 1-line order. */
+  const priceOrderIn = async (county, tag) => {
+    const who = await signUp({ email: `lc-cust-fee-${stamp}-${tag}@hibbullah.test`, password: `LcFee-${stamp}-${tag}-Aa1!` })
+    const addr = await api('/rest/v1/addresses', {
+      method: 'POST',
+      token: who.token,
+      prefer: 'return=representation',
+      body: { label: 'Home', street: '1 Fee Lane', city: 'Town', county, postal_code: '1205', is_default: true, user_id: who.id },
+    })
+    await api('/rest/v1/cart_items', { method: 'POST', token: who.token, body: { user_id: who.id, product_id: fix.product, quantity: 1 } })
+    const placed = await api('/rest/v1/rpc/create_order', { method: 'POST', token: who.token, body: { p_customer_id: who.id, p_address_id: addr.json?.[0]?.id } })
+    const row = (await api(`/rest/v1/orders?id=eq.${placed.json}&select=delivery_fee,total,subtotal,discount`, { token: who.token })).json?.[0]
+    return { who, addrId: addr.json?.[0]?.id, row }
+  }
+
+  for (const [i, [county, expected, why]] of [
+    ['Dhaka', INSIDE, 'Dhaka District gets the reduced rate'],
+    [' dhaka ', INSIDE, 'and it is matched regardless of case or padding'],
+    ['Chattogram', OUTSIDE, 'Chattogram District pays the standard rate'],
+    // The distinction the whole split exists for. Gazipur is in Dhaka *Division* and is a
+    // short drive from the city, but it is not Dhaka District, so it must not quietly get
+    // the reduced price.
+    ['Gazipur', OUTSIDE, 'Gazipur — Dhaka Division but not Dhaka District — still pays the standard rate'],
+    ['Narayanganj', OUTSIDE, 'and likewise Narayanganj'],
+    [null, OUTSIDE, 'a missing district pays the standard rate'],
+    ['', OUTSIDE, 'and so does an empty one'],
+    ['NotADistrict', OUTSIDE, 'an unrecognised district pays the standard rate rather than undercharging'],
+  ].entries()) {
+    // The tag is the loop index, not the district. GoTrue lowercases every email, so
+    // tagging by district made "Dhaka" and " dhaka " collide into one account and the
+    // second case failed with user_already_exists -- a fixture bug that reads like a
+    // pricing bug and would have hidden a real one.
+    const { row } = await priceOrderIn(county, `case${i}`)
+    check(
+      Number(row?.delivery_fee) === expected && Number(row?.total) === Number(row?.subtotal) - Number(row?.discount ?? 0) + expected,
+      why,
+      `county=${JSON.stringify(county)} fee=${row?.delivery_fee} total=${row?.total} subtotal=${row?.subtotal}`,
+    )
+  }
+
+  // The bug the repricing change exists for. create_order reuses the PENDING order, and it
+  // used to carry the existing fee forward via `coalesce(v_existing_delivery_fee, ...)`.
+  // While the fee was a constant that was harmless. Once it depends on the address, a
+  // customer who adds an item after switching to a cheaper zone keeps paying the old,
+  // higher fee against a checkout total that says otherwise -- and nothing reports it.
+  const switcher = await signUp({ email: `lc-cust-fee-${stamp}-switch@hibbullah.test`, password: `LcFee-${stamp}-switch-Aa1!` })
+  // Only the first address may be the default: `idx_addresses_default_per_user` is a unique
+  // partial index on (user_id) where is_default. Marking the second one default too made
+  // the insert fail, and the resulting create_order call omitted p_address_id entirely --
+  // which surfaced as a confusing PGRST202 "no such function" rather than the index
+  // violation that actually caused it.
+  const mkAddr = async (county, isDefault) => (
+    await api('/rest/v1/addresses', {
+      method: 'POST', token: switcher.token, prefer: 'return=representation',
+      body: { label: 'Work', street: '2 Zone Road', city: 'Town', county, postal_code: '1205', is_default: isDefault, user_id: switcher.id },
+    })
+  ).json?.[0]?.id
+  const chattogramAddr = await mkAddr('Chattogram', true)
+  const dhakaAddr = await mkAddr('Dhaka', false)
+
+  await api('/rest/v1/cart_items', { method: 'POST', token: switcher.token, body: { user_id: switcher.id, product_id: fix.product, quantity: 1 } })
+  const firstPlace = await api('/rest/v1/rpc/create_order', { method: 'POST', token: switcher.token, body: { p_customer_id: switcher.id, p_address_id: chattogramAddr } })
+  const firstFee = (await api(`/rest/v1/orders?id=eq.${firstPlace.json}&select=delivery_fee`, { token: switcher.token })).json?.[0]?.delivery_fee
+  check(Number(firstFee) === OUTSIDE, 'a Chattogram order is first charged the standard rate', `fee=${firstFee}`)
+
+  // Add another item and place again against the Dhaka address.
+  await api('/rest/v1/cart_items', { method: 'POST', token: switcher.token, body: { user_id: switcher.id, product_id: fix.product, quantity: 1 } })
+  const secondPlace = await api('/rest/v1/rpc/create_order', { method: 'POST', token: switcher.token, body: { p_customer_id: switcher.id, p_address_id: dhakaAddr } })
+  const after = (await api(`/rest/v1/orders?id=eq.${secondPlace.json}&select=delivery_fee,total,subtotal,address`, { token: switcher.token })).json?.[0]
+  check(
+    secondPlace.json === firstPlace.json,
+    'the second placement reuses the same PENDING order rather than forking a second invoice',
+    `first=${firstPlace.json} second=${secondPlace.json}`,
+  )
+  check(
+    Number(after?.delivery_fee) === INSIDE && Number(after?.total) === Number(after?.subtotal) + INSIDE,
+    'and REPRICES it to the new address instead of carrying the old fee forward',
+    `fee was ${firstFee}, now ${after?.delivery_fee} · subtotal=${after?.subtotal} total=${after?.total}`,
+  )
+  check(
+    String(after?.address ?? '').includes('Dhaka'),
+    'and the order now carries the address it was last placed against',
+    `address=${JSON.stringify(after?.address)}`,
+  )
 
   // ── visibility ───────────────────────────────────────────────────────────────
   head('Who can see the order')
@@ -422,11 +524,19 @@ try {
     console.error(`  !! allowlist restore failed: ${e.message}`)
   }
   try {
-    // Order matters. Every one of these deletes fires an audit trigger, which writes a new
+    // Order matters, twice over.
+    //
+    // audit_entries: every delete here fires an audit trigger, which writes a new
     // audit_entries row pointing at the throwaway profile -- so audit_entries has to be
     // cleared *after* the table deletes and *before* auth.users. Deleting it first (as this
     // did originally) fails on the FK: audit_entries_actor_id_fkey still references the
     // profile that auth.users is about to cascade away.
+    //
+    // notifications: `trg_product_stock_check` fires when the probe product is deleted and
+    // inserts an "Out of stock" alert addressed to the real admin. The first notification
+    // sweep below runs before that, so on its own it caught nothing and every run leaked one
+    // junk alert into the real account's notification list. Hence the second sweep here,
+    // after the product deletes.
     await admin(
       `delete from public.notifications where user_id in (
          select id from auth.users where email like 'lc-admin-%' or email like 'lc-cust-%' or email like 'lc-str-%');
@@ -448,6 +558,9 @@ try {
        delete from public.products where name like 'Lifecycle Probe%';
        delete from public.categories where name like 'LC Cat %';
        delete from public.manufacturers where name like 'LC Maker %';
+       delete from public.notifications
+         where title like 'Out of stock: Lifecycle Probe%'
+            or body like '%Lifecycle Probe%';
        delete from public.audit_entries where actor_id in (
          select id from auth.users where email like 'lc-admin-%' or email like 'lc-cust-%' or email like 'lc-str-%')
          or record_id in (

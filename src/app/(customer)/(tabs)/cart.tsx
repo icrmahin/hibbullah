@@ -10,6 +10,7 @@ import ErrorState from "../../../components/common/ErrorState";
 import LoadingState from "../../../components/common/LoadingState";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import spacing from "../../../constants/spacing";
+import config from "../../../constants/config";
 import { useResponsive } from "../../../hooks/useResponsive";
 import { useCart } from "../../../hooks/useCart";
 import { formatCurrency } from "../../../utils/currency";
@@ -95,8 +96,15 @@ export default function CustomerCartScreen() {
                   </View>
                   <View style={styles.summaryRow}>
                     <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Delivery</Text>
-                    <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.deliveryFee)}</Text>
+                    <Text style={[styles.summaryValue, { color: colors.text }]}>
+                      from {formatCurrency(summary.deliveryFee)}
+                    </Text>
                   </View>
+                  <Text style={[styles.summaryNote, { color: colors.textMuted }]}>
+                    {formatCurrency(config.deliveryFees.insideDhaka)} inside Dhaka District,{" "}
+                    {formatCurrency(config.deliveryFees.outsideDhaka)} elsewhere — confirmed against
+                    your address at checkout.
+                  </Text>
                   <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: colors.borderLight }]}>
                     <Text style={[styles.totalText, { color: colors.text }]}>Total</Text>
                     <Text style={[styles.totalText, { color: colors.text }]}>{formatCurrency(summary.total)}</Text>
@@ -131,8 +139,15 @@ export default function CustomerCartScreen() {
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Delivery</Text>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.deliveryFee)}</Text>
+                  <Text style={[styles.summaryValue, { color: colors.text }]}>
+                    from {formatCurrency(summary.deliveryFee)}
+                  </Text>
                 </View>
+                <Text style={[styles.summaryNote, { color: colors.textMuted }]}>
+                  {formatCurrency(config.deliveryFees.insideDhaka)} inside Dhaka District,{" "}
+                  {formatCurrency(config.deliveryFees.outsideDhaka)} elsewhere — confirmed against
+                  your address at checkout.
+                </Text>
                 <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: colors.borderLight }]}>
                   <Text style={[styles.totalText, { color: colors.text }]}>Total</Text>
                   <Text style={[styles.totalText, { color: colors.text }]}>{formatCurrency(summary.total)}</Text>
@@ -173,5 +188,6 @@ const styles = StyleSheet.create({
   totalText: { fontWeight: "800", fontSize: 14 },
   summaryLabel: { fontSize: 12 },
   summaryValue: { fontSize: 12, fontWeight: "600" },
+  summaryNote: { fontSize: 11, lineHeight: 16, marginTop: -spacing.xs },
   actionsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xs },
 });

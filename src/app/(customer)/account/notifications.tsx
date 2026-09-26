@@ -1,4 +1,5 @@
-import { ScrollView, StyleSheet, Text, View, Pressable, Alert } from "react-native";
+import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import LoadingState from "../../../components/common/LoadingState";
@@ -6,9 +7,11 @@ import ErrorState from "../../../components/common/ErrorState";
 import EmptyState from "../../../components/common/EmptyState";
 import { goBack } from "@/utils/navigation";
 import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
 import { NOTIFICATION_LIMIT } from "../../../constants/limits";
 import { useNotifications } from "../../../hooks/useNotifications";
+import { useConfirm } from "../../../hooks/useConfirm";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { normalizeError } from "../../../utils/errorHandling";
 import { formatDateTime } from "../../../utils/date";
 import Icon from "../../../components/common/Icon";
 import type { NotificationItem } from "../../../types/notification";
@@ -46,29 +49,67 @@ export default function CustomerNotificationsScreen() {
   const insets = useSafeAreaInsets();
   const { items, loading, error, reload, unreadCount, readCount, markAsRead, markAllRead, clearAll, clearRead } =
     useNotifications();
+  const { confirm, confirmDialogProps } = useConfirm();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Destructive and irreversible, so both are confirmed before they run. `clearRead` is
   // the safer of the two and is offered first, which matches the common case: someone
   // tidying up usually wants the things they have not dealt with yet to survive.
-  const confirmClearAll = () =>
-    Alert.alert(
-      "Clear all notifications?",
-      `This permanently removes all ${items.length} of your notifications. It cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Clear all", style: "destructive", onPress: () => void clearAll() },
-      ],
-    );
+  //
+  // These used to be `Alert.alert(..., [{ onPress: () => void clearAll() }])`, which is
+  // why "Clear all" did nothing on web: react-native-web's Alert is `static alert() {}`,
+  // so the button's onPress never ran. The `void` was a second, independent problem —
+  // it discarded the rejection, so even a genuinely failed clear was invisible. Both are
+  // gone: the work now runs after an await inside a try/catch that reports the failure.
+  const handleClearAll = async () => {
+    setActionError(null);
+    const ok = await confirm({
+      title: "Clear all notifications?",
+      message: `This permanently removes all ${items.length} of your notifications. It cannot be undone.`,
+      confirmLabel: "Clear all",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await clearAll();
+    } catch (e) {
+      setActionError(normalizeError(e).message);
+    }
+  };
 
-  const confirmClearRead = () =>
-    Alert.alert(
-      "Clear read notifications?",
-      `This permanently removes ${readCount} notification${readCount === 1 ? "" : "s"} you have already read. Anything unread is kept.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Clear", style: "destructive", onPress: () => void clearRead() },
-      ],
-    );
+  const handleClearRead = async () => {
+    setActionError(null);
+    const ok = await confirm({
+      title: "Clear read notifications?",
+      message: `This permanently removes ${readCount} notification${readCount === 1 ? "" : "s"} you have already read. Anything unread is kept.`,
+      confirmLabel: "Clear",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await clearRead();
+    } catch (e) {
+      setActionError(normalizeError(e).message);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    setActionError(null);
+    try {
+      await markAllRead();
+    } catch (e) {
+      setActionError(normalizeError(e).message);
+    }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    setActionError(null);
+    try {
+      await markAsRead(id);
+    } catch (e) {
+      setActionError(normalizeError(e).message);
+    }
+  };
 
   if (loading) {
     return (
@@ -79,6 +120,7 @@ export default function CustomerNotificationsScreen() {
           </Pressable>
         </View>
         <LoadingState label="Loading notifications" />
+        <ConfirmDialog {...confirmDialogProps} />
       </View>
     );
   }
@@ -92,6 +134,7 @@ export default function CustomerNotificationsScreen() {
           </Pressable>
         </View>
         <ErrorState message={error} onRetry={reload} />
+        <ConfirmDialog {...confirmDialogProps} />
       </View>
     );
   }
@@ -108,7 +151,7 @@ export default function CustomerNotificationsScreen() {
         <View style={styles.titleRow}>
           <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
           {items.length > 0 ? (
-            <Pressable onPress={() => markAllRead()} hitSlop={6}>
+            <Pressable onPress={handleMarkAllRead} hitSlop={6}>
               <Text style={[styles.markAll, { color: colors.primary }]}>Mark all read</Text>
             </Pressable>
           ) : null}
@@ -125,7 +168,7 @@ export default function CustomerNotificationsScreen() {
             ]}
           >
             <Pressable
-              onPress={confirmClearRead}
+              onPress={handleClearRead}
               disabled={readCount === 0}
               hitSlop={6}
               style={({ pressed }) => [
@@ -150,7 +193,7 @@ export default function CustomerNotificationsScreen() {
             <View style={[styles.clearDivider, { backgroundColor: colors.borderLight }]} />
 
             <Pressable
-              onPress={confirmClearAll}
+              onPress={handleClearAll}
               hitSlop={6}
               style={({ pressed }) => [styles.clearButton, pressed && { opacity: 0.6 }]}
             >
@@ -176,7 +219,7 @@ export default function CustomerNotificationsScreen() {
         ) : (
           <View style={styles.list}>
             {items.map((notification) => (
-              <Pressable key={notification.id} onPress={() => markAsRead(notification.id)} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+              <Pressable key={notification.id} onPress={() => handleMarkRead(notification.id)} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
                 <View
                   style={[
                     styles.card,
@@ -205,12 +248,19 @@ export default function CustomerNotificationsScreen() {
           </View>
         )}
 
+        {actionError ? (
+          <Text style={[styles.actionError, { color: colors.danger }]} accessibilityRole="alert">
+            {actionError}
+          </Text>
+        ) : null}
+
         {unreadCount > 0 && items.length > 0 ? (
           <Text style={[styles.footnote, { color: colors.textMuted }]}>
             {unreadCount} unread.
           </Text>
         ) : null}
       </ScrollView>
+      <ConfirmDialog {...confirmDialogProps} />
     </View>
   );
 }
@@ -234,6 +284,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 18, fontWeight: "800" },
   markAll: { fontSize: 12, fontWeight: "700" },
+  actionError: { fontSize: 12, textAlign: "center" },
   clearRow: {
     flexDirection: "row",
     alignItems: "center",

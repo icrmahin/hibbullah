@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching and derived state sync require setState inside effects */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import type { NotificationItem } from '../types/notification'
@@ -12,30 +12,49 @@ export function useNotifications() {
   const [error, setError] = useState<string | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
 
+  // Monotonic request id; only the newest load may write. See the long note in
+  // useAddresses for why this is needed.
+  //
+  // This hook is the one place it matters most, because the realtime channel below reloads
+  // on every change to the table. Clearing notifications therefore starts *two* loads at
+  // once — the one `clearAll()` awaits, and the one the resulting DELETE event triggers —
+  // and there is nothing ordering them. Whichever row set each one read depends purely on
+  // where the DELETE fell relative to its SELECT, so a load that read the rows before the
+  // delete could resolve last and put every cleared notification straight back on screen.
+  // That is the same "Clear all does nothing" symptom as the dead Alert, from a completely
+  // different cause, and it would only appear on a slow connection.
+  const seq = useRef(0)
+
   const loadNotifications = useCallback(async () => {
     if (!user) {
+      seq.current += 1
       setItems([])
       setUnreadCount(0)
       setLoading(false)
       return
     }
 
+    const mine = ++seq.current
     setLoading(true)
     // Cleared up front, not only on success: without this a single failed load leaves
     // `error` set, and the screen stays stuck on the error view even after a later
     // reload succeeds. Clearing on entry is what makes retry actually recover.
     setError(null)
     try {
-      const [items, unread] = await Promise.all([
+      const [rows, unread] = await Promise.all([
         fetchNotifications(user.id),
         getUnreadCount(user.id)
       ])
-      setItems(items)
+      if (mine !== seq.current) return
+      setItems(rows)
       setUnreadCount(unread)
     } catch (err) {
+      if (mine !== seq.current) return
       setError(err instanceof Error ? err.message : 'Failed to load notifications')
     } finally {
-      setLoading(false)
+      // Only the newest request may clear the spinner; a stale one doing so would show a
+      // settled screen while the read that matters is still in flight.
+      if (mine === seq.current) setLoading(false)
     }
   }, [user])
 

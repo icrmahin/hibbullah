@@ -6,7 +6,7 @@ import type { CartItem, CartSummary } from '../types/cart'
 import type { Product } from '../types/product'
 import { fetchCart, addToCart, updateCartItemQuantity, removeFromCart, clearCart } from '../services/cart'
 import { normalizeError } from '../utils/errorHandling'
-import config from '../constants/config'
+import { lowestDeliveryFee } from '../utils/deliveryFee'
 
 type CartContextValue = {
   items: (CartItem & { product: Product })[]
@@ -134,7 +134,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const itemDiscount = ((item.product?.price || 0) * item.quantity * (item.product?.discountPercent || 0)) / 100
       return sum + itemDiscount
     }, 0)
-    const deliveryFee = config.deliveryFee
+    // The *lowest* delivery fee, because no delivery address has been chosen yet. The cart
+    // page is the only consumer of this figure, and it says "from ৳80" beside it, so the
+    // quote is honestly a floor rather than a promise. It is deliberately not the standard
+    // rate: showing 150 here and dropping to 80 at checkout reads as a discount, while
+    // showing 80 and rising to 150 reads as bait-and-switch. Checkout reprices from the
+    // selected address's district, and the server charges that same figure, so a customer
+    // who does reach checkout is never surprised by the total.
+    const deliveryFee = lowestDeliveryFee()
     const total = subtotal - discount + deliveryFee
     return { subtotal, discount, deliveryFee, total }
   }, [items])

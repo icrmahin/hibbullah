@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useFocusEffect } from 'expo-router'
 import { useAuth } from './useAuth'
 import type { Address } from '../types/address'
@@ -10,21 +10,43 @@ export function useAddresses() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Monotonic request id. Every load takes a ticket and only the newest one is allowed to
+  // write, which closes the window where a slower earlier read lands after a newer one.
+  //
+  // Without it, deleting an address was not reliably reflected. `remove()` deletes and then
+  // reloads, but a load already in flight — the `useFocusEffect` read on the way into the
+  // screen, or one started by an earlier `create()` — can resolve *after* the post-delete
+  // reload has already written the shorter list, and restore the row the user just deleted.
+  // The list then showed an address that was gone from the database, and tapping the bin on
+  // it again did nothing visible, which reads as "delete is broken". Same for `create`: a
+  // stale read could hide the address that was just added.
+  //
+  // This is a guard against a *specific* interleaving, not a general cache. `mine !== seq`
+  // means a newer request exists, so this response describes a moment that no longer
+  // matters and must be dropped -- whether that newer request has finished or not.
+  const seq = useRef(0)
+
   const loadAddresses = useCallback(async () => {
     if (!user) {
+      seq.current += 1
       setData([])
       setLoading(false)
       return
     }
 
+    const mine = ++seq.current
     setLoading(true)
     try {
-      const data = await fetchAddresses(user.id)
-      setData(data)
+      const rows = await fetchAddresses(user.id)
+      if (mine !== seq.current) return
+      setData(rows)
     } catch (err) {
+      if (mine !== seq.current) return
       setError(err instanceof Error ? err.message : 'Failed to load addresses')
     } finally {
-      setLoading(false)
+      // Only the newest request may clear the spinner. A stale one clearing it would make
+      // the screen look settled while the read that matters is still running.
+      if (mine === seq.current) setLoading(false)
     }
   }, [user])
 

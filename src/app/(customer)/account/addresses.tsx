@@ -9,12 +9,16 @@ import SoftHeader from '../../../components/common/SoftHeader';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import EmptyState from '../../../components/common/EmptyState';
+import ConfirmDialog from '../../../components/common/ConfirmDialog';
 import spacing from '../../../constants/spacing';
 import { useAddresses } from '../../../hooks/useAddresses';
+import { useConfirm } from '../../../hooks/useConfirm';
+import { normalizeError } from '../../../utils/errorHandling';
 
 export default function CustomerAddressesScreen() {
   const colors = useThemeColors();
   const { data: addresses, loading, error, reload, setDefault, remove } = useAddresses();
+  const { confirm, confirmDialogProps } = useConfirm();
   const [actionError, setActionError] = React.useState<string | null>(null);
 
   if (loading) {
@@ -22,6 +26,7 @@ export default function CustomerAddressesScreen() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <SoftHeader title="Addresses" onBack={() => goBack()} />
         <LoadingState label="Loading addresses" />
+        <ConfirmDialog {...confirmDialogProps} />
       </SafeAreaView>
     );
   }
@@ -31,6 +36,7 @@ export default function CustomerAddressesScreen() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <SoftHeader title="Addresses" onBack={() => goBack()} />
         <ErrorState message={error} onRetry={reload} />
+        <ConfirmDialog {...confirmDialogProps} />
       </SafeAreaView>
     );
   }
@@ -39,17 +45,31 @@ export default function CustomerAddressesScreen() {
     setActionError(null);
     try {
       await setDefault(id);
-    } catch (e: any) {
-      setActionError(e.message || 'Failed to set default');
+    } catch (e) {
+      setActionError(normalizeError(e).message);
     }
   };
 
+  // This one deleted immediately, with no confirmation at all. The checkout bin icon
+  // always asked first, so the same action behaved differently depending on which screen
+  // you were on — and a mis-tap on a full-width "Delete" link destroyed an address that
+  // the customer then had to retype. Now that a real dialog exists, both ask.
   const handleDelete = async (id: string) => {
     setActionError(null);
+    const target = addresses.find((a) => a.id === id);
+    const ok = await confirm({
+      title: 'Delete address',
+      message: target
+        ? `Remove "${target.label}" — ${target.street}, ${target.city}?`
+        : 'Remove this saved location?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await remove(id);
-    } catch (e: any) {
-      setActionError(e.message || 'Failed to delete');
+    } catch (e) {
+      setActionError(normalizeError(e).message);
     }
   };
 
@@ -86,6 +106,7 @@ export default function CustomerAddressesScreen() {
         )}
         <Button title="Add address" onPress={() => router.push('/(customer)/address/edit')} fullWidth />
       </ScrollView>
+      <ConfirmDialog {...confirmDialogProps} />
     </SafeAreaView>
   );
 }

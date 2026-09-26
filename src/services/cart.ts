@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { CartItem, CartSummary } from '../types/cart'
 import type { Product } from '../types/product'
-import config from '../constants/config'
+import { lowestDeliveryFee } from '../utils/deliveryFee'
 
 interface DbProduct {
   id: string
@@ -76,7 +76,11 @@ export async function fetchCart(userId: string): Promise<{ items: CartItemWithPr
     const itemDiscount = (item.product.price * item.quantity * (item.product.discountPercent || 0)) / 100
     return sum + itemDiscount
   }, 0)
-  const deliveryFee = config.deliveryFee
+  // The lowest rate, not the standard one -- see the matching comment in CartProvider.
+  // Nothing has picked a delivery address at this point, so this number is a floor and the
+  // cart page labels it "from". Checkout reprices from the address's district and the
+  // server charges that same figure.
+  const deliveryFee = lowestDeliveryFee()
   const total = subtotal - discount + deliveryFee
 
   return {

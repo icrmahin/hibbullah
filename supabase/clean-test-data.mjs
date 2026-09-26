@@ -38,6 +38,19 @@
  *
  * Run it after an interrupted verification run, or before handing the project to someone
  * for real use. It only ever matches names carrying the test prefixes below.
+ *
+ * ── Why it is the last step of `npm run verify`, not just a manual tool ───────────────
+ * The individual scripts delete their own fixtures, and for the most part they manage it.
+ * But `trg_product_stock_check` fires on *deleting* a probe product and inserts an
+ * "Out of stock" alert addressed to the real admin — and that happens after the script's own
+ * notification sweep has already run, so every single verification left one junk alert in
+ * the owner's notification list. Six of them had accumulated, for products that no longer
+ * existed and never had.
+ *
+ * Rather than have each script learn to sweep up after itself — fourteen SQL strings with
+ * fourteen private copies of the prefix list, which is the mistake this file already exists
+ * to undo — the sweeper runs once at the end of `npm run verify`, using the one PREFIXES
+ * list. A run of the suite now leaves the project exactly as it found it.
  */
 
 const REF = process.env.HIBBULLAH_SUPABASE_PROJECT_REF || 'xkvjhvwrzfczymbgapip'

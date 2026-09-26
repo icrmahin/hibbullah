@@ -2,7 +2,7 @@
 import { goBack } from "@/utils/navigation";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
-import { ScrollView, StyleSheet, Text, View, Pressable, Alert } from "react-native";
+import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import Button from "../../components/common/Button";
@@ -15,7 +15,10 @@ import { useAuth } from "../../hooks/useAuth";
 import { useCart } from "../../providers/CartProvider";
 import { useAddresses } from "../../hooks/useAddresses";
 import { useCreateOrder } from "../../hooks/useOrders";
+import { useConfirm } from "../../hooks/useConfirm";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { formatCurrency } from "../../utils/currency";
+import { deliveryFeeForDistrict } from "../../utils/deliveryFee";
 import { normalizeError } from "../../utils/errorHandling";
 import Icon from "../../components/common/Icon";
 
@@ -32,6 +35,7 @@ export default function CheckoutScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const { confirm, confirmDialogProps } = useConfirm();
 
   useEffect(() => {
     if (addresses.length > 0 && !selectedAddressId) {
@@ -84,25 +88,47 @@ export default function CheckoutScreen() {
     }
   };
 
-  const handleDeleteAddress = (id: string) => {
-    Alert.alert("Delete address", "Remove this saved location?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await removeAddress(id);
-            if (selectedAddressId === id) setSelectedAddressId(addresses.find((a) => a.id !== id)?.id ?? null);
-          } catch (e) {
-            setError(normalizeError(e).message);
-          }
-        },
-      },
-    ]);
+  // The bin icon. This used to be `Alert.alert(..., [{ onPress: async () => { await
+  // removeAddress(id) } }])`, which is why deleting an address did nothing on web:
+  // react-native-web's Alert is `static alert() {}`, so the onPress never ran. The DELETE
+  // itself was always fine — verified against the live project through the exact request
+  // this service sends, 7/7, so nothing about RLS or grants was wrong.
+  const handleDeleteAddress = async (id: string) => {
+    setError(null);
+    const target = addresses.find((a) => a.id === id);
+    const ok = await confirm({
+      title: "Delete address",
+      message: target
+        ? `Remove "${target.label}" — ${target.street}, ${target.city}?`
+        : "Remove this saved location?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await removeAddress(id);
+      // Clearing the selection rather than picking a replacement from the local array:
+      // that array is the render-time copy, so the row it offers is not necessarily in
+      // the list `removeAddress` just reloaded. Setting null hands the choice back to the
+      // auto-select effect above, which reads the fresh list and picks the new default.
+      if (selectedAddressId === id) setSelectedAddressId(null);
+    } catch (e) {
+      setError(normalizeError(e).message);
+    }
   };
 
-  if (cartLoading || addressesLoading) return <LoadingState label="Loading checkout" />;
+  // The confirm dialog is mounted in these early-return branches too, not just the main
+  // tree. `removeAddress` sets `addressesLoading` for the length of its reload, so without
+  // this the dialog would be torn out of the tree and reappear once loading finished —
+  // a confirmation flashing away and coming back is worse than no animation at all.
+  if (cartLoading || addressesLoading) {
+    return (
+      <>
+        <LoadingState label="Loading checkout" />
+        <ConfirmDialog {...confirmDialogProps} />
+      </>
+    );
+  }
   if (!items.length) {
     return (
       <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top + spacing.md }]}>
@@ -114,6 +140,7 @@ export default function CheckoutScreen() {
           <Icon name="arrow-back" size={18} color={colors.text} />
         </Pressable>
         <EmptyState title="Your cart is empty" message="Add a medicine before checking out." actionLabel="Browse products" onAction={() => router.replace("/(customer)/(tabs)/products")} />
+        <ConfirmDialog {...confirmDialogProps} />
       </View>
     );
   }
@@ -121,7 +148,7 @@ export default function CheckoutScreen() {
   const addressSection = (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>Delivery Address</Text>
-      <Text style={[styles.sectionHint, { color: colors.textMuted }]}>Choose where to deliver · swipe delete to remove</Text>
+      <Text style={[styles.sectionHint, { color: colors.textMuted }]}>Choose where to deliver · tap the bin to remove one</Text>
       <View style={styles.addressList}>
         {addresses.map((addr) => {
           const active = selectedAddressId === addr.id;
@@ -147,8 +174,7 @@ export default function CheckoutScreen() {
                 {active && <Icon name="check-circle" size={18} color={colors.primary} />}
                 <Pressable
                   onPress={() => handleDeleteAddress(addr.id)}
-                  hitSlop={8}
-                  style={[styles.deleteBtn, { backgroundColor: colors.danger + "12" }]}
+                  hitSlop={8}                  style={[styles.deleteBtn, { backgroundColor: colors.danger + "12" }]}
                   accessibilityLabel={`Delete ${addr.label}`}
                 >
                   <Icon name="delete-outline" size={16} color={colors.danger} />
@@ -181,6 +207,23 @@ export default function CheckoutScreen() {
     </View>
   );
 
+  // The total the customer is actually quoted, priced from the address they picked.
+  //
+  // The provider's own summary carries the cheapest rate, because the cart page has no
+  // address to price from and must not invent a Dhaka assumption. Reusing it here would
+  // therefore underquote every outside-Dhaka order by 70 taka, and the customer would only
+  // find out when the order landed — a total that silently changes is the single most
+  // trust-destroying thing a checkout can do. `create_order` computes the same figure from
+  // the same district and writes it onto the order row, so what is shown here is what gets
+  // charged; verify:sql-sync fails if the two implementations of the rule ever drift.
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? null;
+  const deliveryFee = deliveryFeeForDistrict(selectedAddress?.county);
+  const pricedSummary = {
+    ...summary,
+    deliveryFee,
+    total: summary.subtotal - summary.discount + deliveryFee,
+  };
+
   const summaryBox = (
     <View style={[styles.summaryBox, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
       <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.sm }]}>Order summary</Text>
@@ -205,11 +248,20 @@ export default function CheckoutScreen() {
       </View>
       <View style={styles.row}>
         <Text style={[styles.rowLabel, { color: colors.textMuted }]}>Delivery</Text>
-        <Text style={[styles.rowValue, { color: colors.text }]}>{formatCurrency(summary.deliveryFee)}</Text>
+        <Text style={[styles.rowValue, { color: colors.text }]}>{formatCurrency(pricedSummary.deliveryFee)}</Text>
       </View>
+      {selectedAddress?.county ? (
+        <View style={[styles.row, styles.feeNoteRow]}>
+          <Text style={[styles.feeNote, { color: colors.textMuted }]}>
+            {deliveryFeeForDistrict(selectedAddress.county) === deliveryFee
+              ? `${selectedAddress.county} District — reduced rate`
+              : `${selectedAddress.county} District — standard rate`}
+          </Text>
+        </View>
+      ) : null}
       <View style={[styles.row, styles.totalRow, { borderTopColor: colors.borderLight }]}>
         <Text style={[styles.totalText, { color: colors.text }]}>Total</Text>
-        <Text style={[styles.totalText, { color: colors.text }]}>{formatCurrency(summary.total)}</Text>
+        <Text style={[styles.totalText, { color: colors.text }]}>{formatCurrency(pricedSummary.total)}</Text>
       </View>
     </View>
   );
@@ -289,6 +341,7 @@ export default function CheckoutScreen() {
           )}
         </ResponsiveContainer>
       </ScrollView>
+      <ConfirmDialog {...confirmDialogProps} />
     </View>
   );
 }
@@ -346,6 +399,8 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 12, flex: 1 },
   rowValue: { fontSize: 12, fontWeight: "600" },
   divider: { height: 1, marginVertical: spacing.sm },
+  feeNoteRow: { marginBottom: spacing.sm },
+  feeNote: { fontSize: 11, flex: 1 },
   totalRow: { marginTop: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1 },
   totalText: { fontWeight: "800", fontSize: 14 },
   paymentBox: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },

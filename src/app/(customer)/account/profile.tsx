@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { goBack } from '@/utils/navigation';
 import { useThemeColors } from '../../../providers/ThemeProvider';
@@ -11,6 +11,8 @@ import AvatarPicker from '../../../components/common/AvatarPicker';
 import Button from '../../../components/common/Button';
 import LoadingState from '../../../components/common/LoadingState';
 import { useAuth } from '../../../hooks/useAuth';
+import { useConfirm } from '../../../hooks/useConfirm';
+import ConfirmDialog from '../../../components/common/ConfirmDialog';
 import { setAvatarUrl, updateProfile } from '../../../services/profile';
 import { deleteCloudinaryAsset, publicIdFromUrl, uploadAvatarImage } from '../../../services/storage';
 import { formatBdPhone, normalizeBdPhone } from '../../../utils/phone';
@@ -27,6 +29,7 @@ import spacing from '../../../constants/spacing';
 export default function ProfileScreen() {
   const colors = useThemeColors();
   const { user, loading, refreshUser } = useAuth();
+  const { confirm, confirmDialogProps } = useConfirm();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
@@ -81,27 +84,30 @@ export default function ProfileScreen() {
   const handleRemoveAvatar = async () => {
     if (!user?.avatar) return;
 
-    Alert.alert('Remove profile picture?', 'Your account will show your initials instead.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            setAvatarError(null);
-            try {
-              await setAvatarUrl(user.id, null);
-              await refreshUser();
-              // Best-effort: the database row is the source of truth, so a
-              // failure here must not block the removal the user asked for.
-              await deleteCloudinaryAsset({ scope: 'avatar' });
-            } catch (e) {
-              setAvatarError(e instanceof Error ? e.message : 'Could not remove the photo.');
-            }
-          })();
-        },
-      },
-    ]);
+    // Was `Alert.alert(..., [{ onPress: () => void (async () => { ... })() }])`, which on
+    // web does nothing: react-native-web's Alert is `static alert() {}`, so the onPress
+    // that removes the picture never ran. It also wrapped the work in `void (async …)()`
+    // inside a callback, so a failure had nowhere to surface except a setState that the
+    // early return could preempt. Awaiting the confirmation instead puts the work in the
+    // handler's own try/catch, where the existing `avatarError` is already wired up.
+    setAvatarError(null);
+    const ok = await confirm({
+      title: 'Remove profile picture?',
+      message: 'Your account will show your initials instead.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    });
+    if (!ok) return;
+
+    try {
+      await setAvatarUrl(user.id, null);
+      await refreshUser();
+      // Best-effort: the database row is the source of truth, so a
+      // failure here must not block the removal the user asked for.
+      await deleteCloudinaryAsset({ scope: 'avatar' });
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : 'Could not remove the photo.');
+    }
   };
 
   const handleSave = async () => {
@@ -181,6 +187,7 @@ export default function ProfileScreen() {
           fullWidth
         />
       </ScrollView>
+      <ConfirmDialog {...confirmDialogProps} />
     </SafeAreaView>
   );
 }

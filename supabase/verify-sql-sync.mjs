@@ -166,16 +166,141 @@ report(
   'the backfill of the audit cap also uses 20',
 )
 
-// ── the delivery fee is a literal in two places that must agree ─────────────────────
-// create_order hard-codes `v_delivery_fee numeric := 150` and the checkout summary computes
-// it in TypeScript. If they drift, the customer is shown one total and charged another, and
-// nothing anywhere reports an error -- the order simply looks wrong at delivery time.
-const feeInSql = [...hosted.matchAll(/v_delivery_fee\s+numeric\s*:=\s*([\d.]+)/g)].map((m) => Number(m[1]))
+// ── the delivery fee is a rule implemented twice, and it must agree ──────────────────
+// `create_order` decides what the customer is actually charged; the app only *shows* a
+// figure. If the two implementations drift, the customer is quoted one total and charged
+// another, and nothing anywhere reports an error — the order simply looks wrong when it
+// arrives. So the rates, the qualifying district, and the fact that create_order delegates
+// to the rule rather than hard-coding a number are all checked here.
+//
+// The check reads the LAST `create_order` definition, not every one. The bootstrap
+// deliberately carries all six historical definitions so a rebuild replays the same
+// sequence, and the previous version of this check globbed all of them — which meant it
+// kept passing off six superseded copies that hard-code the old flat rate while the live
+// function had already moved on. A check that validates dead code is worse than no check,
+// because it reports green.
+const FEE_MIGRATION = `${MIGRATIONS_DIR}/20260927040000_district_delivery_fee.sql`
+const feeSql = readFileSync(FEE_MIGRATION, 'utf8')
 const configTs = readFileSync('src/constants/config.ts', 'utf8')
-const feeInTs = Number(configTs.match(/deliveryFee\s*:\s*([\d.]+)/)?.[1])
+const districtsTs = readFileSync('src/constants/districts.ts', 'utf8')
+const feeUtilTs = readFileSync('src/utils/deliveryFee.ts', 'utf8')
+
+/** The single numeric literal inside one of the constant functions. */
+const sqlNumber = (name) =>
+  Number(
+    feeSql.match(new RegExp(`function\\s+public\\.${name}\\s*\\(\\s*\\)[^$]*\\$\\$?\\w*\\$?\\s*select\\s*([\\d.]+)`, 'i'))?.[1],
+  )
+/** The single quoted literal inside one of the constant functions. */
+const sqlText = (name) =>
+  feeSql.match(new RegExp(`function\\s+public\\.${name}\\s*\\(\\s*\\)[^$]*\\$\\$?\\w*\\$?\\s*select\\s*'([^']+)'`, 'i'))?.[1]
+
+const sqlInside = sqlNumber('inside_dhaka_delivery_fee')
+const sqlOutside = sqlNumber('outside_dhaka_delivery_fee')
+const sqlZone = sqlText('inside_dhaka_district')
+const tsInside = Number(configTs.match(/insideDhaka\s*:\s*([\d.]+)/)?.[1])
+const tsOutside = Number(configTs.match(/outsideDhaka\s*:\s*([\d.]+)/)?.[1])
+const tsZone = districtsTs.match(/INSIDE_DHAKA_DISTRICT\s*=\s*"([^"]+)"/)?.[1]
+
 report(
-  feeInSql.length > 0 && feeInSql.every((f) => f === feeInTs),
-  `the delivery fee agrees: SQL ${[...new Set(feeInSql)].join('/')} vs config.deliveryFee ${feeInTs}`,
+  Number.isFinite(sqlInside) && sqlInside === tsInside && sqlInside === 80,
+  `the inside-Dhaka rate agrees: SQL ${sqlInside} = config.deliveryFees.insideDhaka ${tsInside} = 80`,
+)
+report(
+  Number.isFinite(sqlOutside) && sqlOutside === tsOutside && sqlOutside === 150,
+  `the outside-Dhaka rate agrees: SQL ${sqlOutside} = config.deliveryFees.outsideDhaka ${tsOutside} = 150`,
+)
+report(
+  Boolean(sqlZone) && sqlZone === tsZone && sqlZone === 'Dhaka',
+  `the qualifying district agrees: SQL '${sqlZone}' = INSIDE_DHAKA_DISTRICT '${tsZone}' = 'Dhaka'`,
+)
+report(
+  sqlInside < sqlOutside,
+  `the reduced rate is genuinely lower (${sqlInside} < ${sqlOutside})`,
+)
+
+// The zone district has to actually exist in the picker, or no customer could ever select
+// the district that earns the reduced rate and the cheap tier would be unreachable.
+const districtRows = [
+  ...districtsTs.matchAll(/\{\s*name:\s*"([^"]+)",\s*bn:\s*"([^"]+)",\s*division:\s*"([^"]+)"/g),
+].map((m) => ({ name: m[1], bn: m[2], division: m[3] }))
+report(
+  districtRows.length === 64,
+  `the district picker holds all 64 districts · found ${districtRows.length}`,
+)
+report(
+  new Set(districtRows.map((d) => d.name)).size === districtRows.length,
+  'no duplicate district names in the picker',
+)
+report(
+  districtRows.every((d) => d.bn.trim().length > 0),
+  'every district carries a Bangla name, so it is findable in either language',
+)
+report(
+  districtRows.some((d) => d.name === sqlZone),
+  `'${sqlZone}' is selectable in the district picker`,
+)
+// Parsed out of the source rather than hard-coded here, so this file cannot be the reason
+// the list is wrong -- a check that repeats the value it is verifying proves nothing.
+const perDivision = districtRows.reduce((acc, d) => ({ ...acc, [d.division]: (acc[d.division] ?? 0) + 1 }), {})
+report(
+  Object.values(perDivision).reduce((a, b) => a + b, 0) === 64 && Object.keys(perDivision).length === 8,
+  `the 64 districts span 8 divisions · ${JSON.stringify(perDivision)}`,
+)
+
+// The live create_order must compute the fee, not carry a literal. Matched against a
+// comment-stripped copy: the migration explains the old `coalesce(v_existing_delivery_fee,
+// ...)` expression in prose precisely because it was the bug, and a raw-text search finds
+// that explanation and concludes the bug is still there.
+const liveCreateOrder = feeSql.slice(feeSql.indexOf('create or replace function public.create_order'))
+const liveCode = liveCreateOrder.replace(/--[^\n]*/g, '')
+report(
+  /v_delivery_fee\s*:=\s*public\.delivery_fee_for_district\s*\(/.test(liveCode),
+  'create_order prices delivery by calling delivery_fee_for_district',
+)
+report(
+  !/v_delivery_fee\s+numeric\s*:=\s*\d/.test(liveCode),
+  'create_order no longer hard-codes a delivery fee literal',
+)
+// Repricing on the append path. Carrying the old fee forward is invisible until a customer
+// switches address zones mid-order, at which point they are charged a rate they were never
+// quoted and nothing in the app reports it.
+report(
+  /coalesce\s*\(\s*v_existing_delivery_fee\s*,/.test(liveCode) === false,
+  'the append path reprices instead of carrying the old fee forward',
+)
+report(
+  /set\s+subtotal\s*=\s*v_subtotal\s*,\s*delivery_fee\s*=\s*v_delivery_fee/.test(liveCode),
+  'the append path writes the recomputed fee onto the order row',
+)
+// The default must be the higher rate, so an unrecognised district cannot undercharge.
+const feeRule = feeSql.slice(
+  feeSql.indexOf('create or replace function public.delivery_fee_for_district'),
+  feeSql.indexOf('comment on function public.delivery_fee_for_district'),
+)
+report(
+  /else\s+public\.outside_dhaka_delivery_fee\s*\(\s*\)/.test(feeRule) &&
+    /coalesce\s*\(\s*p_district\s*,\s*''\s*\)/.test(feeRule),
+  'an unrecognised or missing district falls to the standard rate, never the reduced one',
+)
+
+// The client-side helper must read the config rather than embed its own numbers, or adding
+// a third zone would silently update one side only.
+report(
+  /deliveryFees\.insideDhaka/.test(feeUtilTs) &&
+    /deliveryFees\.outsideDhaka/.test(feeUtilTs) &&
+    !/\b(?:80|150)\b/.test(feeUtilTs.replace(/^\s*\*.*$/gm, '')),
+  'src/utils/deliveryFee.ts reads both rates from config instead of embedding them',
+)
+// The checkout total is what the customer commits to, so it must be priced from the chosen
+// address rather than reused from the cart page, which has no address to price from.
+const checkoutTs = readFileSync('src/app/(customer)/checkout.tsx', 'utf8')
+report(
+  /deliveryFeeForDistrict\(selectedAddress\?\.county\)/.test(checkoutTs),
+  'checkout prices the delivery fee from the selected address district',
+)
+report(
+  !/formatCurrency\(summary\.deliveryFee\)/.test(checkoutTs),
+  'checkout does not show the cart page\'s address-free delivery figure',
 )
 
 // ── the guards the live project relies on ──────────────────────────────────────────

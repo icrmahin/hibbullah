@@ -44,6 +44,8 @@ export { default as SoftHeader } from "./SoftHeader";
 
 // Overlay
 export { default as Modal } from "./Modal";
+export { default as ConfirmDialog } from "./ConfirmDialog";
+export type { ConfirmOptions } from "./ConfirmDialog";
 
 // Media
 export { default as ImageUpload } from "./ImageUpload";

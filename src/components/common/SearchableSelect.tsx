@@ -93,10 +93,20 @@ export default function SearchableSelect({
   const triggerLabel = selected?.label ?? (value ? selectedLabel : undefined);
   // Without a server-side search, narrow the list here. With one, the caller
   // already narrowed it and re-filtering would hide valid results.
+  //
+  // `value` and `hint` are searched as well as `label`, so an option can be found by
+  // anything the caller put on the row. This matters for the district picker, where a
+  // customer may know their district only in Bangla ("ঢাকা") while `label` is the
+  // English name — matching `label` alone made the search look broken for exactly the
+  // users most likely to need it.
+  const matches = (o: SelectOption, needle: string) =>
+    o.label.toLowerCase().includes(needle) ||
+    o.value.toLowerCase().includes(needle) ||
+    (o.hint ?? "").toLowerCase().includes(needle);
   const visible = onSearch
     ? options
     : term.trim()
-      ? options.filter((o) => o.label.toLowerCase().includes(term.trim().toLowerCase()))
+      ? options.filter((o) => matches(o, term.trim().toLowerCase()))
       : options;
 
   const close = () => {
