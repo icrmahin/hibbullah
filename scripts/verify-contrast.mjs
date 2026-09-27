@@ -103,10 +103,19 @@ const CHECKS = [
   ['accent on a muted accent fill', 'accent', 'primaryMuted', 4.5],
 
   // ── labels on fills ───────────────────────────────────────────────────────────────
-  // A `primary` fill is dark in BOTH themes, so its label is white in both: 12.2:1 and
-  // 15.5:1. It was 2.19:1 in dark before `primary` became a fill rather than an ink.
-  ['label on a primary fill', 'white', 'primary', 4.5],
-  ['label on a primary fill, pressed', 'white', 'primaryDark', 4.5],
+  // `textInverse`, not `white`. A `primary` fill now inverts between the themes — a deep
+  // teal in light, the light sage in dark — so its label has to invert with it, which is
+  // the same reason the four status fills below use this token and not `white`.
+  //
+  // These two lines used to assert `white`, on the reasoning that a `primary` fill was
+  // dark in both themes. That was stricter than the component: `Button.tsx` has always
+  // read `colors.textInverse` here, so the check and the code disagreed, and the check was
+  // the one that would have blocked making the dark-mode primary button the accent. It is
+  // now the token the component actually uses, so it polices the real pair in both themes:
+  // 12.2:1 light, 8.96:1 dark. A white label on the dark fill is 2.19:1 and is exactly the
+  // regression recorded at the top of this file, so `textInverse` is load-bearing here.
+  ['label on a primary fill', 'textInverse', 'primary', 4.5],
+  ['label on a primary fill, pressed', 'textInverse', 'primaryDark', 4.5],
   // A *status* fill inverts between themes — dark in light, light in dark — so its label
   // has to invert too, which is what `textInverse` is. Using `white` here is what put a
   // 3.5:1 badge on the cart in dark mode while being perfectly correct in light mode.

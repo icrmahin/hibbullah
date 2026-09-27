@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { goBack } from "@/utils/navigation";
+import { router } from "expo-router";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AdminHeader from "../../../components/admin/AdminHeader";
@@ -34,7 +34,9 @@ export default function AdminAddProductScreen() {
         submitLabel="Save product"
         onSubmit={async (input) => {
           await createProduct(input);
-          goBack();
+          // Replace (not goBack) so the list screen remounts/focuses and its
+          // focus-triggered reload picks up the new row immediately.
+          router.replace("/(admin)/products");
         }}
       />
     </SafeAreaView>

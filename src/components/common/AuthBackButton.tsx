@@ -49,7 +49,7 @@ export default function AuthBackButton({ onPress }: AuthBackButtonProps) {
           animatedStyle,
         ]}
       >
-        <ArrowLeft size={24} color={colors.white} strokeWidth={2.4} />
+        <ArrowLeft size={24} color={colors.textInverse} strokeWidth={2.4} />
       </Animated.View>
     </Pressable>
   );

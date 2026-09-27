@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { mapOrder } from '../lib/mappers'
+import { mapOrder, mapProduct } from '../lib/mappers'
 import { AppError, AppErrorType, supabaseErrorToAppError } from '../lib/errors'
 import { listProducts } from './products'
 import type { ProductCursor } from './products'
@@ -287,11 +287,53 @@ export async function fetchAdminProducts(
     signal,
   )
 
+  if (result.data.length > 0) {
+    return {
+      data: result.data,
+      total: result.total,
+      hasMore: result.hasMore,
+      cursor: result.cursor,
+    }
+  }
+
+  // Safety net: browse_products uses INNER JOINs on categories/manufacturers,
+  // so a product whose category row is missing — or hidden by RLS — drops the
+  // whole row and the admin list reads empty with no error. When the RPC says
+  // "no rows" on an unfiltered first page, read the table directly (PostgREST
+  // embeds use LEFT joins, so the product survives even if its category does
+  // not) rather than stranding accidental uploads with no delete path.
+  const isFirstPage = !filters?.cursor && !filters?.offset
+  const isUnfiltered =
+    !filters?.query?.trim() && !filters?.status && !filters?.stockFilter && !filters?.categoryId
+  if (!isFirstPage || !isUnfiltered) {
+    return { data: result.data, total: result.total, hasMore: result.hasMore, cursor: result.cursor }
+  }
+
+  const limit = Math.min(Math.max(filters?.limit ?? 24, 1), 100)
+  const fallback = await supabase
+    .from('products')
+    .select('*, categories(name, slug), manufacturers(name)')
+    .order('created_at', { ascending: false })
+    .limit(limit + 1)
+  if (fallback.error) return { data: [], total: 0, hasMore: false, cursor: null }
+  const rows = (fallback.data || []) as unknown as Parameters<typeof mapProduct>[0][]
+  const products = rows
+    .map((row) => mapProduct(row))
+    .filter(Boolean) as Product[]
+  if (products.length === 0) return { data: [], total: 0, hasMore: false, cursor: null }
+  console.warn(
+    `[fetchAdminProducts] RPC returned 0 rows but direct query found ${products.length}; showing direct results (likely category/manufacturer join or RLS).`,
+  )
+  const page = products.slice(0, limit)
+  const last = (fallback.data || [])[page.length - 1] as unknown as Record<string, unknown> | undefined
   return {
-    data: result.data,
-    total: result.total,
-    hasMore: result.hasMore,
-    cursor: result.cursor,
+    data: page,
+    total: 0,
+    hasMore: products.length > limit,
+    cursor:
+      products.length > limit && last
+        ? { createdAt: String(last.created_at ?? ''), id: String(last.id ?? '') }
+        : null,
   }
 }
 

@@ -2,11 +2,32 @@
 import { Pressable, StyleSheet, Text, type PressableProps, type ViewStyle } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, useReducedMotion } from "react-native-reanimated";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { radius, layout, opacity as opacityToken } from "../../constants/sizes";
 import { springConfigs, compression as compressionValues } from "../../lib/motion";
+
+/**
+ * The pressable *is* the button.
+ *
+ * This used to be a `Pressable` with no style at all wrapping an `Animated.View` that
+ * carried every visual property, which meant the two things React Native cares about lived
+ * on different views:
+ *
+ *   · `android_ripple` is drawn by the Pressable's own native view. That view had no
+ *     `borderRadius` and no `overflow`, so on Android the touch feedback was a hard-edged
+ *     square drawn over a pill-shaped button, with its corners spilling past the rounded
+ *     ends. Every button in the app — and the two in the delete dialog — flashed a
+ *     rectangle on Android while looking correct on web, which is why `tsc`, `eslint` and
+ *     `expo export` never saw it.
+ *   · The press spring scaled the *child*, so the painted button shrank inside a touch
+ *     target that stayed put.
+ *
+ * One view removes both, and it is the same lesson as the home search bar: the view that
+ * responds to a touch and the view that is painted should be the same view, because any
+ * split between them is a platform detail waiting to go wrong.
+ */
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "link";
 
@@ -30,7 +51,6 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const isDisabled = disabled || loading;
   const reducedMotion = useReducedMotion();
 
@@ -70,7 +90,7 @@ export default function Button({
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       {...props}
       disabled={isDisabled}
       android_ripple={{ color: p.ripple, borderless: false }}
@@ -78,27 +98,24 @@ export default function Button({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      style={[
+        styles.base,
+        { backgroundColor: p.bg },
+        p.border && { borderWidth: 1, borderColor: p.border },
+        variant === "link" && styles.link,
+        fullWidth && styles.fullWidth,
+        isDisabled && styles.disabled,
+        animatedStyle,
+        style,
+      ]}
     >
-      <Animated.View
-        style={[
-          styles.base,
-          { backgroundColor: p.bg },
-          p.border && { borderWidth: 1, borderColor: p.border },
-          variant === "link" && styles.link,
-          fullWidth && styles.fullWidth,
-          isDisabled && styles.disabled,
-          animatedStyle,
-          style,
-        ]}
-      >
-        {icon}
-        {loading ? (
-          <Text style={[styles.label, { color: p.fg }]}>Please wait...</Text>
-        ) : (
-          <Text style={[styles.label, { color: p.fg }]}>{title}</Text>
-        )}
-      </Animated.View>
-    </Pressable>
+      {icon}
+      {loading ? (
+        <Text style={[styles.label, { color: p.fg }]}>Please wait...</Text>
+      ) : (
+        <Text style={[styles.label, { color: p.fg }]}>{title}</Text>
+      )}
+    </AnimatedPressable>
   );
 }
 
@@ -112,6 +129,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: spacing.sm,
+    // Clips the Android ripple to the pill. Without it the ripple is bounded by the
+    // rectangle of the view rather than by its rounded outline, so it squares off the
+    // ends of the button on press.
+    overflow: "hidden",
   },
   fullWidth: { width: "100%" },
   disabled: { opacity: opacityToken.disabled },

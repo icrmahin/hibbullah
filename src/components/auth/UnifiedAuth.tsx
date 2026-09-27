@@ -204,7 +204,11 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
                 <Text
                   style={[
                     styles.toggleText,
-                    { color: isSignIn ? colors.white : colors.textMuted },
+                    // `textInverse`, not a fixed white: this segment's fill is
+                    // `colors.primary`, which is a deep teal in light mode and the light
+                    // sage in dark, so the label on it has to invert with the fill. A fixed
+                    // white here is 2.19:1 in dark mode.
+                    { color: isSignIn ? colors.textInverse : colors.textMuted },
                     isSignIn && styles.toggleTextActive,
                   ]}
                 >
@@ -220,7 +224,7 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
                 <Text
                   style={[
                     styles.toggleText,
-                    { color: !isSignIn ? colors.white : colors.textMuted },
+                    { color: !isSignIn ? colors.textInverse : colors.textMuted },
                     !isSignIn && styles.toggleTextActive,
                   ]}
                 >

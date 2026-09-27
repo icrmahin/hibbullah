@@ -36,7 +36,24 @@ export default function Modal({
         style={[styles.backdrop, { backgroundColor: colors.overlay }]}
         onPress={onClose}
       >
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, ...shadows.xl }]}>
+        {/*
+          The card claims the responder for itself.
+
+          This was a bare `View`, so a touch that landed on the title or the message had no
+          responder between it and the backdrop's `onPress` — reading the dialog closed it.
+          The dialog is a dialog: only the scrim around it should dismiss it.
+
+          `onStartShouldSetResponder` is the right lever rather than the obvious
+          `onStartShouldSetResponderCapture`. Capture runs top-down before the touch
+          reaches its target, so it would also swallow the presses on the buttons below.
+          This one runs bottom-up from the touched view, which means the card wins for a
+          touch on its own surface and the buttons still win for a touch on themselves,
+          because a deeper view is asked first.
+        */}
+        <View
+          onStartShouldSetResponder={() => true}
+          style={[styles.card, { backgroundColor: colors.backgroundAlt, ...shadows.xl }]}
+        >
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
             {title}
           </Text>

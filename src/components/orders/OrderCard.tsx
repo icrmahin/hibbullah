@@ -51,9 +51,11 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
 
       {/* Timeline dot preview — 3 steps */}
       <View style={styles.timelinePreview}>
-        <View style={[styles.tlDot, { backgroundColor: colors.primary }]} />
+        {/* `success`, not `primary`. These dots mark a step the order has *reached*, which
+            is a status, and the accent is reserved for the primary button. */}
+        <View style={[styles.tlDot, { backgroundColor: colors.success }]} />
         <View style={[styles.tlLine, { backgroundColor: colors.borderLight }]} />
-        <View style={[styles.tlDot, { backgroundColor: isPending ? colors.borderLight : colors.primary }]} />
+        <View style={[styles.tlDot, { backgroundColor: isPending ? colors.borderLight : colors.success }]} />
         <View style={[styles.tlLine, { backgroundColor: colors.borderLight }]} />
         <View style={[styles.tlDot, { backgroundColor: order.status === "DELIVERED" ? colors.success : colors.borderLight }]} />
       </View>

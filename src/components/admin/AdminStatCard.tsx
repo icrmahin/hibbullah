@@ -49,7 +49,10 @@ export default function AdminStatCard({
         <View
           style={[
             styles.marker,
-            accent === "green" && { backgroundColor: colors.primary },
+            // `success`, not `primary`. The prop is called "green" and the teal brand fill
+            // is not green; this is also a key on a stat card, not something you press, so
+            // the accent is not the right token for it either.
+            accent === "green" && { backgroundColor: colors.success },
             accent === "gold" && { backgroundColor: colors.gold },
             accent === "neutral" && { backgroundColor: colors.borderLight },
           ]}

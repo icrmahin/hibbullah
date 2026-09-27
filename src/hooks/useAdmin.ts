@@ -96,9 +96,9 @@ export function useAdminProducts(filters?: AdminProductFilters) {
 
   const cursorRef = useRef<ProductCursor>(null)
   const searchOffsetRef = useRef(0)
-  const inFlightRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     mountedRef.current = true
@@ -109,41 +109,46 @@ export function useAdminProducts(filters?: AdminProductFilters) {
   }, [])
 
   const loadFirstPage = useCallback(async () => {
-    if (inFlightRef.current) return
-    inFlightRef.current = true
+    // A reload while a fetch is in flight must win, not be dropped. The old
+    // `if (inFlightRef.current) return` guard meant tapping Retry — or
+    // returning from Add Product while the first page was still loading —
+    // silently did nothing and left the "No products found" empty state on
+    // screen. Abort the previous request and let this one own the result.
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    const requestId = ++requestIdRef.current
+    const isCurrent = () => requestId === requestIdRef.current && abortRef.current === controller
 
     setLoading(true)
     setError(null)
     try {
       const result = await fetchAdminProducts(filtersRef.current, controller.signal)
-      if (controller.signal.aborted || !mountedRef.current) return
+      if (!isCurrent() || controller.signal.aborted || !mountedRef.current) return
       setData(result.data)
       setTotal(result.total)
       setHasMore(result.hasMore)
       cursorRef.current = result.cursor
       searchOffsetRef.current = result.data.length
     } catch (err) {
-      if (!controller.signal.aborted && mountedRef.current) {
+      if (isCurrent() && !controller.signal.aborted && mountedRef.current) {
         setError(err instanceof Error ? err.message : 'Failed to load products')
       }
     } finally {
-      if (abortRef.current === controller) abortRef.current = null
-      inFlightRef.current = false
-      if (!controller.signal.aborted && mountedRef.current) setLoading(false)
+      if (isCurrent()) {
+        if (abortRef.current === controller) abortRef.current = null
+        if (mountedRef.current) setLoading(false)
+      }
     }
   }, [])
 
   const loadMore = useCallback(async () => {
-    if (inFlightRef.current || !hasMore) return
+    if (loadingMore || !hasMore) return
     // Browse pages with a cursor; ranked search pages with an offset, because
     // the search order is by match quality and has no stable keyset.
     const isSearch = Boolean(filtersRef.current.query?.trim())
     if (!isSearch && !cursorRef.current) return
 
-    inFlightRef.current = true
     setLoadingMore(true)
     try {
       const result = await fetchAdminProducts(
@@ -164,10 +169,9 @@ export function useAdminProducts(filters?: AdminProductFilters) {
     } catch (err) {
       if (mountedRef.current) setError(err instanceof Error ? err.message : 'Failed to load more products')
     } finally {
-      inFlightRef.current = false
       if (mountedRef.current) setLoadingMore(false)
     }
-  }, [hasMore])
+  }, [hasMore, loadingMore])
 
   useEffect(() => {
     void loadFirstPage()

@@ -73,6 +73,25 @@
  * `expo-file-system`'s `File`, whose `exists`, `size` and `bytes()` are real. This checks
  * that no local-file read is gated on a status, and that a real read exists to gate.
  *
+ * ── 8. a touch responder and the view it paints must be the same view ──────────────
+ * The delete dialog's buttons were broken on Android. `Button` and `IconButton` each put
+ * the press handlers and the `android_ripple` on an unstyled `Pressable` and every visual
+ * property on an `Animated.View` inside it. Android draws the ripple in the responder's
+ * own bounds, so the touch feedback was a hard-edged square on a pill-shaped button and on
+ * a circle, and the press spring shrank the child inside a touch target that stayed put.
+ * This asserts the invariant that makes the whole class impossible: the responder is an
+ * animated `Pressable` carrying the ripple, its own style, and the clip that keeps the
+ * ripple inside the rounded outline.
+ *
+ * ── 9. a dialog's card must not close the dialog ─────────────────────────────────
+ * `Modal`'s card was a bare `View` inside a `Pressable onPress={onClose}`, so touching the
+ * title or the message closed the dialog. `ConfirmDialog` had the same shape behind a
+ * full-card `Pressable` whose only behaviour was `e.stopPropagation()` — a large dead
+ * touch target that a screen reader announces as pressable. Both now use an
+ * `onStartShouldSetResponder` guard, and the capture-phase variant is rejected explicitly:
+ * capture runs top-down, so it would swallow the presses on Delete and Cancel and leave
+ * the dialog unanswerable, which looks identical to the bug being fixed.
+ *
  * ── 7. a search bar that navigates must not contain a TextInput ───────────────────
  * The home search bar did nothing when tapped. It had already been "fixed" twice, and both
  * fixes tried to keep a TextInput in the tree and stop it taking the touch: `readOnly`,
@@ -577,6 +596,149 @@ const code = new Map(allFiles.map((f) => [f, stripComments(readFileSync(f, 'utf8
       for (const o of offenders) fail('searchbar-button', o)
     } else {
       pass('searchbar-button', 'the navigating search bar is one Pressable, with no TextInput in it')
+    }
+  }
+}
+
+// ── 8. a touch responder and the view it paints must be the same view ──────────────
+
+{
+  // The delete dialog's Cancel and Delete buttons were broken on Android. `Button` and
+  // `IconButton` each rendered an unstyled `Pressable` — the view carrying the press
+  // handlers and, critically, the `android_ripple` — around an `Animated.View` that held
+  // every visual property. Android draws the ripple in the responder's own bounds, so on a
+  // pill-shaped button the touch feedback was a hard-edged square with its corners spilling
+  // past the rounded ends, and on the circular icon buttons it was worse. The press spring
+  // also scaled the child, so the button shrank inside a touch target that did not.
+  //
+  // This is the third structural touch bug in this app that `tsc`, `eslint`, `expo export`
+  // and the web build all passed clean — the search bar and the local-file read were the
+  // first two. None of them is visible to a static check, because the code is valid; the
+  // defect is that two views are doing one view's job. So this asserts the invariant that
+  // makes all three impossible: no styled `Pressable` may be the parent of a painted
+  // `Animated.View`/`View` where the Pressable itself carries no paint of its own.
+  const BUTTONS = [
+    ['button', join(SRC, 'components', 'common', 'Button.tsx')],
+    ['icon-button', join(SRC, 'components', 'common', 'IconButton.tsx')],
+  ]
+
+  for (const [name, file] of BUTTONS) {
+    const src = code.get(file) ?? ''
+
+    if (!src) {
+      fail('touch-paint-parity', `${file} does not exist`)
+      continue
+    }
+
+    const offenders = []
+
+    // The responder must be an animated component of Pressable, so that the press style,
+    // the ripple and the paint can all land on one view.
+    if (!/Animated\.createAnimatedComponent\(Pressable\)/.test(src)) {
+      offenders.push(
+        `${name}: no Animated.createAnimatedComponent(Pressable), so the press spring cannot be ` +
+          'applied to the responder itself. If the spring is on a child instead, the button ' +
+          'visibly shrinks inside a touch target that stays put.',
+      )
+    }
+
+    // A `Pressable` with a ripple but no style of its own is the exact shape that shipped.
+    // Checked as: the ripple prop and the style prop must sit on the same element.
+    const rippleOn = src.indexOf('android_ripple')
+    if (rippleOn !== -1) {
+      // Walk back to the nearest opening tag before the ripple.
+      const openTag = src.lastIndexOf('<', rippleOn)
+      const styleAt = src.indexOf('style=', openTag)
+      const closesAt = src.indexOf('>', openTag)
+
+      if (styleAt === -1 || (closesAt !== -1 && styleAt > closesAt)) {
+        offenders.push(
+          `${name}: the element carrying android_ripple has no style prop of its own. Android ` +
+            "draws the ripple in the responder's bounds, so an unstyled responder puts a " +
+            'rectangular ripple on a rounded or circular button. The paint and the responder ' +
+            'must be one view.',
+        )
+      }
+    }
+
+    // Belt and braces: the pill/circle must also clip, or the ripple is bounded by the
+    // view's rectangle rather than by its outline.
+    if (!/overflow:\s*["']hidden["']/.test(src)) {
+      offenders.push(
+        `${name}: no overflow: "hidden" alongside the border radius. Without a clip the ` +
+          'Android ripple is bounded by the view rectangle, which squares off the ends of a ' +
+          'pill or a circle.',
+      )
+    }
+
+    if (offenders.length) {
+      for (const o of offenders) fail('touch-paint-parity', o)
+    } else {
+      pass('touch-paint-parity', `${name} paints and responds on the same view`)
+    }
+  }
+}
+
+// ── 9. a dialog's card must not close the dialog ─────────────────────────────────
+
+{
+  // `Modal` rendered its card as a bare `View` inside a `Pressable onPress={onClose}`, so a
+  // touch that landed on the title or the message had no responder between it and the
+  // backdrop's onPress — reading the dialog closed it. `ConfirmDialog` had the same shape
+  // but papered over it with a full-card `Pressable` whose only behaviour was
+  // `e.stopPropagation()`: a large dead touch target, announced to a screen reader as a
+  // pressable, that existed solely to suppress a synthetic event.
+  //
+  // The fix is the responder guard, and it is guarded here because the naive repair —
+  // `onStartShouldSetResponderCapture` — silently breaks the buttons: capture runs top-down
+  // before the touch reaches its target, so the card would swallow the presses meant for
+  // Delete and Cancel. That failure looks exactly like the one being fixed here, so a
+  // check that only demanded "some responder guard" would pass the broken version.
+  const DIALOGS = [
+    ['modal', join(SRC, 'components', 'common', 'Modal.tsx')],
+    ['confirm-dialog', join(SRC, 'components', 'common', 'ConfirmDialog.tsx')],
+  ]
+
+  for (const [name, file] of DIALOGS) {
+    const src = code.get(file) ?? ''
+
+    if (!src) {
+      fail('dialog-card-responder', `${file} does not exist`)
+      continue
+    }
+
+    const offenders = []
+
+    if (!/onStartShouldSetResponder/.test(src)) {
+      offenders.push(
+        `${name}: the card has no onStartShouldSetResponder, so a touch on the title or the ` +
+          'message falls through to the backdrop and closes the dialog. Only the scrim around ' +
+          'it should dismiss it.',
+      )
+    }
+
+    if (/onStartShouldSetResponderCapture/.test(src)) {
+      offenders.push(
+        `${name}: the card uses onStartShouldSetResponderCapture. Capture runs top-down before ` +
+          'the touch reaches its target, so the card would also swallow the presses on the ' +
+          'buttons inside it and the dialog would be unanswerable. Use ' +
+          'onStartShouldSetResponder, which is asked bottom-up and so loses to a deeper ' +
+          'button but beats the backdrop.',
+      )
+    }
+
+    if (/stopPropagation\(\)/.test(src)) {
+      offenders.push(
+        `${name}: still relies on e.stopPropagation() to keep a card tap from dismissing. That ` +
+          'leaves a full-card dead press target and depends on a synthetic event behaving the ' +
+          'same on every platform. Use the responder guard instead.',
+      )
+    }
+
+    if (offenders.length) {
+      for (const o of offenders) fail('dialog-card-responder', o)
+    } else {
+      pass('dialog-card-responder', `${name}'s card claims the responder without stealing button presses`)
     }
   }
 }

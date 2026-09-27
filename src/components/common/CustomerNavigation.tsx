@@ -67,8 +67,11 @@ export default function CustomerNavigation() {
               <View style={[styles.iconContainer, active && { backgroundColor: colors.primarySoft }]}>
                 <Icon name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.accent : colors.textMuted} />
                 {item.badge && distinctCount > 0 ? (
-                  <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                    <Text style={[styles.badgeText, { color: colors.white }]}>{distinctCount > 99 ? "99+" : String(distinctCount)}</Text>
+                  /* A count is not an action, so this is a neutral chip rather than an
+                     accent-filled one. `colors.text` with a `textInverse` label is legible
+                     in both themes without spending the accent. */
+                  <View style={[styles.badge, { backgroundColor: colors.text }]}>
+                    <Text style={[styles.badgeText, { color: colors.textInverse }]}>{distinctCount > 99 ? "99+" : String(distinctCount)}</Text>
                   </View>
                 ) : null}
               </View>

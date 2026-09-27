@@ -1,85 +1,69 @@
-// ─── Dual Shadow System ─────────────────────────────────────────────────────────────
-// Two-layer depth: a diffuse ambient shadow plus a directional key. The layers are what
-// make a raised surface read as raised rather than as a flat rectangle with a border.
+// ─── Flat surfaces — elevation comes from lightness and a hairline ─────────────────
 //
-// NOTE: RN 0.76+ / react-native-web 0.21 deprecate the individual `shadow*` style props in
-// favour of a single cross-platform `boxShadow` string.
-import { useTheme, useThemeColors } from "../providers/ThemeProvider";
+// There is no shadow system any more. This hook still exists, and still returns the same
+// seven keys, because 37 files spread its result into a style; returning `none` for every
+// step is what removes the glow from all of them at once, with no call site touched.
+//
+// Why that is safe rather than a downgrade: in both palettes a surface is already separated
+// from the page by lightness and a 1px border, not by a shadow. Light mode is a white card
+// (`#FFFFFF`) on a `#F6F7F4` page; dark mode is `#131615` on `#0A0C0B` with a `#262B29`
+// hairline. A blurred black glow added no information on top of that — it only made the
+// edges look soft, which is the opposite of flat.
+//
+// `glow` and `glowStrong` survive in the palettes. They are what dark mode used for lift,
+// and they are now simply unread, which is a cheaper thing to leave behind than to delete:
+// `colors.ts` and `darkColors.ts` document why they exist, and a future raised surface can
+// reach for them without re-deriving the reasoning.
 
 export type ShadowElevation = "none" | "xs" | "sm" | "md" | "lg" | "xl" | "xxl";
 
-/**
- * Blur, drop and ambient strength for each step. The ambient *colour* is not here.
- *
- * This is the whole point of the file. The shadow used to be one hard-coded
- * `rgba(0, 0, 0, 0.0x)` string per step, and a black shadow at 4–10% on a `#0A0C0B` page
- * is invisible — there is nothing darker than near-black to cast onto. So in dark mode
- * every raised surface in the app, cards and sheets and the header alike, was separated
- * from the page by its `border` hairline and nothing else, which is why the dark UI read
- * as flat however much elevation a component asked for.
- *
- * `buildShadows` took a `colors` argument and named it `_colors`, so this was a bug that
- * announced itself in the signature and shipped anyway.
- */
-const STEPS: Record<Exclude<ShadowElevation, "none">, { blur: number; y: number; ambient: number }> = {
-  xs: { blur: 8, y: 2, ambient: 0.04 },
-  sm: { blur: 12, y: 4, ambient: 0.06 },
-  md: { blur: 16, y: 8, ambient: 0.07 },
-  lg: { blur: 24, y: 12, ambient: 0.08 },
-  xl: { blur: 32, y: 16, ambient: 0.09 },
-  xxl: { blur: 40, y: 20, ambient: 0.1 },
-};
-
-/** Where the glow switches from the quiet accent to the strong one. */
-const LOUD_FROM: ShadowElevation = "md";
+/** Every step is flat. One constant so the seven keys cannot drift apart. */
+const FLAT = "none";
 
 /**
- * The two-layer string for one step.
+ * No parameters, on purpose.
  *
- * Light mode keeps a black shadow, which is right: a white card on a `#F6F7F4` page casts
- * a believable shadow downward.
+ * This function used to take the palette and name it `_colors`, and that underscore was the
+ * whole bug: every shadow was a hard-coded black `rgba`, so dark mode cast no elevation at
+ * all, because a near-black surface has no darker neighbour to cast onto. A parameter that
+ * is accepted and ignored is not a harmless leftover — it is the shape that bug took, and
+ * keeping it would make the mistake look deliberate.
  *
- * Dark mode inverts the ambient layer into an accent glow. A near-black surface has no
- * darker neighbour, so the only way to give a card lift is to add *light* around it — and
- * making that light the brand's sage is what stops the glow looking like a rendering
- * artefact. This is the light accent shadow the dark palette is built around, and the
- * reason `glow` and `glowStrong` exist.
- *
- * Both themes keep a faint black layer underneath, because a glow with nothing occluded
- * reads as a halo rather than as a card resting on a page.
+ * So the signature is now genuinely empty. It is still a function, and `useShadows` is still
+ * a hook, because 37 files call it and they should not have to be edited to find out that
+ * shadows are gone. What a future change has to do is add the parameter *and read it* — or,
+ * more likely, delete this file and the 37 call sites together.
  */
-function buildShadows(colors: ReturnType<typeof useThemeColors>, dark: boolean) {
-  const lift = (step: Exclude<ShadowElevation, "none">) => {
-    const { blur, y, ambient } = STEPS[step];
-    if (!dark) return `0px ${y}px ${blur}px rgba(0, 0, 0, ${ambient})`;
-    const glow = step >= LOUD_FROM ? colors.glowStrong : colors.glow;
-    return `0px ${y}px ${blur}px rgba(0, 0, 0, ${ambient / 2}), 0px 1px ${Math.round(blur / 2)}px ${glow}`;
-  };
-
+function buildShadows() {
   return {
-    none: { boxShadow: "0px 0px 0px rgba(0, 0, 0, 0)" },
-    xs: { boxShadow: lift("xs") },
-    sm: { boxShadow: lift("sm") },
-    md: { boxShadow: lift("md") },
-    lg: { boxShadow: lift("lg") },
-    xl: { boxShadow: lift("xl") },
-    xxl: { boxShadow: lift("xxl") },
+    none: { boxShadow: FLAT },
+    xs: { boxShadow: FLAT },
+    sm: { boxShadow: FLAT },
+    md: { boxShadow: FLAT },
+    lg: { boxShadow: FLAT },
+    xl: { boxShadow: FLAT },
+    xxl: { boxShadow: FLAT },
   };
 }
 
 /**
- * `resolvedTheme` rather than a colour comparison.
+ * Still a hook, still named `useShadows`, still spread into a style by 37 files.
  *
- * `account.tsx` inferred dark mode with `colors.background === "#111A17"`, which is
- * fragile in a way that hides itself: the check is simply false for any value other than
- * the one it was written against, so retuning the background turns it off with no error
- * anywhere. Here the two things being compared are a theme and a string, which is a
- * question the provider already answers.
+ * It no longer reads the theme, and that is worth being explicit about: the reason this was
+ * a hook rather than a constant is that a shadow needs to know whether it is on a light or a
+ * dark surface — a black shadow is invisible on near-black, which is what the accent glow
+ * was invented for. Flat surfaces have no such requirement, so the distinction is gone even
+ * though the call signature is not.
+ *
+ * Note the shape of the old bug for whoever wants a theme-dependent shadow back:
+ * `account.tsx` inferred dark mode by comparing a colour to a hex literal
+ * (`colors.background === "#111A17"`), which is false for any value but that one, so
+ * retuning the background silently disabled it with no error anywhere. `resolvedTheme` from
+ * the provider is the answer if it is ever needed — but do not reintroduce an
+ * accepted-and-ignored parameter to get it. See `buildShadows`.
  */
 export function useShadows() {
-  const colors = useThemeColors();
-  const { resolvedTheme } = useTheme();
-  return buildShadows(colors, resolvedTheme === "dark");
+  return buildShadows();
 }
 
 export const shadowPresets = {

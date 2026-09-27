@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AdminHeader from "../../../components/admin/AdminHeader";
 import Button from "../../../components/common/Button";
@@ -18,6 +18,7 @@ export default function AdminInventoryScreen() {
   const { data, loading, error, reload } = useAdminInventory();
   const items = (data || []).map((row: any) => ({
     id: row.id,
+    productId: row.product_id ?? row.productId,
     productName: row.products?.name ?? row.productName ?? 'Unknown',
     batchNumber: row.batch_number ?? row.batchNumber,
     quantity: row.quantity,
@@ -59,8 +60,18 @@ export default function AdminInventoryScreen() {
           <EmptyState title="No inventory" message="No stock batches found." />
         ) : (
           items.map((item) => (
-            <View
+            <Pressable
               key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${item.productName}`}
+              disabled={!item.productId}
+              onPress={() => {
+                if (!item.productId) return;
+                router.push({
+                  pathname: "/(admin)/products/[productId]",
+                  params: { productId: String(item.productId) },
+                });
+              }}
               style={[
                 styles.row,
                 {
@@ -71,13 +82,13 @@ export default function AdminInventoryScreen() {
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.name, { color: colors.text }]}>{item.productName}</Text>
-                <Text style={[styles.meta, { color: colors.textMuted }]}>{item.batchNumber} {item.expiryDate ? `· Exp ${item.expiryDate}` : ''}</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>{item.batchNumber} {item.expiryDate ? `· Exp ${item.expiryDate}` : ''}{item.productId ? ' · tap to manage' : ''}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
                 <Text style={[styles.qty, { color: colors.accent }]}>{item.quantity}</Text>
                 <InventoryStatus status={item.status} />
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>

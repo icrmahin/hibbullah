@@ -31,7 +31,7 @@ function AuditChange({ entry }: { entry: AuditEntry }) {
   const verb = entry.action === 'INSERT' ? 'set' : entry.action === 'DELETE' ? 'was' : 'changed';
 
   return (
-    <View style={styles.changeBox}>
+    <View style={[styles.changeBox, { borderTopColor: colors.borderLight }]}>
       {changes.map((c) => (
         <Text key={c.field} style={[styles.change, { color: colors.textSecondary }]}>
           <Text style={{ color: colors.textMuted }}>{c.field} </Text>
@@ -147,7 +147,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(128,128,128,0.25)',
+    // The border colour moved inline to `colors.borderLight`. It used to be a hardcoded
+    // `rgba(128,128,128,0.25)`, which is a 25%-alpha grey: not solid, and not theme-aware,
+    // so on the near-black dark surface it was a hairline of grey noise. `borderLight` is
+    // a solid `#1F2422` there and a solid `#E2E7E5` in light.
     gap: 2,
   },
   change: { fontSize: typography.bodySmall, lineHeight: 18 },

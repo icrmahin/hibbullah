@@ -9,6 +9,10 @@ type ResponsiveContainerProps = {
   mobilePadding?: number;
   /** Additional style */
   style?: ViewStyle;
+  /** Additional style for the inner width-constraining view (e.g. flex: 1 so a
+   * FlashList inside gets a bounded height on native — web measures content
+   * height automatically, native collapses to zero without it). */
+  innerStyle?: ViewStyle;
   /** Use sidebar-aware width (for admin) */
   sidebarAware?: boolean;
 };
@@ -18,6 +22,7 @@ export default function ResponsiveContainer({
   maxWidth = 1320,
   mobilePadding = 16,
   style,
+  innerStyle,
   sidebarAware = false,
 }: ResponsiveContainerProps) {
   const { width, isMobile, isTablet, isDesktop, sidebarWidth } = useResponsive();
@@ -29,7 +34,7 @@ export default function ResponsiveContainer({
 
   return (
     <View style={[styles.container, { paddingHorizontal: horizontalPadding }, style]}>
-      <View style={[styles.inner, shouldConstrainWidth && { maxWidth: contentMaxWidth }]}>
+      <View style={[styles.inner, shouldConstrainWidth && { maxWidth: contentMaxWidth }, innerStyle]}>
         {children}
       </View>
     </View>

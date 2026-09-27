@@ -24,6 +24,9 @@ const LAYOUT = 'src/app/_layout.tsx'
 const DATE = 'src/utils/date.ts'
 const STORAGE = 'src/services/storage.ts'
 const SEARCH_BAR = 'src/components/common/SearchBar.tsx'
+const BUTTON = 'src/components/common/Button.tsx'
+const MODAL = 'src/components/common/Modal.tsx'
+const CONFIRM_DIALOG = 'src/components/common/ConfirmDialog.tsx'
 const CARD = 'src/components/products/ProductCard.tsx'
 const CUSTOMER_CART = 'src/app/(customer)/products/[productId].tsx'
 const ADMIN_CATALOG = 'src/app/(admin)/products/index.tsx'
@@ -193,6 +196,39 @@ const cases = [
     'drop the onPress branch, so the caller gets a dead field again',
     SEARCH_BAR,
     (s) => s.replace('if (onPress) {', 'if (false as boolean) {'),
+  ],
+  [
+    // The exact shape that shipped: the ripple and the press handlers on an unstyled
+    // Pressable, every visual property on a painted child. Square ripple on a pill.
+    'put the button paint back on a child, leaving the responder unstyled',
+    BUTTON,
+    (s) =>
+      s
+        .replace('Animated.createAnimatedComponent(Pressable)', 'Pressable')
+        .replace('    >\n      {icon}', '    >\n      <Animated.View style={[styles.base]}>\n      {icon}')
+        .replace('    </AnimatedPressable>', '      </Animated.View>\n    </AnimatedPressable>'),
+  ],
+  [
+    'remove the clip that keeps the ripple inside the pill',
+    BUTTON,
+    (s) => s.replace('    overflow: "hidden",\n', ''),
+  ],
+  [
+    'strip the card back to a bare View, so reading the dialog closes it',
+    MODAL,
+    (s) => s.replace('          onStartShouldSetResponder={() => true}\n', ''),
+  ],
+  [
+    // Passes a naive "does it have some responder guard" check while making the dialog
+    // unanswerable: capture swallows the presses meant for Delete and Cancel.
+    'guard the dialog card with the capture-phase variant',
+    MODAL,
+    (s) => s.replace('onStartShouldSetResponder={() => true}', 'onStartShouldSetResponderCapture={() => true}'),
+  ],
+  [
+    'rely on stopPropagation to keep a card tap from dismissing',
+    CONFIRM_DIALOG,
+    (s) => s.replace('          onStartShouldSetResponder={() => true}\n', '          onPress={(e) => e.stopPropagation()}\n'),
   ],
 ]
 

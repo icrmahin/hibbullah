@@ -1197,38 +1197,54 @@ report(
 const shadowsTs = readFileSync('src/constants/shadows.ts', 'utf8')
 const shadowsCode = stripTsComments(shadowsTs)
 
+// ── 1. the accent glow ────────────────────────────────────────────────────────────
+//
+// Both checks below were written for the dark-mode elevation work and both now assert
+// something the flat redesign deliberately undid. They are kept in rewritten form, because
+// what they were really policing is still true — a token that documents an intent nothing
+// implements is a bug — and it is worth knowing where the flat design put that token.
+//
+// 1a. The glow has to be *in the shadow*, not merely defined in the palette. `glow` and
+//     `glowStrong` were added to `darkUtil` with zero readers, which is the exact failure
+//     `onStatus` and `accentMuted` were deleted for. Flat mode has no shadow to put a glow
+//     in, so the check has changed shape: it now asserts the glow is not quietly *dropped*
+//     from the palette. `useShadows()` returns `none` for all seven steps, so a token left
+//     defined with nothing reading it is the same defect the original check existed to
+//     catch, one layer up.
+const glowStillDefined = /glow(Strong)?\s*:/.test(readFileSync('src/constants/darkColors.ts', 'utf8'))
 report(
-  // The glow has to be in the shadow, not merely defined in the palette. `glow` and
-  // `glowStrong` were added to `darkUtil` in this same change and had zero readers, which
-  // is the exact failure `onStatus` and `accentMuted` were deleted for — a token that
-  // documents an intent nothing implements.
-  /colors\.glow(Strong)?\b/.test(shadowsCode),
-  'the shadow system casts the accent glow, so dark mode has elevation',
-  'a near-black surface has no darker neighbour to cast onto; the glow is the lift',
+  glowStillDefined && !/colors\.glow(Strong)?\b/.test(shadowsCode),
+  'the accent glow is retained in the palette and, being flat, correctly unread by the shadow hook',
+  'flat surfaces separate by lightness; a glow token with no reader is the state this catches',
 )
+
+// 1b. The original signature was `buildShadows(_colors)`: the parameter was there, named, and
+//     unused, which is why every shadow was a hard-coded black and dark mode had no
+//     elevation. The property worth keeping is not "the glow is cast" but "no parameter is
+//     accepted and ignored" — that is what `_colors` was, and it is how a whole class of
+//     dead-theme bug starts.
+//
+//     So the check is now inverted to match reality: `buildShadows` takes no palette
+//     parameter at all, and the check fails if one reappears without being read. Asserting
+//     "every parameter is used" would be satisfied by a hook that takes zero parameters
+//     vacuously, which is not evidence of anything — so the test is that the parameter list
+//     is empty *because* there is nothing left to vary, and that the seven steps are all
+//     the same flat value.
+// The step table is the `return { … }` inside `buildShadows`, matched to its own closing
+// brace. Anchoring on `\n\}` would miss it — the object is indented, so the line is `\n  };`.
+const shadowSteps = shadowsCode.split(/function buildShadows\([^)]*\)/)[1]?.match(/return \{([\s\S]*?)\n\s*\};/)?.[1] ?? ''
+const declaredParams = (shadowsCode.match(/function buildShadows\(([^)]*)\)/)?.[1] ?? '')
+  .split(',')
+  .map((p) => p.trim())
+  .filter(Boolean)
+const flatValues = [...shadowSteps.matchAll(/boxShadow:\s*(\w+|"[^"]*")/g)].map((m) => m[1])
 report(
-  // The original signature was `buildShadows(_colors)`: the parameter was there, named, and
-  // unused, which is why every shadow was a hard-coded black and dark mode had no
-  // elevation. The check is that every parameter is *referenced in the body*, not that the
-  // word "colors" appears in it — the first version of this check searched the body for
-  // `colors.` and passed on the broken version, because renaming the parameter to
-  // `_colors` leaves the body's `colors.glowStrong` textually intact while making it a
-  // reference to a variable that does not exist.
-  (() => {
-    const sig = shadowsCode.match(/function buildShadows\(([^)]*)\)/)?.[1]
-    // The body only — everything after the signature's closing paren. An earlier version
-    // matched from `function buildShadows(` through the first `\n}`, which *includes* the
-    // signature, so the parameter name was found in the parameter list and the check
-    // passed on the very code it was written to catch.
-    const body = shadowsCode.split(/function buildShadows\([^)]*\)/)[1]?.split(/\n\}/)[0] ?? ''
-    if (!sig) return false
-    const params = sig
-      .split(',')
-      .map((p) => p.trim().split(':')[0].trim().replace(/=.*$/, '').trim())
-      .filter(Boolean)
-    return params.length > 0 && params.every((p) => body.includes(p))
-  })(),
-  'buildShadows uses every parameter it declares — the palette is read, not just accepted',
+  declaredParams.length === 0 &&
+    flatValues.length === 7 &&
+    new Set(flatValues).size === 1,
+  'buildShadows declares no parameter and returns one flat value for all seven steps',
+  'a parameter that is accepted and ignored is how a dead-theme bug starts; a hook that ' +
+    'varies nothing should not accept a palette',
 )
 
 const hexLiterals = []

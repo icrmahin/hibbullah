@@ -433,7 +433,7 @@ export default function ProductForm({
             style={[styles.inlineButton, { backgroundColor: colors.primary, opacity: busy ? 0.6 : 1 }]}
             accessibilityRole="button"
           >
-            <Text style={[styles.inlineButtonText, { color: colors.white }]}>
+            <Text style={[styles.inlineButtonText, { color: colors.textInverse }]}>
               {busy ? "Adding…" : "Add"}
             </Text>
           </Pressable>

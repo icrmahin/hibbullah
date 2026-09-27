@@ -5,6 +5,13 @@ import { useThemeColors } from "../../providers/ThemeProvider";
 import { radius, layout, opacity as opacityToken } from "../../constants/sizes";
 import { springConfigs, compression as compressionValues } from "../../lib/motion";
 
+/**
+ * One view, for the same reason as `Button`: an unstyled `Pressable` carrying the
+ * `android_ripple` around a painted `Animated.View` gave a square ripple on a circular
+ * button, which on a 36px icon button is the most obvious defect in the app.
+ */
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 type IconButtonProps = PressableProps & {
   /** The icon element to render */
   icon: React.ReactNode;
@@ -39,8 +46,13 @@ export default function IconButton({
     danger: colors.dangerSoft,
   }[variant];
 
+  // The primary fill is the accent, and the accent inverts between the themes — a deep teal
+  // in light, a light sage in dark. So the ripple on it has to invert too: a white ripple
+  // is what you want on the dark teal, and is 1.1:1 against the light sage, i.e. invisible.
+  // `ripple.onPrimary` is the token for "whatever the primary fill's label colour is, a
+  // ripple in that same polarity".
   const ripple = {
-    primary: "rgba(255,255,255,0.22)",
+    primary: colors.ripple.onPrimary,
     secondary: colors.ripple.primary,
     ghost: colors.ripple.neutral,
     danger: colors.ripple.danger,
@@ -67,7 +79,7 @@ export default function IconButton({
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       {...props}
       disabled={disabled}
       android_ripple={{ color: ripple, borderless: false }}
@@ -76,27 +88,24 @@ export default function IconButton({
       accessibilityState={{ disabled: !!disabled }}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      style={[
+        styles.base,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: bg,
+          borderColor: variant === "secondary" ? colors.border : undefined,
+          opacity: disabled ? opacityToken.disabled : 1,
+        },
+        variant === "secondary" && styles.bordered,
+        animatedStyle,
+        style,
+      ]}
     >
-      <Animated.View
-        style={[
-          styles.base,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: bg,
-            borderColor: variant === "secondary" ? colors.border : undefined,
-            opacity: disabled ? opacityToken.disabled : 1,
-          },
-          variant === "secondary" && styles.bordered,
-          animatedStyle,
-          style,
-        ]}
-      >
-        {icon}
-        {badge && <View style={[styles.badgeDot, { backgroundColor: colors.danger }]} />}
-      </Animated.View>
-    </Pressable>
+      {icon}
+      {badge && <View style={[styles.badgeDot, { backgroundColor: colors.danger }]} />}
+    </AnimatedPressable>
   );
 }
 
@@ -104,6 +113,9 @@ const styles = StyleSheet.create({
   base: {
     alignItems: "center",
     justifyContent: "center",
+    // Clips the ripple to the circle. A circular button with a rectangular ripple is the
+    // clearest sign that the responder and the painted view are different views.
+    overflow: "hidden",
   },
   bordered: { borderWidth: 1 },
   badgeDot: {

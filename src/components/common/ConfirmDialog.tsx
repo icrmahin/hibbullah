@@ -47,8 +47,11 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   const colors = useThemeColors();
   const shadows = useShadows();
-  // Ink: the dialog's title and its icon circle's glyph. The circle behind the icon is
-  // `accent + "22"`, a 13%-alpha wash, so the glyph has to be readable against the *page*.
+  // Ink for the dialog's title and its icon glyph. The circle behind the icon is the
+  // palette's solid `dangerSoft`/`infoSoft`, both of which are contrast-checked against the
+  // status colour they carry — which is what replaced the `accent + "22"` alpha wash this
+  // used to sit on, and what makes `accent` the right ink here rather than merely a
+  // close-enough one.
   const accent = destructive ? colors.danger : colors.accent;
 
   return (
@@ -59,14 +62,25 @@ export default function ConfirmDialog({
       onRequestClose={onCancel}
       accessibilityViewIsModal
     >
-      {/* Tapping the backdrop cancels, matching every native confirm dialog. The inner
-          card stops propagation so a tap on the text is not a cancel. */}
+      {/* Tapping the backdrop cancels, matching every native confirm dialog. */}
       <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onCancel}>
-        <Pressable
+        {/*
+          The card claims the responder, so a tap on the title or the message is not a
+          cancel.
+
+          This was a `Pressable` whose only job was `e.stopPropagation()` — a full-card
+          touch target that did nothing, which is also what a screen reader announces as a
+          pressable alert. It was replaced with the same `onStartShouldSetResponder` guard
+          `Modal.tsx` uses, which answers the same question ("is this touch mine?")
+          declaratively, needs no synthetic event, and leaves no dead target behind. The
+          Cancel and Delete buttons below are deeper, so they are asked first and still
+          win for a touch on themselves.
+        */}
+        <View
+          onStartShouldSetResponder={() => true}
           accessibilityRole="alert"
           accessibilityLabel={title}
           style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }, shadows.lg]}
-          onPress={(e) => e.stopPropagation()}
         >
           <View style={styles.header}>
             <View style={[styles.iconCircle, { backgroundColor: destructive ? colors.dangerSoft : colors.infoSoft }]}>
@@ -95,7 +109,7 @@ export default function ConfirmDialog({
               style={styles.action}
             />
           </View>
-        </Pressable>
+        </View>
       </Pressable>
     </RNModal>
   );

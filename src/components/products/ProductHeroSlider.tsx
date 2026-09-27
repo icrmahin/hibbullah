@@ -151,7 +151,9 @@ function PromoCard({
         </Text>
         <Text style={[styles.limit, { color: colors.textMuted }]}>Limited-time offer</Text>
         <View style={[styles.cta, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.ctaText, { color: colors.white }]}>Shop now</Text>
+          {/* `textInverse`, not a fixed white — the CTA's fill is `colors.primary`, which
+              inverts between the themes, so its label has to invert with it. */}
+          <Text style={[styles.ctaText, { color: colors.textInverse }]}>Shop now</Text>
         </View>
       </View>
       <View style={[styles.visualWrap, { backgroundColor: colors.backgroundAlt }]}>

@@ -175,7 +175,7 @@ export default function CheckoutScreen() {
                 {active && <Icon name="check-circle" size={18} color={colors.accent} />}
                 <Pressable
                   onPress={() => handleDeleteAddress(addr.id)}
-                  hitSlop={8}                  style={[styles.deleteBtn, { backgroundColor: colors.danger + "12" }]}
+                  hitSlop={8}                  style={[styles.deleteBtn, { backgroundColor: colors.dangerSoft }]}
                   accessibilityLabel={`Delete ${addr.label}`}
                 >
                   <Icon name="delete-outline" size={16} color={colors.danger} />
@@ -357,7 +357,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0px 2px 4px rgba(0,0,0,0.08)",
+    // No boxShadow — a hardcoded black blur that never rendered against this screen's
+    // surface, on a 36px circle that already carries a 1px border.
   },
   container: { paddingHorizontal: spacing.lg, gap: spacing.lg },
   desktopLayout: { flexDirection: "row", gap: spacing.xl },

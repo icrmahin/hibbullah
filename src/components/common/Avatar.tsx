@@ -49,7 +49,11 @@ function Avatar({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: colors.primary,
+          // Neutral, not `colors.primary`. The fallback is an identity chip, not something
+          // you press, and the accent is reserved for the primary button. `border` is the
+          // palette's neutral fill and takes `colors.text` initials at 13.9:1 in light and
+          // 13.2:1 in dark.
+          backgroundColor: colors.border,
           borderWidth,
           borderColor: borderColor ?? "transparent",
         },
@@ -72,7 +76,7 @@ function Avatar({
           numberOfLines={1}
           style={[
             styles.initials,
-            { color: colors.white, fontSize: fontSize.body * fontScale },
+            { color: colors.text, fontSize: fontSize.body * fontScale },
           ]}
         >
           {initials || "?"}

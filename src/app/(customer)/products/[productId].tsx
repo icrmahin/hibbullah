@@ -178,7 +178,7 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       {/* Floating back — top right per spec but keep left for reach? Spec says floating top right go back — we place top right for checkout, top left here. Use top left for product as conventional. */}
-      <View style={[styles.floatingBack, { top: insets.top + spacing.sm, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight, boxShadow: "0px 2px 4px rgba(0,0,0,0.1)" }]}>
+      <View style={[styles.floatingBack, { top: insets.top + spacing.sm, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
         <Pressable onPress={() => goBack()} hitSlop={8} style={styles.floatingBackPress} accessibilityLabel="Go back">
           <Icon name="arrow-back" size={20} color={colors.text} />
         </Pressable>
@@ -228,7 +228,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0px 2px 4px rgba(0,0,0,0.1)",
+    // No boxShadow — a hardcoded black blur, which does not render on the dark surface and
+    // was 4px of softness on a circle that already has a 1px border.
   },
   floatingBackPress: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
 });

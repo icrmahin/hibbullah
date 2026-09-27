@@ -111,6 +111,14 @@ export const util = {
   ripple: {
     primary: "rgba(18, 60, 53, 0.08)",
     primaryDark: "rgba(18, 60, 53, 0.12)",
+    /**
+     * The ripple for a control whose fill is `primary`. Separate from `ripple.primary`
+     * because it keys off the *label's* polarity, not the theme: the primary fill is a deep
+     * teal in light mode and a light sage in dark, so its ripple is white in light and
+     * near-black in dark. A single value cannot be right for both — a white ripple is
+     * invisible on the light sage.
+     */
+    onPrimary: "rgba(255, 255, 255, 0.22)",
     danger: "rgba(179, 38, 30, 0.08)",
     neutral: "rgba(0, 0, 0, 0.04)",
   },

@@ -276,7 +276,12 @@ export default function AdminDashboardScreen() {
                           <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{it.title}</Text>
                           <Text style={[styles.rowSub, { color: colors.textMuted }]} numberOfLines={1}>{it.sub}</Text>
                         </View>
-                        <View style={[styles.chip, { borderColor: colors.primary + "22", backgroundColor: colors.primarySoft }]}>
+                        {/* A solid accent border, not `colors.primary + "22"`. An
+                            alpha-appended hex is not solid, and on a near-black page the
+                            resulting 13% wash is a hairline of noise rather than an edge.
+                            `borderFocus` *is* the accent in both palettes, so this reads
+                            the same at full strength. */}
+                        <View style={[styles.chip, { borderColor: colors.borderFocus, backgroundColor: colors.primarySoft }]}>
                           <Text style={[styles.chipText, { color: colors.accent }]}>{it.action}</Text>
                         </View>
                       </Pressable>

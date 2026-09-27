@@ -37,7 +37,7 @@ export default function CartItemRow({
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={`Remove ${item.product.name} from cart`}
-          style={[styles.deleteBtn, { backgroundColor: colors.danger + "14" }]}
+          style={[styles.deleteBtn, { backgroundColor: colors.dangerSoft }]}
         >
           <Icon name="delete-outline" size={16} color={colors.danger} />
         </Pressable>

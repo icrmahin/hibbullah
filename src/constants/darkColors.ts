@@ -5,7 +5,7 @@
 // assertion that keeps them honest is `scripts/verify-contrast.mjs`, which fails the build
 // if any of these pairs regress.
 //
-// ── Why the surfaces are near-black and the accent is not ─────────────────────────────
+// ── Why the primary button is the accent, and only that ───────────────────────────
 //
 // This palette used to invert the roles. `primary` was `#8FB8A8` — a light sage — and it
 // was used as a *background* in twelve places: the primary button, the active auth toggle,
@@ -15,26 +15,27 @@
 // jobs — "the thing you press" and "the colour of the text" — and only one of them can be a
 // light colour on a dark surface.
 //
-// So the roles are now separated, which is the split Material makes and the split the
-// light palette was already using by accident:
+// The roles were then split, which is the split Material makes: `primary` a FILL dark enough
+// to carry a white label, `accent` an INK bright enough to read as light-on-dark. That left
+// dark mode with no accent-filled control at all — the one thing you press was the least
+// colourful thing on the page, which is backwards for a shop screen where the CTA is the
+// whole point.
 //
-//   primary  = a FILL.  Dark enough to carry a white label at AA. Near-black with a
-//              brand cast, so it reads as a raised surface rather than a hole.
-//   accent   = INK.    A link, an icon, a focus ring, a selected border. Bright enough to
-//              read as light-on-dark, which is why it is still the light sage.
-//
-// The accent is what balances the UI: it is the only saturated colour on the page, so the
-// eye goes to the interactive thing and then to nothing else. That is the whole idea of a
-// near-black palette — the background recedes so the accent can carry all the meaning.
+// So `primary` is now the accent as a fill, and the label flips to `textInverse` (`#0A0C0B`)
+// to keep the contrast. That is 8.96:1, against the 2.19:1 that a white label on this fill
+// would have given — the exact failure recorded at the top of `scripts/verify-contrast.mjs`,
+// which is what pins the number. `primary` and `accent` are the same value in both
+// palettes now, and `verify:no-accent-fill` keeps it that way: the accent may fill a
+// primary button and nothing else.
 //
 // The green cast is 1–3 units on the blue channel. Enough to feel related to the sage,
 // far too little to tint the UI or to survive as an obvious colour on an OLED panel.
 
 export const darkBrand = {
-  /** FILL — a primary button's background. White label: 8.5:1. */
-  primary: "#1E2624",
-  /** FILL, pressed. 9.9:1 against white. */
-  primaryDark: "#161D1B",
+  /** FILL — the primary button, and the only accent-filled surface in the app. 8.96:1 against `textInverse`. */
+  primary: "#8FB8A8",
+  /** FILL, pressed — a deeper sage. 7.12:1 against `textInverse`. */
+  primaryDark: "#77A597",
   /** INK — links, icons, focus rings, selected borders. 8.3:1 on a card. */
   accent: "#8FB8A8",
   /** The accent as a very soft fill — a selected row, an icon tile. */
@@ -61,10 +62,14 @@ export const darkText = {
   /** 6.3:1 on a card, 6.8:1 on the page. Was 4.4:1, and it is used for 11px captions. */
   muted: "#8E9B96",
   /**
-   * The label colour for a filled surface whose lightness inverts between the themes — a
-   * status fill. Dark mode's are light (`danger` is `#EF5350`), so the label is near-black:
-   * 5.6:1. A `primary` fill is the opposite case, dark in both themes, so its label is
-   * `white`. That asymmetry is the whole reason these are two tokens.
+   * The label colour for a filled surface whose lightness *inverts* between the themes —
+   * a status fill, and now the primary fill too, since `primary` is a light sage here and
+   * a deep teal in light mode. `danger` is `#EF5350` and `primary` is `#8FB8A8`, so both
+   * need a near-black label: 5.6:1 and 8.96:1.
+   *
+   * This is why it is a token and not `white`. A white label on this palette's `primary`
+   * is 2.19:1, which is the failure recorded in `scripts/verify-contrast.mjs` — so the
+   * check that guards it asserts `textInverse` rather than `white`, in both palettes.
    */
   inverse: "#0A0C0B",
   link: "#8FB8A8",
@@ -126,6 +131,11 @@ export const darkUtil = {
   ripple: {
     primary: "rgba(255, 255, 255, 0.10)",
     primaryDark: "rgba(255, 255, 255, 0.16)",
+    /**
+     * A ripple on a `primary` fill. Dark mode's `primary` is the light sage, so this is
+     * near-black rather than white: a white ripple on `#8FB8A8` is 1.1:1 and cannot be seen.
+     */
+    onPrimary: "rgba(10, 12, 11, 0.16)",
     danger: "rgba(239, 83, 80, 0.14)",
     neutral: "rgba(255, 255, 255, 0.07)",
   },

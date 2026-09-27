@@ -34,6 +34,44 @@ function statusColor(type: NotificationItem["type"], colors: any) {
   }
 }
 
+/**
+ * The solid counterparts of `statusColor`.
+ *
+ * The status chip used to build its own colours by appending an alpha pair to a hex —
+ * `statusColor(...) + "1A"` for the fill and `+ "30"` for the border. That is not a solid
+ * background, and it also ignored the palette: these are washes computed at the call site
+ * out of an ink, so they are not the `*Soft` and `*Border` values that were contrast-checked
+ * for exactly this pairing. The palette already has solid tokens for a status on its own
+ * background, so the chip uses those.
+ */
+function statusSoft(type: NotificationItem["type"], colors: any) {
+  switch (type) {
+    case "alert":
+      return colors.dangerSoft;
+    case "warning":
+      return colors.warningSoft;
+    case "success":
+      return colors.successSoft;
+    case "info":
+    default:
+      return colors.primarySoft;
+  }
+}
+
+function statusBorder(type: NotificationItem["type"], colors: any) {
+  switch (type) {
+    case "alert":
+      return colors.dangerBorder;
+    case "warning":
+      return colors.warningBorder;
+    case "success":
+      return colors.successBorder;
+    case "info":
+    default:
+      return colors.border;
+  }
+}
+
 function statusLabel(type: NotificationItem["type"]) {
   switch (type) {
     case "alert":
@@ -236,7 +274,7 @@ export default function CustomerNotificationsScreen() {
                       <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
                         {notification.title}
                       </Text>
-                      <View style={[styles.statusChip, { backgroundColor: statusColor(notification.type, colors) + "1A", borderColor: statusColor(notification.type, colors) + "30" }]}>
+                      <View style={[styles.statusChip, { backgroundColor: statusSoft(notification.type, colors), borderColor: statusBorder(notification.type, colors) }]}>
                         <Text style={[styles.statusText, { color: statusColor(notification.type, colors) }]}>{statusLabel(notification.type)}</Text>
                       </View>
                     </View>
@@ -244,7 +282,9 @@ export default function CustomerNotificationsScreen() {
                     <Text style={[styles.time, { color: colors.textMuted }]}>{formatDateTime(notification.createdAt)}</Text>
                   </View>
                   {!notification.read ? (
-                    <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
+                    /* "Unread" is a state, not an action, so the dot is neutral ink rather
+                       than an accent fill. Near-black in light, near-white in dark. */
+                    <View style={[styles.unreadDot, { backgroundColor: colors.text }]} />
                   ) : null}
                 </View>
               </Pressable>
@@ -281,7 +321,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
-    boxShadow: "0px 2px 4px rgba(0,0,0,0.08)",
+    // No boxShadow. It was a hardcoded `rgba(0,0,0,0.08)` written into the StyleSheet,
+    // which is invisible on this screen's dark surface — and it was invisible on the light
+    // one too, being a 4px blur on a 36px circle that already has a 1px border. Flat.
   },
   floatingPress: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
   container: { paddingHorizontal: spacing.lg, gap: spacing.md },

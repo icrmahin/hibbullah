@@ -57,6 +57,9 @@ export default function AvatarPicker({
         <View style={[styles.avatarWrap, { borderColor: colors.borderSoft, ...shadows.sm }]}>
           <Avatar uri={uri} name={name} size={size} priority="high" />
           {uploading ? (
+            // A scrim over the avatar while it uploads, so it dims an image rather than
+            // replacing it. `colors.white` on it is right in both themes: the scrim is
+            // near-black either way.
             <View style={[styles.overlay, { backgroundColor: "rgba(0,0,0,0.45)" }]}>
               <ActivityIndicator size="small" color={colors.white} />
             </View>

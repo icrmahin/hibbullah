@@ -1,6 +1,6 @@
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AdminHeader from "../../../components/admin/AdminHeader";
@@ -86,6 +86,23 @@ export default function AdminProductsScreen() {
       categoryId: categoryId === "all" ? undefined : categoryId,
       query: query || undefined,
     });
+
+  // Returning from Add Product uses goBack(), which does not remount this
+  // screen — without this the list keeps the rows it had before the upload
+  // (often the "No products found" empty state) until a manual retry.
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload]),
+  );
+
+  const hasActiveFilters = status !== "all" || stockFilter !== "all" || categoryId !== "all";
+  const clearFilters = useCallback(() => {
+    setQuery("");
+    setStatus("all");
+    setStockFilter("all");
+    setCategoryId("all");
+  }, []);
   const { data: categories, loading: categoriesLoading } = useCategories(categoryTerm);
 
   const categoryOptions = useMemo(
@@ -99,7 +116,13 @@ export default function AdminProductsScreen() {
 
   const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  if (loading) {
+  // Only take the whole screen on the very first load. A focus-triggered
+  // reload with rows already mounted keeps the list visible (with pull to
+  // refresh available) instead of flashing back to a spinner.
+  const showFullLoading = loading && products.length === 0;
+  const refreshing = loading && products.length > 0;
+
+  if (showFullLoading) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <AdminHeader title="Products" subtitle={`${time} · catalog`} />
@@ -197,14 +220,18 @@ export default function AdminProductsScreen() {
               { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
             ]}
           >
-            <Icon name="add" size={16} color={colors.white} />
-            <Text style={[styles.addButtonText, { color: colors.white }]}>Add</Text>
+            <Icon name="add" size={16} color={colors.textInverse} />
+            <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Add</Text>
           </Pressable>
         }
       />
 
       <View style={styles.container}>
-        <ResponsiveContainer sidebarAware style={styles.flex}>
+        {/* innerStyle flex: 1 gives FlashList a bounded height on native. On
+            web a View sizes to its content, but on native the
+            ResponsiveContainer inner had no flex so the list measured zero
+            height and rendered blank even with rows loaded. */}
+        <ResponsiveContainer sidebarAware style={styles.flex} innerStyle={styles.flex}>
           <FlashList
             data={products}
             // Stable identity lets the list recycle rows while scrolling, which
@@ -231,10 +258,15 @@ export default function AdminProductsScreen() {
                 message={
                   query.trim()
                     ? `Nothing matches "${query.trim()}". Try a different search or clear the filters.`
-                    : "Add your first medicine to start the catalog."
+                    : hasActiveFilters
+                      ? "No products match these filters. Clear them to see the full catalog."
+                      : "Add your first medicine to start the catalog. If you just uploaded one and it is not here, pull to refresh or check Inventory — every stocked upload leaves a batch row there."
                 }
-                actionLabel="Add product"
-                onAction={() => router.push("/(admin)/products/add")}
+                actionLabel={hasActiveFilters && !query.trim() ? "Clear filters" : "Add product"}
+                onAction={() => {
+                  if (hasActiveFilters && !query.trim()) clearFilters();
+                  else router.push("/(admin)/products/add");
+                }}
               />
             }
             numColumns={listColumns}
@@ -244,6 +276,7 @@ export default function AdminProductsScreen() {
             onEndReached={hasMore ? loadMore : undefined}
             onEndReachedThreshold={0.4}
             drawDistance={DRAW_DISTANCE}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={reload} />}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />

@@ -218,23 +218,37 @@ const cases = [
   ],
   // ── one palette, and a shadow that actually casts one ────────────────────────────
   //
-  // These four are the dark-mode defects, each of which was invisible in a screenshot: a
-  // black shadow on a near-black page casts nothing, a retuned background silently
-  // switches off a hex comparison, and a hex literal in a `StyleSheet` cannot change with
-  // the theme at all.
+  // These are the dark-mode defects, each of which was invisible in a screenshot: a black
+  // shadow on a near-black page casts nothing, a retuned background silently switches off a
+  // hex comparison, and a hex literal in a `StyleSheet` cannot change with the theme at all.
+  //
+  // The first two were rewritten when the flat redesign removed the shadow system, because
+  // the shapes they mutated no longer exist. What they now guard is the same property in
+  // its new form: the glow is retained in the palette but unread by the hook (a token
+  // nothing implements), and `buildShadows` takes no parameter (an argument accepted and
+  // ignored was the original bug). Each mutation below reintroduces exactly that shape.
   [
-    'go back to casting a black shadow, so dark mode loses its only elevation',
-    'src/constants/shadows.ts',
-    // The glow is what a near-black surface needs: there is no darker neighbour to cast
-    // onto, so a `rgba(0,0,0,0.0x)` shadow is invisible no matter how large it is.
-    (s) => s.replace('colors.glowStrong : colors.glow', 'colors.shadow'),
+    'delete the retained glow, so the palette no longer documents why it existed',
+    'src/constants/darkColors.ts',
+    // The guard tests both halves of the glow rule: the token is still *defined*, and the
+    // flat hook correctly does not read it. Dropping the definition breaks the first half,
+    // which is the one that matters — a palette entry removed while a comment elsewhere
+    // still explains it.
+    (s) => s.replace(/^\s*glow:.*$/m, '').replace(/^\s*glowStrong:.*$/m, ''),
   ],
   [
-    'take the palette and ignore it again',
+    'take a parameter and ignore it again',
     'src/constants/shadows.ts',
-    // The original signature. The parameter was present, named, and unused — the one bug
-    // in this list that announced itself in the source and shipped anyway.
-    (s) => s.replace('function buildShadows(colors: ReturnType<typeof useThemeColors>, dark: boolean)', 'function buildShadows(_colors: ReturnType<typeof useThemeColors>, dark: boolean)'),
+    // The original signature, in the shape the flat version can still take: a parameter
+    // that exists and is not read is precisely how the black-shadow bug got in.
+    (s) => s.replace('function buildShadows() {', 'function buildShadows(_colors: unknown) {'),
+  ],
+  [
+    'vary the steps again, so one of them casts and six do not',
+    'src/constants/shadows.ts',
+    // Flat means all seven are the same value. One different step is a shadow that
+    // reappears in one place only, which is the hardest version of this to notice.
+    (s) => s.replace('lg: { boxShadow: FLAT },', 'lg: { boxShadow: "0px 12px 24px rgba(0,0,0,0.08)" },'),
   ],
   [
     'hard-code a colour in a screen again',

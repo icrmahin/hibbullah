@@ -180,6 +180,11 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
+    // A scrim, not a surface. It sits over a photograph — a solid fill would hide the image
+    // the user is waiting to see replaced — so it is the one place alpha is correct. The
+    // token is `colors.overlay`'s sibling, kept hardcoded here because it is theme-invariant
+    // by design: a dimming scrim over arbitrary photo content has to be the same in both
+    // themes, and `colors.overlay` is 0.4 in light and 0.72 in dark.
     backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center",
