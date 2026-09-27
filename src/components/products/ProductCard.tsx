@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { useShadows } from "../../constants/shadows";
 import spacing from "../../constants/spacing";
-import config from "../../constants/config";
 import { fontFamily, fontSize } from "../../constants/typography";
 import { radius } from "../../constants/sizes";
 import type { Product } from "../../types/product";
@@ -33,12 +32,18 @@ type ProductCardProps = {
  * Three things moved onto the image, where there was already room:
  *
  *   * the stock line was a sentence ("24 in stock") on its own row, which at 167px is the
- *     widest line on the card and its least useful. It is a pill on the photo now.
+ *     widest line on the card and its least useful. It was a pill on the photo for a while.
+ *     It is gone now: the pharmacy does not publish its stock levels to customers, so the
+ *     card carries no stock indicator of any kind — no count, no "In stock", no "Only a few
+ *     left", and no out-of-stock scrim. An unavailable product is simply one whose add
+ *     button is disabled. Exact numbers were the first thing to go, because they tell a
+ *     customer how much to buy before a restock and how much a competitor has sold; the
+ *     availability wording went next, on the same grounds.
  *   * the add button was full width, so the label had to shrink until it was barely the
  *     label. It is a floating button, and the accessibility label still says what it is.
  *   * the out-of-stock state was a centred uppercase word *and* the stock line saying the
- *     same thing. One of the two had to go; the scrim stayed, because a greyed-out
- *     photograph is a thing people understand without reading.
+ *     same thing. Both are gone; the disabled add button is the only signal, which is why
+ *     its disabled styling has to read as disabled rather than merely look different.
  *
  * The soft-UI part is the recessed well the photo sits in, the two floating controls that
  * cast their own soft shadow above it, and a press that flattens the card's shadow rather
@@ -55,7 +60,6 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
   const fav = isFavorite(product.id);
 
   const outOfStock = product.stock === 0;
-  const lowStock = product.stock > 0 && product.stock <= config.lowStockThreshold;
   const discount = product.discountPercent ?? 0;
   const showsOriginal = !outOfStock && product.originalPrice != null && product.originalPrice > product.price;
 
@@ -76,8 +80,6 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
       await toggleFavorite(product.id);
     } catch {}
   };
-
-  const stockTint = outOfStock ? colors.danger : lowStock ? colors.warning : colors.success;
 
   return (
     <View
@@ -112,22 +114,14 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
           accessibilityLabel={`View ${product.name} details`}
         />
 
-        {/* Out of stock: a scrim, not a caption. The stock pill below says the same words. */}
-        {outOfStock ? (
-          <View
-            style={[styles.outScrim, { backgroundColor: colors.backgroundAlt, opacity: 0.86 }]}
-            pointerEvents="none"
-          />
-        ) : null}
-
-        {!outOfStock ? (
-          <View style={[styles.stockPill, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
-            <View style={[styles.dot, { backgroundColor: stockTint }]} />
-            <Text style={[styles.stockText, { color: lowStock ? colors.warning : colors.textMuted }]} numberOfLines={1}>
-              {lowStock ? `Only ${product.stock} left` : `${product.stock} in stock`}
-            </Text>
-          </View>
-        ) : null}
+        {/*
+          No stock indicator. The scrim and the pill that used to sit here are both gone:
+          a greyed-out photograph and a coloured dot reading "In stock" are stock signals,
+          and the pharmacy does not publish stock levels to customers. What is left is the
+          add button below, which is disabled when the product cannot be bought — the only
+          thing on the card that depends on stock, and a purchase control rather than a
+          readout. Its disabled styling carries the meaning, so it stays legible.
+        */}
 
         {/* Add to cart, floating on the photo. A 32px target with a 6px hitSlop is 44px. */}
         <Pressable
@@ -257,9 +251,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 2,
   },
-  outScrim: {
-    ...StyleSheet.absoluteFill,
-  },
   /**
    * The two floating controls share a corner, so they get a corner stack rather than two
    * independent `top`/`right` pairs that drift apart the moment either size changes.
@@ -275,25 +266,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
-  },
-  stockPill: {
-    position: "absolute",
-    left: spacing.xs + 2,
-    bottom: spacing.xs + 2,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingLeft: 6,
-    paddingRight: spacing.sm,
-    height: 22,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    zIndex: 1,
-  },
-  dot: { width: 5, height: 5, borderRadius: radius.pill },
-  stockText: {
-    fontFamily: fontFamily.pjsMedium,
-    fontSize: fontSize.tiny,
   },
   content: {
     paddingHorizontal: spacing.sm,

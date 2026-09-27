@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useShadows } from "../../../constants/shadows";
@@ -10,12 +10,11 @@ import Icon from "../../../components/common/Icon";
 import ProductCard from "../../../components/products/ProductCard";
 import ProductHeroSlider from "../../../components/products/ProductHeroSlider";
 import spacing from "../../../constants/spacing";
-import { radius, layout } from "../../../constants/sizes";
+import { radius } from "../../../constants/sizes";
 import type { Product } from "../../../types/product";
 import { useNotifications } from "../../../hooks/useNotifications";
-import { useProducts, useCategories, useProductSearch } from "../../../hooks/useProducts";
+import { useProducts, useCategories } from "../../../hooks/useProducts";
 import { useResponsive } from "../../../hooks/useResponsive";
-import { isSearchableTerm } from "../../../services/searchQuery";
 
 type DiscoveryTab = "all" | "trending" | "discount" | "new";
 
@@ -30,54 +29,38 @@ export default function CustomerHomeScreen() {
   const { isMobile, cardWidth } = useResponsive();
   const { unreadCount } = useNotifications();
 
-  const [query, setQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
   const [activeTab, setActiveTab] = useState<DiscoveryTab>("all");
   const [showFilter, setShowFilter] = useState(false);
 
   const { data: products } = useProducts({ limit: 20 });
   const { data: categories } = useCategories();
 
-  // The overlay used to filter the 20 rows already on screen in JavaScript, so
-  // typing "amox" could only ever match products that happened to be in the
-  // newest 20 of a 4,000-product catalog. It now asks the database, which ranks
-  // the match and returns the real total.
-  const searching = isSearchableTerm(query);
-  const { data: searchData, loading: searchLoading, total: searchTotal } = useProductSearch(query);
-
   const featured = useMemo(() => products.filter((p) => p.isFeatured), [products]);
   const newProducts = useMemo(() => [...products].slice(0, 6), [products]);
   const discounted = useMemo(() => products.filter((p) => (p.discountPercent || 0) > 0), [products]);
 
-  const searchResults = useMemo(() => {
-    if (searching) return searchData.slice(0, 5);
-    return products.slice(0, 4);
-  }, [searching, searchData, products]);
-
-  // While there is a query the grid shows the search results, so the home screen
-  // searches the whole catalog rather than only the page it happens to hold.
   const activeProducts = useMemo(() => {
-    if (searching) return searchData;
     if (activeTab === "all") return products;
     if (activeTab === "trending") return featured;
     if (activeTab === "discount") return discounted;
     return newProducts;
-  }, [searching, searchData, activeTab, featured, discounted, newProducts, products]);
-
-  const discoveryLabel = searching
-    ? searchLoading
-      ? "Searching…"
-      : `${searchTotal} ${searchTotal === 1 ? "match" : "matches"}`
-    : "Browse medicines";
+  }, [activeTab, featured, discounted, newProducts, products]);
 
   const openProduct = (product: Product) => {
-    setSearchFocused(false);
     router.push({ pathname: "/(customer)/products/[productId]", params: { productId: product.id } });
   };
 
+  // The search bar is an entry point, not an input. It used to open a "Matches"/"Popular"
+  // panel under itself that live-queried the catalog and listed five names as you typed —
+  // a second, partial search implementation sitting on top of the real one. The search
+  // screen already focuses its own field and lists products on every keystroke, so tapping
+  // goes straight there and the type-ahead is gone.
+  //
+  // `onPress` on SearchBar, not `readOnly` on the input: `readOnly` resolves to
+  // `editable={false}`, which takes the input out of the touch chain, so a press handler
+  // on it never fires and the bar is dead. See the note on that prop.
   const openSearchScreen = () => {
-    setSearchFocused(false);
-    router.push({ pathname: "/(customer)/search", params: { query: query.trim() } });
+    router.push({ pathname: "/(customer)/search" });
   };
 
   return (
@@ -123,55 +106,11 @@ export default function CustomerHomeScreen() {
       >
         <View style={styles.searchArea}>
           <SearchBar
-            value={query}
-            onChangeText={setQuery}
-            onFocus={() => setSearchFocused(true)}
+            value=""
+            onChangeText={() => {}}
+            onPress={openSearchScreen}
             placeholder="Search medicine"
           />
-          {searchFocused ? (
-            <View style={[styles.searchPanel, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
-              <Text style={[styles.searchPanelTitle, { color: colors.textMuted }]}>
-                {query ? "Matches" : "Popular"}
-              </Text>
-              {searching && searchLoading ? (
-                <Text style={[styles.noResults, { color: colors.textMuted }]}>Searching…</Text>
-              ) : (
-                <FlatList
-                  data={searchResults}
-                  keyboardShouldPersistTaps="handled"
-                  keyExtractor={(item) => item.id}
-                  scrollEnabled={false}
-                  renderItem={({ item }) => (
-                    <Pressable style={styles.searchResult} onPress={() => openProduct(item)}>
-                      <Text style={[styles.searchResultName, { color: colors.text }]} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text style={[styles.searchResultMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                        {item.brand} · {item.genericName}
-                      </Text>
-                    </Pressable>
-                  )}
-                  ListEmptyComponent={
-                    <Text style={[styles.noResults, { color: colors.textMuted }]}>
-                      {searching
-                        ? "No medicines found — try another name or check the spelling."
-                        : "Type a medicine, brand or generic name."}
-                    </Text>
-                  }
-                />
-              )}
-              {searching && searchTotal > 0 ? (
-                <Pressable onPress={openSearchScreen} style={styles.searchSeeAll}>
-                  <Text style={[styles.searchCloseText, { color: colors.accent }]}>
-                    See all {searchTotal} {searchTotal === 1 ? "result" : "results"}
-                  </Text>
-                </Pressable>
-              ) : null}
-              <Pressable onPress={() => setSearchFocused(false)} style={styles.searchClose}>
-                <Text style={[styles.searchCloseText, { color: colors.accent }]}>Close</Text>
-              </Pressable>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.heroSection}>
@@ -179,7 +118,7 @@ export default function CustomerHomeScreen() {
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{discoveryLabel}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Browse medicines</Text>
           <Pressable onPress={() => router.push("/(customer)/(tabs)/products")}>
             <Text style={[styles.viewAll, { color: colors.accent }]}>View all</Text>
           </Pressable>
@@ -301,25 +240,7 @@ const styles = StyleSheet.create({
   cartBadgeText: { fontSize: 9, fontWeight: "700" },
   container: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   searchArea: { position: "relative", zIndex: 10, marginBottom: spacing.md },
-  searchPanel: {
-    position: "absolute",
-    top: layout.inputHeight + 8,
-    left: 0,
-    right: 0,
-    maxHeight: 280,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: spacing.md,
-    boxShadow: "0px 8px 16px rgba(0,0,0,0.12)",
-  },
-  searchPanelTitle: { fontWeight: "600", fontSize: 11, marginBottom: spacing.xs, textTransform: "uppercase", letterSpacing: 0.4 },
-  searchResult: { paddingVertical: spacing.sm },
-  searchResultName: { fontWeight: "600", fontSize: 12 },
-  searchResultMeta: { fontSize: 11, marginTop: 2 },
   noResults: { paddingVertical: spacing.sm, fontSize: 12 },
-  searchClose: { alignSelf: "flex-end", marginTop: spacing.sm },
-  searchSeeAll: { marginTop: spacing.sm, alignSelf: "flex-start" },
-  searchCloseText: { fontSize: 12, fontWeight: "600" },
   heroSection: { marginBottom: spacing.sm },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, marginBottom: spacing.sm },
   sectionTitle: { fontWeight: "700", fontSize: 14 },

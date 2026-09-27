@@ -1,9 +1,13 @@
 import { Platform } from 'react-native'
+import { File } from 'expo-file-system'
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
 import { supabase } from '../lib/supabase'
 
 const MAX_BYTES = 5 * 1024 * 1024
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/jpg'])
+
+const READ_FAILED = 'Could not read selected image'
+const TOO_LARGE = 'Image too large — max 5MB after compression. Try a smaller image.'
 
 // Cloudinary config — read from .env (EXPO_PUBLIC_ is the only prefix Expo inlines).
 // Never put your Cloudinary API secret here: this code runs entirely on the client.
@@ -157,6 +161,90 @@ function withCacheBust(url: string): string {
   return `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`
 }
 
+/**
+ * Read a Blob into bytes, working on both engines.
+ *
+ * A browser `Blob` has `arrayBuffer()`. React Native's does not — `Blob.js` exposes only
+ * `slice`, `close`, `data`, `size` and `type` — which is why `expo/src/utils/blobUtils`
+ * falls back to `FileReader` too. Calling `arrayBuffer()` unconditionally throws
+ * "blob.arrayBuffer is not a function" on a device and works in a browser, so the
+ * capability is checked rather than assumed.
+ *
+ * Now only reached on the Android content-URI fallback in readNativeImageBytes below. The
+ * ordinary `file://` path uses the filesystem API and never produces a Blob at all.
+ */
+async function blobToBytes(blob: Blob): Promise<Uint8Array> {
+  const maybe = blob as Blob & { arrayBuffer?: () => Promise<ArrayBuffer> }
+  if (typeof maybe.arrayBuffer === 'function') {
+    return new Uint8Array(await maybe.arrayBuffer())
+  }
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer))
+    reader.onerror = () => reject(reader.error ?? new Error(READ_FAILED))
+    reader.readAsArrayBuffer(blob)
+  })
+}
+
+/**
+ * Read a local file's bytes on a device.
+ *
+ * This used to be `fetch(uri)` followed by `if (!res.ok) throw`. That was the second
+ * device-only failure in this function, and it failed every single time with "Could not
+ * read selected image" — a message that says the image is broken when the image was fine
+ * and the *check* was wrong.
+ *
+ * `ok` is defined as `status >= 200 && status < 300` (`FetchResponse.ts:359`). That is an
+ * HTTP question, and a local file has no HTTP status to give. Fetching a `file://` URI does
+ * not produce a 2xx, so `res.ok` was false on every upload, the guard threw before the
+ * bytes were ever looked at, and the real error — the one worth reading — was replaced by a
+ * misleading one. The size check that followed was the same mistake in the other
+ * direction: `blob.size`, a web Blob property, standing in for a native byte count.
+ *
+ * `expo-file-system` is the purpose-built primitive and has no HTTP in it at all: `exists`
+ * is a real existence check, `size` is a real byte count taken from the filesystem, and
+ * `bytes()` is a real file read. It is also the shape Expo's own FormData converter names
+ * on the branch this upload takes — `convertFormData.ts:74` reads
+ * `'bytes' in entry` and its comment says "File or ExpoBlob don't extend Blob but implement
+ * the interface" — so the bytes handed to it now come from the API it was written against,
+ * rather than from a Blob round-tripped through a networking stack that does not serve
+ * local files.
+ *
+ * A `File` constructor can also throw, for a path the native layer will not accept, so the
+ * whole read is guarded and reported as the same unreadable-image message rather than
+ * surfacing a native error the user cannot act on.
+ */
+async function readNativeImageBytes(uri: string): Promise<Uint8Array> {
+  // The ordinary case. compressImage always produces a `file://` cache file when
+  // expo-image-manipulator is present, which it is on both platforms.
+  if (uri.startsWith('file://')) {
+    let file: File
+    try {
+      file = new File(uri)
+    } catch {
+      throw new Error(READ_FAILED)
+    }
+    if (!file.exists) throw new Error(READ_FAILED)
+    if (file.size > MAX_BYTES) throw new Error(TOO_LARGE)
+    try {
+      return await file.bytes()
+    } catch {
+      throw new Error(READ_FAILED)
+    }
+  }
+
+  // An Android `content://` or `ph://` URI. Only reachable when the compressor could not
+  // run, so the original picker URI is still in play, and the filesystem API cannot open
+  // those — they go through the networking stack instead. There is no status to trust
+  // here either, so the bytes themselves are the check: a blob of length zero means the
+  // read failed, whatever the response claimed.
+  const res = await fetch(uri)
+  const blob = await res.blob()
+  if (!blob.size) throw new Error(READ_FAILED)
+  if (blob.size > MAX_BYTES) throw new Error(TOO_LARGE)
+  return blobToBytes(blob)
+}
+
 async function uploadToCloudinary(params: {
   localUri: string
   folder: 'products' | 'avatars'
@@ -173,18 +261,43 @@ async function uploadToCloudinary(params: {
   const mime = compressed.mime !== 'image/jpeg' ? compressed.mime : mimeFromExt(ext)
   if (!ALLOWED_MIME.has(mime)) throw new Error('Unsupported image type. Use jpg, png, or webp.')
 
-  const res = await fetch(uriToUpload)
-  if (!res.ok) throw new Error('Could not read selected image')
-  const blob = await res.blob()
-  if (blob.size > MAX_BYTES) throw new Error('Image too large — max 5MB after compression. Try a smaller image.')
-
   const form = new FormData()
   if (Platform.OS === 'web') {
-    // Browsers append a Blob/File directly.
+    // Browsers append a Blob/File directly, and a browser fetch of a `blob:` or `data:`
+    // URL does have a real status — this is the one place `res.ok` means anything.
+    const res = await fetch(uriToUpload)
+    if (!res.ok) throw new Error(READ_FAILED)
+    const blob = await res.blob()
+    if (blob.size > MAX_BYTES) throw new Error(TOO_LARGE)
     form.append('file', blob, `${publicId}.${ext}`)
   } else {
-    // React Native streams the local file by reference instead of buffering it in memory.
-    form.append('file', { uri: uriToUpload, name: `${publicId}.${ext}`, type: mime } as unknown as Blob)
+    // Expo SDK 57 replaces global `fetch` with its own implementation ("winter"), and its
+    // FormData converter recognises exactly three things: a string, a `Blob`, and an object
+    // with a `bytes()` method. Everything else is rejected with "Unsupported FormDataPart
+    // implementation". The classic React Native `{ uri, name, type }` part is in the fourth
+    // category, and the converter's own comment says why: "uri is not supported for React
+    // Native's FormData".
+    //
+    // That is what made every upload fail on a device -- both the avatar and the product
+    // photo -- while the web branch above kept working, because a browser takes a Blob. The
+    // failure is invisible to a web export, to `tsc` and to eslint, which is why it survived
+    // a green build and was only ever found by running the installed APK.
+    //
+    // Two of the three accepted shapes were available here. Appending `blob` itself would
+    // take the `instanceof Blob` branch, and on native that does hold: `globalThis.Blob` is
+    // React Native's Blob, which is what winter's `res.blob()` hands back. It is not used,
+    // because it rests on a prototype identity being what it appears to be on a platform
+    // with no test coverage here, while the `bytes()` branch is an unconditional
+    // `'bytes' in entry` check with no `instanceof` anywhere in it -- and the converter's own
+    // comment identifies that branch as the one meant for File/ExpoBlob. So `name`, `type`
+    // and `bytes` are the three properties it actually reads
+    // (`convertFormData.ts:21-28` and `:73-75`).
+    const bytes = await readNativeImageBytes(uriToUpload)
+    form.append('file', {
+      name: `${publicId}.${ext}`,
+      type: mime,
+      bytes: async () => bytes,
+    } as unknown as Blob)
   }
   form.append('upload_preset', uploadPreset)
   form.append('folder', folder)

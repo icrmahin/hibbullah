@@ -54,10 +54,24 @@ const DRAW_DISTANCE = 1200
 export default function AdminProductsScreen() {
   const colors = useThemeColors();
   const shadows = useShadows();
-  // Two products per row on a phone, growing from there. This was `isDesktop`, so the
-  // catalog a shop owner reaches for on their own handset was one-up while the customer
-  // catalog was not — the same product, laid out differently, depending on who was looking.
-  const { columns } = useResponsive();
+  // One product per row on a phone, growing from there, and this is the whole bug this
+  // screen had.
+  //
+  // `AdminProductCard` is a *row* card: an 88px photo beside the name, the badge, the price
+  // and the stock count. It was being asked to lay out inside a FlashList of `columns` —
+  // the *product grid* count, which is 2 on every phone width. At 393dp that is a 164px
+  // cell: 104px of it is the photo and its padding, leaving 36px for every piece of text.
+  // The name is `flex: 1` in a row with the status badge, so the badge's intrinsic width
+  // drove the name to zero, and the brand, the price and the unit count all clipped.
+  // `minWidth: 0` on the cell meant it clipped rather than overflowed, so nothing spilled
+  // and nothing looked broken — the catalog rendered as two columns of unreadable slivers
+  // and read as "no products here".
+  //
+  // `listColumns` is the row-shaped count: 1 on a phone, 2 at tablet, 3 on a desktop, and
+  // capped there. It is what the order and customer screens already use, and the comment on
+  // it in useResponsive describes this exact case — "an order row is a status, a date, an
+  // item count and a total, and at 170px wide it wraps into a shape nobody can read".
+  const { listColumns } = useResponsive();
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -223,10 +237,10 @@ export default function AdminProductsScreen() {
                 onAction={() => router.push("/(admin)/products/add")}
               />
             }
-            numColumns={columns}
+            numColumns={listColumns}
             // FlashList requires a stable key that changes with the column count, or it
             // recycles cells laid out for the wrong width.
-            key={`cols-${columns}`}
+            key={`cols-${listColumns}`}
             onEndReached={hasMore ? loadMore : undefined}
             onEndReachedThreshold={0.4}
             drawDistance={DRAW_DISTANCE}

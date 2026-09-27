@@ -153,6 +153,74 @@ export function findDistrict(name?: string | null): District | undefined {
   return DISTRICTS.find((d) => d.name.toLowerCase() === needle);
 }
 
+/**
+ * Fold a typed district to one comparable shape: lower case, apostrophes dropped, runs of
+ * whitespace collapsed, and a trailing "district" discarded.
+ *
+ * "Cox's Bazar", "Coxs Bazar", "cox's  bazar" and "Cox's Bazar District" are one place
+ * written four ways, and all four mean the same delivery.
+ */
+function districtKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[''`´]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*district\.?$/, "");
+}
+
+/**
+ * Spellings accepted in addition to the canonical name, keyed by `districtKey`.
+ *
+ * The pre-2018 English names are still what most people write and what older saved
+ * addresses hold, and "Cox's Bazar" is typed with and without the apostrophe. This is
+ * deliberately an *input* convenience: `addresses.county` is only ever written with the
+ * canonical name that `resolveDistrict` returns, which is what keeps the stored value
+ * comparable by the server's delivery-fee rule.
+ */
+const DISTRICT_ALIASES: Record<string, string> = {
+  bogra: "Bogura",
+  barisal: "Barishal",
+  jessore: "Jashore",
+  chittagong: "Chattogram",
+  chattagong: "Chattogram",
+  comilla: "Cumilla",
+  coxsbazar: "Cox's Bazar",
+  coxbazar: "Cox's Bazar",
+  // The apostrophe is dropped rather than replaced, so the spaced and unspaced forms are
+  // different keys. Both are needed: "Cox's Bazar" and "Cox Bazar" are how it is written.
+  "coxs bazar": "Cox's Bazar",
+  "cox bazar": "Cox's Bazar",
+  daka: "Dhaka",
+};
+
+/**
+ * Resolve free text to a district, or undefined when it is not one we recognise.
+ *
+ * Accepts the canonical English name in any case, the Bangla name, the pre-2018 English
+ * spelling, and a trailing "district". Used to validate the address form, which is a
+ * plain text field rather than a 64-item picker.
+ *
+ * Note this is *not* wired into `isInsideDhaka`. That function is compared against the
+ * SQL delivery-fee rule by verify:sql-sync, and loosening it here would let the app quote
+ * ৳80 for a spelling the server does not recognise and then charge ৳150 — a checkout that
+ * disagrees with the bill, which is exactly the split that check exists to prevent. The
+ * form resolves to the canonical name *before* saving, so the stored value is always one
+ * the server can match.
+ */
+export function resolveDistrict(input?: string | null): District | undefined {
+  if (!input) return undefined;
+  const key = districtKey(input);
+  if (!key) return undefined;
+
+  const aliased = DISTRICT_ALIASES[key];
+  if (aliased) return findDistrict(aliased);
+
+  return DISTRICTS.find(
+    (d) => districtKey(d.name) === key || districtKey(d.bn) === key,
+  );
+}
+
 /** True when `name` is the district that qualifies for the reduced fee. */
 export function isInsideDhaka(name?: string | null): boolean {
   return !!name && name.trim().toLowerCase() === INSIDE_DHAKA_DISTRICT.toLowerCase();

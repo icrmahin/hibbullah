@@ -138,10 +138,18 @@ export default function ProductForm({
     Boolean(product?.batchNumber || product?.expiryDate),
   );
 
-  // Local copies so an option created inline is selectable straight away, even
-  // before the screen's next fetch brings it back.
-  const [cats, setCats] = useState<Category[]>(categories);
-  const [mans, setMans] = useState<Manufacturer[]>(manufacturers);
+  // Only options created *inline* are held in state. The fetched lists are used
+  // straight from the props.
+  //
+  // This was `useState<Category[]>(categories)`, which reads its argument on the first
+  // render only. `categories` arrives from an async hook, so on that first render it is
+  // `[]` — and the copy was then never refreshed, because this file had no `useEffect` to
+  // refresh it. The picker listed only rows created from inside this form, which is why
+  // no previously saved category ever appeared. Keeping the fetched list as a prop and
+  // state for just the additions removes the synchronisation entirely, so it cannot go
+  // stale again.
+  const [addedCats, setAddedCats] = useState<Category[]>([]);
+  const [addedMans, setAddedMans] = useState<Manufacturer[]>([]);
 
   const [touched, setTouched] = useState<Partial<Record<OptionalField, boolean>>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -165,16 +173,21 @@ export default function ProductForm({
   const [newManufacturerError, setNewManufacturerError] = useState<string | null>(null);
   const [addingManufacturer, setAddingManufacturer] = useState(false);
 
-  // A newly created option must be selectable even if the current search term
-  // would filter it out of the fetched list.
-  const categoryOptions = useMemo<SelectOption[]>(
-    () => cats.map((c) => ({ label: c.name, value: c.id })),
-    [cats],
-  );
-  const manufacturerOptions = useMemo<SelectOption[]>(
-    () => mans.map((m) => ({ label: m.name, value: m.id })),
-    [mans],
-  );
+  // The fetched list, plus anything created inline this session. A newly created option
+  // must stay selectable even if the current search term would filter it out of the
+  // fetched list, and a row present in both is listed once.
+  const categoryOptions = useMemo<SelectOption[]>(() => {
+    const byId = new Map<string, Category>();
+    for (const c of categories) byId.set(c.id, c);
+    for (const c of addedCats) if (!byId.has(c.id)) byId.set(c.id, c);
+    return [...byId.values()].map((c) => ({ label: c.name, value: c.id }));
+  }, [categories, addedCats]);
+  const manufacturerOptions = useMemo<SelectOption[]>(() => {
+    const byId = new Map<string, Manufacturer>();
+    for (const m of manufacturers) byId.set(m.id, m);
+    for (const m of addedMans) if (!byId.has(m.id)) byId.set(m.id, m);
+    return [...byId.values()].map((m) => ({ label: m.name, value: m.id }));
+  }, [manufacturers, addedMans]);
 
   const validate = useMemo(() => {
     const next: Record<string, string> = {};
@@ -305,7 +318,7 @@ export default function ProductForm({
     setNewCategoryError(null);
     try {
       const created = await onCreateCategory(value);
-      setCats((prev) => (prev.some((c) => c.id === created.id) ? prev : [...prev, created]));
+      setAddedCats((prev) => (prev.some((c) => c.id === created.id) ? prev : [...prev, created]));
       setCategoryId(created.id);
       setNewCategoryName("");
       setCategoryAddOpen(false);
@@ -326,7 +339,7 @@ export default function ProductForm({
     setNewManufacturerError(null);
     try {
       const created = await onCreateManufacturer(value);
-      setMans((prev) => (prev.some((m) => m.id === created.id) ? prev : [...prev, created]));
+      setAddedMans((prev) => (prev.some((m) => m.id === created.id) ? prev : [...prev, created]));
       setManufacturerId(created.id);
       setNewManufacturerName("");
       setManufacturerAddOpen(false);

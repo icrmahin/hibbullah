@@ -8,7 +8,6 @@ import Button from "../../../components/common/Button";
 import EmptyState from "../../../components/common/EmptyState";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
-import StatusBadge from "../../../components/common/StatusBadge";
 import ProductImage from "../../../components/products/ProductImage";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import Icon from "../../../components/common/Icon";
@@ -126,12 +125,15 @@ export default function ProductDetailScreen() {
                   <Text style={[styles.price, { color: colors.text }]}>{formatCurrency(product.price)}</Text>
                   {product.originalPrice ? <Text style={[styles.original, { color: colors.textMuted }]}>{formatCurrency(product.originalPrice)}</Text> : null}
                 </View>
-                <View style={styles.metaRow}>
-                  <StatusBadge label={product.stock > 0 ? "In stock" : "Out of stock"} tone={product.stock > 0 ? "success" : "danger"} />
-                  {product.stock > 0 ? (
-                    <Text style={[styles.stockText, { color: colors.textMuted }]}>{product.stock} available</Text>
-                  ) : null}
-                </View>
+                {/*
+                  No stock readout here. This row used to carry a badge reading "In stock"
+                  or "Out of stock" plus a low-stock hint, and both are gone: the pharmacy
+                  does not publish stock levels to customers. The quantity selector and the
+                  add button below are the parts that depend on stock, and they are controls
+                  rather than information — which is why the button's label still changes to
+                  "Out of stock" when the product cannot be bought. A disabled button with
+                  no stated reason is worse than a stock line, so that one stays.
+                */}
                 {qtySelector}
                 {feedback ? <Text style={[styles.feedback, { color: feedback.includes("added") ? colors.success : colors.danger }]}>{feedback}</Text> : null}
                 <View style={styles.actionsRow}>
@@ -159,10 +161,7 @@ export default function ProductDetailScreen() {
                 <Text style={[styles.price, { color: colors.text }]}>{formatCurrency(product.price)}</Text>
                 {product.originalPrice ? <Text style={[styles.original, { color: colors.textMuted }]}>{formatCurrency(product.originalPrice)}</Text> : null}
               </View>
-              <View style={styles.metaRow}>
-                <StatusBadge label={product.stock > 0 ? "In stock" : "Out of stock"} tone={product.stock > 0 ? "success" : "danger"} />
-                {product.stock > 0 ? <Text style={[styles.stockText, { color: colors.textMuted }]}>{product.stock} available</Text> : null}
-              </View>
+              {/* No stock readout — see the note on the wide layout above. */}
               {qtySelector}
               {feedback ? <Text style={[styles.feedback, { color: feedback.includes("added") ? colors.success : colors.danger }]}>{feedback}</Text> : null}
               <View style={styles.actionsRow}>

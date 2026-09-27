@@ -25,7 +25,7 @@ export default function AboutScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>
           <Text style={[styles.h, { color: colors.text }]}>Our story</Text>
-          <Text style={[styles.p, { color: colors.textMuted }]}>Hibbullah brings trusted medicines to your door in Dhaka. We partner with licensed manufacturers, keep cold-chain where needed, and show real stock — if it’s out of stock, it hides until restocked. One pending invoice keeps billing clean; admin confirms before a new invoice starts.</Text>
+          <Text style={[styles.p, { color: colors.textMuted }]}>Hibbullah brings trusted medicines to your door in Dhaka. We partner with licensed manufacturers and keep cold-chain where needed. A medicine that has run out cannot be added to your cart until the pharmacy restocks it. One pending invoice keeps billing clean; admin confirms before a new invoice starts.</Text>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>

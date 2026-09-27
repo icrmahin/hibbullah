@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import { goBack } from '@/utils/navigation';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { ScrollView, StyleSheet, Text, View, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,27 +9,14 @@ import SoftHeader from "../../../components/common/SoftHeader";
 import Input from "../../../components/common/Input";
 import Button from "../../../components/common/Button";
 import LoadingState from "../../../components/common/LoadingState";
-import SearchableSelect from "../../../components/common/SearchableSelect";
-import type { SelectOption } from "../../../components/common/SearchableSelect";
 import InlineAlert from "../../../components/common/Alert";
 import spacing from "../../../constants/spacing";
-import { DISTRICTS } from "../../../constants/districts";
+import { resolveDistrict } from "../../../constants/districts";
 import { deliveryFeeForDistrict } from "../../../utils/deliveryFee";
 import { formatCurrency } from "../../../utils/currency";
 import { normalizeError } from "../../../utils/errorHandling";
 
 import { useAddresses } from "../../../hooks/useAddresses";
-
-// English name on the row, with the Bangla name and the division underneath. Customers look
-// for their own district in Bangla, and the division is the next thing they would say after
-// the name — "Bogura, Rajshahi" — so putting it on the row means the search matches the way
-// people actually describe where they live. `value` is the canonical English name, which is
-// what gets stored and what the delivery-fee rule compares.
-const DISTRICT_OPTIONS: SelectOption[] = DISTRICTS.map((d) => ({
-  label: d.name,
-  value: d.name,
-  hint: `${d.bn} · ${d.division} Division`,
-}));
 
 export default function EditAddressScreen() {
   const colors = useThemeColors();
@@ -45,6 +32,11 @@ export default function EditAddressScreen() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const isEditing = !!addressId;
+
+  // The district is typed rather than picked, so it is resolved against the 64 known
+  // names on every keystroke. The canonical name that comes back is what gets stored,
+  // which is the only form the server's delivery-fee rule can match.
+  const district = useMemo(() => resolveDistrict(county), [county]);
 
   useEffect(() => {
     if (isEditing) {
@@ -71,21 +63,31 @@ export default function EditAddressScreen() {
       setFormError("Please enter a street address and a city.");
       return;
     }
-    // District is required because it decides the delivery fee. Left optional, an
-    // address with no district silently costs the outside-Dhaka rate forever and the
-    // customer never finds out why — so the choice is made explicit at the point where
-    // the information exists.
+    // District is required because it decides the delivery fee, and it has to be a name
+    // the server recognises: the fee rule is a single comparison, so anything unrecognised
+    // is billed at the full ৳150 rate. A free-text field lets "Daka" or "ঢাকা" through
+    // silently and then charges a Dhaka customer ৳70 extra with nothing on screen saying
+    // why — so an unrecognised district is refused here, at the point the information
+    // exists, and the customer is told what was expected.
     if (!county.trim()) {
-      setFormError("Please choose a district — it decides your delivery charge.");
+      setFormError("Please enter your district — it decides your delivery charge.");
       return;
     }
+    if (!district) {
+      setFormError(
+        `“${county.trim()}” is not a district we recognise. Use the English name ` +
+          `(for example Dhaka, Chattogram, Bogura) or the Bangla name.`,
+      );
+      return;
+    }
+    const countyName = district.name;
 
     setSaving(true);
     try {
       if (isEditing && addressId) {
-        await update(addressId, { street: street.trim(), city: city.trim(), county: county.trim(), postalCode: postalCode.trim(), label: label.trim() || 'Home', isDefault });
+        await update(addressId, { street: street.trim(), city: city.trim(), county: countyName, postalCode: postalCode.trim(), label: label.trim() || 'Home', isDefault });
       } else {
-        await create({ street: street.trim(), city: city.trim(), county: county.trim(), postalCode: postalCode.trim(), label: label.trim() || 'Home', isDefault });
+        await create({ street: street.trim(), city: city.trim(), county: countyName, postalCode: postalCode.trim(), label: label.trim() || 'Home', isDefault });
       }
       goBack();
     } catch (err) {
@@ -110,25 +112,25 @@ export default function EditAddressScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <Input label="Street Address" value={street} onChangeText={setStreet} placeholder="House, road, area" />
         <Input label="City / area" value={city} onChangeText={setCity} placeholder="e.g. Mirpur DOHS" />
-        <SearchableSelect
+        <Input
           label="District"
-          value={county || undefined}
-          // An address saved before the picker existed holds free text, and a district
-          // that was mistyped or has since been renamed is not in the list. Passing the
-          // stored value through as `selectedLabel` keeps it visible on the trigger
-          // instead of silently showing the placeholder, which would look like the field
-          // had been cleared.
-          selectedLabel={county || undefined}
-          options={DISTRICT_OPTIONS}
-          onSelect={setCounty}
-          placeholder="Select district"
-          searchPlaceholder="Search district — English or Bangla"
-          emptyMessage="No district matches. Check the spelling, or ask support."
+          value={county}
+          onChangeText={setCounty}
+          placeholder="e.g. Dhaka"
+          autoCapitalize="words"
+          autoCorrect={false}
         />
-        {county ? (
-          <Text style={[styles.feeHint, { color: colors.textMuted }]}>
-            Delivery to {county}: {formatCurrency(deliveryFeeForDistrict(county))}
-          </Text>
+        {county.trim() ? (
+          district ? (
+            <Text style={[styles.feeHint, { color: colors.textMuted }]}>
+              Delivery to {district.name}:{" "}
+              {formatCurrency(deliveryFeeForDistrict(district.name))}
+            </Text>
+          ) : (
+            <Text style={[styles.feeHintWarn, { color: colors.danger }]}>
+              Not a district we recognise.
+            </Text>
+          )
         ) : null}
         <Input label="Postal Code" value={postalCode} onChangeText={setPostalCode} placeholder="e.g. 1205" keyboardType="numeric" />
         <Input label="Label" value={label} onChangeText={setLabel} placeholder="e.g. Home, Office" />
@@ -149,4 +151,5 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   switchLabel: { fontSize: 14, fontWeight: "500" },
   feeHint: { fontSize: 12, marginTop: -spacing.xs },
+  feeHintWarn: { fontSize: 12, marginTop: -spacing.xs },
 });

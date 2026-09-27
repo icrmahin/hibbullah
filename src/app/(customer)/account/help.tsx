@@ -18,7 +18,7 @@ const FAQS: FAQ[] = [
   { q: "Why is my phone required?", a: "Phone is stored in your profile (not Auth) and is used solely for delivery coordination. You can update it in Profile Details. We never use it for login." },
   { q: "How does the single-invoice work?", a: "All items you add before acceptance go into one pending invoice. After the pharmacy accepts (Confirmed), your next checkout creates a new invoice. This keeps billing clean." },
   { q: "When will my order be delivered?", a: "Delivery cycles are 24 hours (orderCycleHours 24). Your Delivery Cycle screen shows active cycle closes_at. Client checks expiry on app open — no background cron needed." },
-  { q: "Stock shows out of stock?", a: "Products auto-deactivate when stock 0 (is_active false) and notify you if it was in cart/favorites. Restock by admin reactivates it. Low stock (<10) shows warning." },
+  { q: "A product won’t go in my cart?", a: "We don’t publish stock levels, so there is no count or availability label on a product. If it can’t be added, the medicine has run out and the pharmacy has not restocked it yet — the add button is disabled until then. Anything already in your cart or favourites is flagged for you when that happens." },
   { q: "How to return a medicine?", a: "Only Delivered orders can be returned. Open Order Detail → Select items → Reason → Submit. Admin validates via validate_return RPC." },
   { q: "I forgot my password?", a: "Login → Forgot password → we send recovery email (hibbullah://). Check spam. Link expires in 1 hour." },
 ];

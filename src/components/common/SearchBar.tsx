@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { useShadows } from "../../constants/shadows";
 import { radius, layout } from "../../constants/sizes";
@@ -19,6 +19,36 @@ type SearchBarProps = Omit<TextInputProps, "value" | "onChange" | "style" | "edi
   onSubmit?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  /**
+   * Turn the whole bar into a button that opens a search screen elsewhere.
+   *
+   * This branch renders no `TextInput` at all, and that is the entire point. It is not a
+   * style preference; it is the third attempt at this, and the first two were both wrong
+   * in a way that only a device could show:
+   *
+   *   1. The caller set `readOnly` on the input and put `onPressIn` on it. React Native
+   *      resolves `readOnly` to `editable={false}` (`TextInput.js:928`), and a non-editable
+   *      TextInput is not a touch responder, so the handler never fired and the bar was
+   *      simply dead. Nothing threw, no typecheck failed, no test failed.
+   *   2. A `Pressable` was wrapped around the bar and the input was taken out of the touch
+   *      chain with `pointerEvents="none"`. On a device that left the icon tappable and the
+   *      rest of the bar inert: the input's own bounds were being resolved as the touch
+   *      target while the responder negotiation around it depended on how the platform
+   *      dispatched a focusable text field. A tap on the text did nothing; a tap on the
+   *      magnifier went through.
+   *
+   * Both failures come from the same root: a `TextInput` in the tree is a second, competing
+   * claim on the touch, and whether it wins is a platform detail. So when the bar is a
+   * button, the bar is a `Pressable` with the field's own styles on it and a `Text` showing
+   * the placeholder. One view, one responder, no `pointerEvents` trick, no `editable`
+   * subtlety, and no keyboard to flash up for the moment it takes to navigate.
+   *
+   * It is visually identical — same pill, same height, same icon, same placeholder text in
+   * the same muted colour and the same type metrics — and it is now honest about what it is
+   * to a screen reader too: a search control, not an editable field that happens not to be
+   * editable.
+   */
+  onPress?: () => void;
 };
 
 export default function SearchBar({
@@ -28,10 +58,43 @@ export default function SearchBar({
   onSubmit,
   onFocus,
   onBlur,
+  onPress,
   ...props
 }: SearchBarProps) {
   const colors = useThemeColors();
   const shadows = useShadows();
+
+  // A button, not a field. Returned before the TextInput below is ever created — see the
+  // note on `onPress` for why that ordering is the fix and not a detail.
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="search"
+        accessibilityLabel={props.accessibilityLabel ?? placeholder}
+        // The field's own styles sit on the Pressable, so the responder is also the thing
+        // that is sized and painted. There is no inner view for a touch to land on
+        // instead, which is what left the previous version tappable only at the icon.
+        style={({ pressed }) => [
+          styles.wrapper,
+          {
+            backgroundColor: colors.backgroundAlt,
+            borderColor: colors.borderLight,
+            ...shadows.sm,
+          },
+          pressed && styles.pressed,
+        ]}
+      >
+        <Icon name="search" size={20} color={colors.textMuted} />
+        <Text
+          numberOfLines={1}
+          style={[styles.input, { color: colors.textMuted }]}
+        >
+          {placeholder}
+        </Text>
+      </Pressable>
+    );
+  }
 
   return (
     <View
@@ -97,5 +160,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

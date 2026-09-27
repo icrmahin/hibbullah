@@ -6,6 +6,7 @@ import { useFonts } from "@expo-google-fonts/sora";
 import { useFonts as usePJSFonts } from "@expo-google-fonts/plus-jakarta-sans";
 import * as SplashScreen from "expo-splash-screen";
 import { AppProviders } from "../providers/AppProviders";
+import AppErrorBoundary from "../components/common/ErrorBoundary";
 import { useTheme, useThemeColors } from "../providers/ThemeProvider";
 
 SplashScreen.preventAutoHideAsync();
@@ -60,7 +61,11 @@ export default function RootLayout() {
       <AppProviders>
         <ThemedStatusBar />
         <ThemedRootView>
-          <Stack screenOptions={{ headerShown: false }} />
+          {/* Inside AppProviders so the fallback can read the theme, and around the
+              Stack so a throw in any screen shows this instead of ending the process. */}
+          <AppErrorBoundary>
+            <Stack screenOptions={{ headerShown: false }} />
+          </AppErrorBoundary>
         </ThemedRootView>
       </AppProviders>
     </SafeAreaProvider>
