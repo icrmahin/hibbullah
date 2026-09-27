@@ -1,4 +1,5 @@
 {
+  "packageManager": "npm@11.19.0",
   "name": "com.hibbullah.app",
   "main": "expo-router/entry",
   "version": "1.0.0",
@@ -6,7 +7,7 @@
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo-google-fonts/sora": "^0.4.2",
     "@expo/vector-icons": "^15.1.1",
-    "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "2.0.2",
     "@supabase/supabase-js": "^2.116.0",
     "expo": "~57.0.22",

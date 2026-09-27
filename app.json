@@ -17,7 +17,8 @@
         "foregroundImage": "./assets/images/logo/hibbullah-main.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.hibbullah.app"
+      "package": "com.hibbullah.app",
+      "versionCode": 2
     },
     "web": {
       "output": "static",
@@ -42,7 +43,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "da0ca0c7-a0b9-4f1c-b644-543c22a87b6b"
+        "projectId": "389c0952-efcd-47ca-8324-5623a341861a"
       }
     },
     "owner": "icrmahin"
