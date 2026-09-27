@@ -59,7 +59,7 @@ export default function CustomerCategoriesScreen() {
               accessibilityLabel={`Browse ${item.name}`}
             >
               <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
-                <Icon name="category" size={18} color={colors.primary} />
+                <Icon name="category" size={18} color={colors.accent} />
               </View>
               <Text style={[styles.cardText, { color: colors.text }]} numberOfLines={2}>
                 {item.name}
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },

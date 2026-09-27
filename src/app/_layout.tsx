@@ -12,12 +12,17 @@ SplashScreen.preventAutoHideAsync();
 
 function ThemedStatusBar() {
   const { resolvedTheme } = useTheme();
+  const colors = useThemeColors();
   const isDark = resolvedTheme === "dark";
 
   return (
     <StatusBar
       barStyle={isDark ? "light-content" : "dark-content"}
-      backgroundColor={isDark ? "#111A17" : "#FFFFFF"}
+      // From the palette rather than a hex literal. This was `#111A17`, which was a copy of
+      // the dark background that had already gone stale once — the real value is now
+      // `#0A0C0B`, so the status bar would have been a visibly lighter band above a
+      // near-black app, and nothing would have said so.
+      backgroundColor={colors.background}
     />
   );
 }

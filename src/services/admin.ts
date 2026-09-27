@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { mapOrder } from '../lib/mappers'
+import { AppError, AppErrorType, supabaseErrorToAppError } from '../lib/errors'
 import { listProducts } from './products'
 import type { ProductCursor } from './products'
 import config from '../constants/config'
@@ -35,8 +36,18 @@ interface OrderWithStatus {
 export interface AdminDashboardData {
   // 30-day window
   totalSalesQty: number // total items sold last 30d
-  totalSalesRevenue: number // sum total last 30d
-  totalEarning: number // profit = sum((unit_price - cost_price)*qty) last 30d
+  totalSalesRevenue: number // sum of DELIVERED order totals last 30d
+  /** Delivered profit less approved returns. Never revenue, never a cancelled order. */
+  totalEarning: number
+  /** Profit before returns came off, so the headline figure can be explained. */
+  grossProfit: number
+  /** Profit given back by returns approved inside the window. */
+  returnedProfit: number
+  /** Delivered lines with no cost price set: they earn nothing and are counted, not guessed. */
+  unpricedItems: number
+  unpricedQty: number
+  /** Approved returns naming no order line, whose profit could not be reversed. */
+  unlinkedReturns: number
   salesTrend: number[] // 7 pts last 7d qty
   earningTrend: number[] // 7 pts last 7d profit
   pendingOrders: number
@@ -50,56 +61,75 @@ export interface AdminDashboardData {
   recentOrders: { id: string; orderNumber: string; customerName: string; total: number; status: string; createdAt: string }[]
 }
 
-type DashboardSalesJson = { totalSalesQty?: number; totalSalesRevenue?: number; totalEarning?: number; salesTrend?: number[]; earningTrend?: number[] }
+type DashboardSalesJson = {
+  totalSalesQty?: number
+  totalSalesRevenue?: number
+  totalEarning?: number
+  grossProfit?: number
+  returnedProfit?: number
+  deliveredQty?: number
+  unpricedItems?: number
+  unpricedQty?: number
+  unlinkedReturns?: number
+  salesTrend?: number[]
+  earningTrend?: number[]
+}
 
-async function fetchSalesAggregates(since30Iso: string): Promise<{ totalSalesQty: number; totalSalesRevenue: number; totalEarning: number; salesTrend: number[]; earningTrend: number[] }> {
+export type AdminSalesAggregates = {
+  totalSalesQty: number
+  totalSalesRevenue: number
+  /** Delivered profit, less returns approved in the window. Not revenue. */
+  totalEarning: number
+  /** Profit before returns came off, so the headline can be explained. */
+  grossProfit: number
+  /** Profit given back by approved returns, dated by approval. */
+  returnedProfit: number
+  /** Delivered lines with no cost price: they earn nothing and are reported, not guessed. */
+  unpricedItems: number
+  unpricedQty: number
+  /** Approved returns that could not be reversed because they name no order line. */
+  unlinkedReturns: number
+  salesTrend: number[]
+  earningTrend: number[]
+}
+
+/**
+ * The sales and earning figures, counted in the database.
+ *
+ * There used to be a client-side fallback here, and it was the reason the dashboard showed
+ * the wrong money. `get_admin_dashboard_sales` guarded itself with a JWT claim this project
+ * has never had, so it raised for every caller — including real admins — and the fallback
+ * quietly took over. The fallback then had two defects of its own: it summed `order_items`
+ * with no join to `orders`, so a CANCELLED order counted as sales, and it filled in a
+ * missing cost price as `unit_price * 0.8`, inventing a 20% margin and reporting the
+ * difference as earnings. Nobody could tell, because the fallback ran whenever the RPC
+ * failed and the RPC always failed.
+ *
+ * So there is no fallback. If the aggregate cannot be computed, that is a real fault and
+ * the screen says so — a dashboard that shows 0 for "no data" and 0 for "the query broke"
+ * is worse than one that admits it is broken.
+ */
+async function fetchSalesAggregates(since30Iso: string): Promise<AdminSalesAggregates> {
   const { data, error } = await supabase.rpc('get_admin_dashboard_sales', { p_since: since30Iso })
-  if (!error && data) {
-    const j = data as DashboardSalesJson
-    return {
-      totalSalesQty: Number(j.totalSalesQty || 0),
-      totalSalesRevenue: Number(j.totalSalesRevenue || 0),
-      totalEarning: Number(j.totalEarning || 0),
-      salesTrend: Array.isArray(j.salesTrend) ? j.salesTrend : [],
-      earningTrend: Array.isArray(j.earningTrend) ? j.earningTrend : [],
-    }
+  if (error) throw supabaseErrorToAppError(error)
+  if (!data) throw new AppError(AppErrorType.UNEXPECTED, 'The dashboard totals could not be loaded.')
+  const j = data as DashboardSalesJson
+  const num = (v: unknown) => Number(v ?? 0) || 0
+  const series = (v: unknown) => (Array.isArray(v) ? v.map((x) => num(x)) : [])
+  return {
+    totalSalesQty: num(j.totalSalesQty),
+    totalSalesRevenue: num(j.totalSalesRevenue),
+    totalEarning: num(j.totalEarning),
+    grossProfit: num(j.grossProfit),
+    returnedProfit: num(j.returnedProfit),
+    unpricedItems: num(j.unpricedItems),
+    unpricedQty: num(j.unpricedQty),
+    unlinkedReturns: num(j.unlinkedReturns),
+    salesTrend: series(j.salesTrend),
+    // The RPC's own trend, never a stand-in. A fabricated sparkline next to a real number
+    // is the same class of lie as the fabricated margin.
+    earningTrend: series(j.earningTrend),
   }
-  // Fallback to client-side aggregation if RPC missing (older remote or anon)
-  const since30 = since30Iso
-  const [salesAggResult, salesItemsAggResult] = await Promise.all([
-    supabase.from('orders').select('total, created_at').gte('created_at', since30).neq('status', 'CANCELLED'),
-    supabase.from('order_items').select('quantity, unit_price, product_id, created_at, products(cost_price)').gte('created_at', since30),
-  ])
-  type SalesRow = { total?: number | string | null; created_at?: string | null }
-  type ItemRow = { quantity?: number | string | null; unit_price?: number | string | null; created_at?: string | null; products?: { cost_price?: number | string | null } | { cost_price?: number | string | null }[] | null }
-  const salesRows = (salesAggResult.data as SalesRow[] | null) || []
-  const totalSalesRevenue = salesRows.reduce((s, r) => s + Number(r.total || 0), 0)
-  const itemRows = (salesItemsAggResult.data as ItemRow[] | null) || []
-  let totalSalesQty = 0
-  let totalEarning = 0
-  const byDayQty = new Map<string, number>()
-  const byDayEarn = new Map<string, number>()
-  for (const r of itemRows) {
-    const qty = Number(r.quantity || 0)
-    const unit = Number(r.unit_price || 0)
-    const prod = r.products as { cost_price?: number | string | null } | { cost_price?: number | string | null }[] | null | undefined
-    const costRaw = Array.isArray(prod) ? prod[0]?.cost_price : prod?.cost_price
-    const cost = Number(costRaw ?? unit * 0.8)
-    const profit = (unit - cost) * qty
-    totalSalesQty += qty
-    totalEarning += profit > 0 ? profit : 0
-    const day = String(r.created_at ?? '').slice(0, 10)
-    byDayQty.set(day, (byDayQty.get(day) || 0) + qty)
-    byDayEarn.set(day, (byDayEarn.get(day) || 0) + profit)
-  }
-  const salesTrend: number[] = []
-  const earningTrend: number[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    salesTrend.push(byDayQty.get(d) || 0)
-    earningTrend.push(Math.round(byDayEarn.get(d) || 0))
-  }
-  return { totalSalesQty, totalSalesRevenue, totalEarning: Math.round(totalEarning), salesTrend, earningTrend }
 }
 
 export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
@@ -199,6 +229,11 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     totalSalesQty: salesAgg.totalSalesQty,
     totalSalesRevenue: salesAgg.totalSalesRevenue,
     totalEarning: salesAgg.totalEarning,
+    grossProfit: salesAgg.grossProfit,
+    returnedProfit: salesAgg.returnedProfit,
+    unpricedItems: salesAgg.unpricedItems,
+    unpricedQty: salesAgg.unpricedQty,
+    unlinkedReturns: salesAgg.unlinkedReturns,
     salesTrend: salesAgg.salesTrend,
     earningTrend: salesAgg.earningTrend,
     pendingOrders,

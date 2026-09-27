@@ -46,5 +46,19 @@ export function supabaseErrorToAppError(error: any): AppError {
   if (message.includes('validation')) {
     return new AppError(AppErrorType.VALIDATION, 'The provided data is invalid.', { originalMessage: message })
   }
+  // A PL/pgSQL `raise exception` reaches the client as SQLSTATE P0001, and it is the
+  // server deliberately refusing for a stated business reason — not a crash. Without this
+  // branch every one of those refusals was reported as UNEXPECTED, so the shop was shown
+  // a raw "An unexpected error occurred" for messages the database had written on purpose:
+  // "Cart is empty", "Delivery address is required", "Product not available", "Customer ID
+  // must match authenticated user". It sat below the branches above on purpose: a refusal
+  // that names its own reason should still be classified by that reason, not by the fact
+  // that it arrived as a raise.
+  if (error?.code === 'P0001' || error?.code === 'P0002' || error?.code === 'P0003') {
+    if (/^only (admins|allowlisted admins)/i.test(message)) {
+      return new AppError(AppErrorType.AUTHORIZATION, 'You do not have permission to perform this action.', { originalMessage: message })
+    }
+    return new AppError(AppErrorType.VALIDATION, message, { originalMessage: message })
+  }
   return new AppError(AppErrorType.UNEXPECTED, message)
 }

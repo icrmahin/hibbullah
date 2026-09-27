@@ -81,8 +81,8 @@ export default function AvatarPicker({
               accessibilityLabel={hasImage ? "Change profile picture" : "Add profile picture"}
               disabled={uploading}
             >
-              <Icon name={hasImage ? "edit" : "add-a-photo"} size={14} color={colors.primary} />
-              <Text style={[styles.buttonText, { color: colors.primary }]}>
+              <Icon name={hasImage ? "edit" : "add-a-photo"} size={14} color={colors.accent} />
+              <Text style={[styles.buttonText, { color: colors.accent }]}>
                 {hasImage ? "Change" : "Add photo"}
               </Text>
             </Pressable>
@@ -111,12 +111,12 @@ export default function AvatarPicker({
       {menuOpen ? (
         <View style={[styles.menu, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm }]}>
           <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]} onPress={() => void choose("library")}>
-            <Icon name="photo-library" size={18} color={colors.primary} />
+            <Icon name="photo-library" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Choose from library</Text>
           </Pressable>
           <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
           <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]} onPress={() => void choose("camera")}>
-            <Icon name="camera-alt" size={18} color={colors.primary} />
+            <Icon name="camera-alt" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Take photo</Text>
           </Pressable>
         </View>
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   avatarWrap: {
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
     overflow: "hidden",
   },

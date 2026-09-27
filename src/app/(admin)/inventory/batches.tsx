@@ -9,6 +9,7 @@ import StatusBadge from '../../../components/common/StatusBadge';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useAdminInventory } from '../../../hooks/useAdmin';
 import spacing from '../../../constants/spacing';
+import { radius } from '../../../constants/sizes';
 
 export default function InventoryBatchesScreen() {
   const colors = useThemeColors();
@@ -79,7 +80,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   card: {
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
   },

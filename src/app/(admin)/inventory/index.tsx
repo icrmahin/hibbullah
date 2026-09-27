@@ -11,6 +11,7 @@ import EmptyState from "../../../components/common/EmptyState";
 import InventoryStatus from "../../../components/admin/InventoryStatus";
 import spacing from "../../../constants/spacing";
 import typography from "../../../constants/typography";
+import { radius } from "../../../constants/sizes";
 
 export default function AdminInventoryScreen() {
   const colors = useThemeColors();
@@ -73,7 +74,7 @@ export default function AdminInventoryScreen() {
                 <Text style={[styles.meta, { color: colors.textMuted }]}>{item.batchNumber} {item.expiryDate ? `· Exp ${item.expiryDate}` : ''}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <Text style={[styles.qty, { color: colors.primary }]}>{item.quantity}</Text>
+                <Text style={[styles.qty, { color: colors.accent }]}>{item.quantity}</Text>
                 <InventoryStatus status={item.status} />
               </View>
             </View>
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.md,
   },

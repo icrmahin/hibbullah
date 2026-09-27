@@ -21,6 +21,7 @@ import { formatCurrency } from "../../utils/currency";
 import { deliveryFeeForDistrict } from "../../utils/deliveryFee";
 import { normalizeError } from "../../utils/errorHandling";
 import Icon from "../../components/common/Icon";
+import { radius } from "../../constants/sizes";
 
 export default function CheckoutScreen() {
   const colors = useThemeColors();
@@ -171,7 +172,7 @@ export default function CheckoutScreen() {
                 </Text>
               </View>
               <View style={styles.addressActions}>
-                {active && <Icon name="check-circle" size={18} color={colors.primary} />}
+                {active && <Icon name="check-circle" size={18} color={colors.accent} />}
                 <Pressable
                   onPress={() => handleDeleteAddress(addr.id)}
                   hitSlop={8}                  style={[styles.deleteBtn, { backgroundColor: colors.danger + "12" }]}
@@ -352,7 +353,7 @@ const styles = StyleSheet.create({
   floatingBack: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -372,7 +373,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
     gap: spacing.sm,
   },
@@ -381,20 +382,20 @@ const styles = StyleSheet.create({
   addressLabel: { fontWeight: "700", fontSize: 13 },
   addressDetail: { fontSize: 12, lineHeight: 16 },
   addressActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  deleteBtn: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  deleteBtn: { width: 30, height: 30, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   emptyHint: { fontSize: 12, paddingVertical: spacing.sm },
   notice: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginTop: spacing.sm,
   },
   noticeText: { flex: 1, fontSize: 12, lineHeight: 17 },
-  summaryBox: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
+  summaryBox: { borderRadius: radius.md, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, marginBottom: spacing.xs },
   rowLabel: { fontSize: 12, flex: 1 },
   rowValue: { fontSize: 12, fontWeight: "600" },
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
   feeNote: { fontSize: 11, flex: 1 },
   totalRow: { marginTop: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1 },
   totalText: { fontWeight: "800", fontSize: 14 },
-  paymentBox: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
+  paymentBox: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
   paymentMethod: { fontSize: 12, marginTop: 2 },
   error: { fontSize: 12, textAlign: "center" },
   success: { fontSize: 12, textAlign: "center" },

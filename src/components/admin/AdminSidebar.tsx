@@ -68,10 +68,10 @@ function SidebarItem({
       accessibilityState={{ selected: active }}
     >
       <View style={[styles.iconTile, active && { backgroundColor: colors.primarySoft }]}>
-        <Icon name={item.icon} size={18} color={active ? colors.primary : colors.textMuted} />
+        <Icon name={item.icon} size={18} color={active ? colors.accent : colors.textMuted} />
       </View>
       <Text
-        style={[styles.navLabel, { color: active ? colors.primary : colors.textMuted }]}
+        style={[styles.navLabel, { color: active ? colors.accent : colors.textMuted }]}
         numberOfLines={1}
       >
         {item.label}

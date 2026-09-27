@@ -34,8 +34,8 @@ export default function ContactUsScreen() {
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm }]}>
           <Text style={[styles.title, { color: colors.text }]}>We’re here to help</Text>
           <Text style={[styles.sub, { color: colors.textMuted }]}>Hibbullah, Dhaka · Support {config.supportEmail} · Reply within 24h. For order issues include Order Number.</Text>
-          <Pressable onPress={() => Linking.openURL(`mailto:${config.supportEmail}`)}><Text style={[styles.link, { color: colors.primary }]}>{config.supportEmail}</Text></Pressable>
-          <Pressable onPress={() => Linking.openURL("tel:+8809612345678")}><Text style={[styles.link, { color: colors.primary }]}>+880 96 1234 5678 (9am–9pm)</Text></Pressable>
+          <Pressable onPress={() => Linking.openURL(`mailto:${config.supportEmail}`)}><Text style={[styles.link, { color: colors.accent }]}>{config.supportEmail}</Text></Pressable>
+          <Pressable onPress={() => Linking.openURL("tel:+8809612345678")}><Text style={[styles.link, { color: colors.accent }]}>+880 96 1234 5678 (9am–9pm)</Text></Pressable>
           <Text style={[styles.addr, { color: colors.textMuted }]}>House 12, Road 7, Dhanmondi, Dhaka 1209, Bangladesh</Text>
         </View>
 

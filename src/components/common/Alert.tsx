@@ -41,7 +41,7 @@ export default function Alert({
     >
       <View style={styles.row}>
         <View style={[styles.iconCircle, { backgroundColor: p.fg }]}>
-          <Text style={styles.iconText}>
+          <Text style={[styles.iconText, { color: colors.textInverse }]}>
             {variant === "success" ? "✓" : variant === "warning" ? "!" : variant === "danger" ? "✕" : "i"}
           </Text>
         </View>
@@ -72,13 +72,15 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 1,
   },
   iconText: {
-    color: "#FFFFFF",
+    // The icon sits on a filled circle of the status colour, so the glyph has to be the
+    // label colour for a fill — which is white in light mode and near-black in dark,
+    // because dark mode's status fills are light. See `textInverse`.
     fontSize: fontSize.micro,
     fontFamily: fontFamily.bold,
   },

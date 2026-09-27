@@ -3,10 +3,17 @@ import { ActivityIndicator, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import * as Linking from 'expo-linking'
 import { supabase } from '../lib/supabase'
+import { useThemeColors } from '../providers/ThemeProvider'
+import spacing from '../constants/spacing'
 
 export default function AuthCallback() {
   const [status, setStatus] = useState('Processing link...')
   const [error, setError] = useState<string | null>(null)
+  // Was `'red'` and `'#666'`, two hex literals on a screen that is otherwise untokenised.
+  // This is the screen a user sees when a confirmation email fails to open, often on a
+  // cheap Android handset at night, and `#666` grey on an unthemed white page is the
+  // one page in the app with no way to respect dark mode.
+  const colors = useThemeColors()
 
   useEffect(() => {
     const handle = async (url: string | null) => {
@@ -74,11 +81,25 @@ export default function AuthCallback() {
   }, [])
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
-      <ActivityIndicator />
-      <Text style={{ fontSize: 12, textAlign: 'center' }}>{status}</Text>
-      {error ? <Text style={{ fontSize: 12, color: 'red', textAlign: 'center' }}>{error}</Text> : null}
-      <Text style={{ fontSize: 11, color: '#666', textAlign: 'center' }}>hibbullah://auth-callback — used for email confirmation and password recovery on Android standalone.</Text>
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        padding: spacing.xl,
+        backgroundColor: colors.background,
+      }}
+    >
+      <ActivityIndicator color={colors.accent} />
+      <Text style={{ fontSize: 12, textAlign: 'center', color: colors.text }}>{status}</Text>
+      {error ? (
+        <Text style={{ fontSize: 12, color: colors.danger, textAlign: 'center' }}>{error}</Text>
+      ) : null}
+      <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center' }}>
+        hibbullah://auth-callback — used for email confirmation and password recovery on
+        Android standalone.
+      </Text>
     </View>
   )
 }

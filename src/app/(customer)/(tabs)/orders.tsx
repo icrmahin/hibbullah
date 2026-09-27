@@ -17,7 +17,11 @@ export default function CustomerOrdersScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { orders, loading, error, reload } = useOrders();
-  const { isMobile, isTablet, columns } = useResponsive();
+  // One-up on a phone, growing to three on a desktop — see `useResponsive` for why this
+  // is not the product grid's `columns`. A hook, so it belongs with the others and not
+  // below the loading and error returns.
+  const { listColumns } = useResponsive();
+
 
   useEffect(() => {
     reload();
@@ -25,8 +29,6 @@ export default function CustomerOrdersScreen() {
 
   if (loading) return <LoadingState label="Loading your orders" />;
   if (error) return <ErrorState title="Could not load your orders" message={error} onRetry={reload} />;
-
-  const gridColumns = isMobile ? 1 : isTablet ? 2 : Math.min(columns, 3);
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -47,10 +49,10 @@ export default function CustomerOrdersScreen() {
               actionLabel="Browse"
               onAction={() => router.push("/(customer)/(tabs)/products")}
             />
-          ) : gridColumns > 1 ? (
+          ) : listColumns > 1 ? (
             <View style={styles.grid}>
               {orders.map((order) => (
-                <View key={order.id} style={[styles.gridItem, { flexBasis: `${100 / gridColumns - 1}%` }]}>
+                <View key={order.id} style={[styles.gridItem, { flexBasis: `${100 / listColumns - 1}%` }]}>
                   <OrderCard order={order} onPress={(item) => router.push({ pathname: "/(customer)/order/[orderId]", params: { orderId: item.id } })} />
                 </View>
               ))}

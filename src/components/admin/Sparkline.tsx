@@ -4,7 +4,7 @@ import { useThemeColors } from "../../providers/ThemeProvider";
 
 export default function Sparkline({ data, color }: { data: number[]; color?: string }) {
   const colors = useThemeColors();
-  const stroke = color || colors.primary;
+  const stroke = color || colors.accent;
   const w = 56;
   const h = 18;
   const pad = 2;

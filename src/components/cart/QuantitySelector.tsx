@@ -26,7 +26,7 @@ export default function QuantitySelector({
         accessibilityLabel="Decrease quantity"
         accessibilityState={{ disabled: value <= min }}
       >
-        <Text style={[styles.symbol, { color: colors.primary }]}>−</Text>
+        <Text style={[styles.symbol, { color: colors.accent }]}>−</Text>
       </Pressable>
       <Text style={[styles.value, { color: colors.text }]} accessibilityRole="text">{value}</Text>
       <Pressable
@@ -37,7 +37,7 @@ export default function QuantitySelector({
         accessibilityLabel="Increase quantity"
         accessibilityState={{ disabled: value >= max }}
       >
-        <Text style={[styles.symbol, { color: colors.primary }]}>+</Text>
+        <Text style={[styles.symbol, { color: colors.accent }]}>+</Text>
       </Pressable>
     </View>
   );

@@ -65,6 +65,11 @@ export default function AdminDashboardScreen() {
     totalSalesQty,
     totalSalesRevenue,
     totalEarning,
+    grossProfit,
+    returnedProfit,
+    unpricedItems,
+    unpricedQty,
+    unlinkedReturns,
     salesTrend,
     earningTrend,
     pendingOrders,
@@ -126,8 +131,12 @@ export default function AdminDashboardScreen() {
             accessibilityRole="button"
             accessibilityLabel="Add product"
           >
-            <Icon name="add" size={16} color="#fff" />
-            <Text style={styles.addText}>Add</Text>
+            {/* Was `color="#fff"`. The pill's fill is `colors.primary`, which is a dark
+                brand-cast surface in dark mode and a deep teal in light — so a fixed white
+                glyph is right in light mode and wrong in dark, where the label colour for a
+                fill is near-black. `textInverse` is the palette's name for exactly that. */}
+            <Icon name="add" size={16} color={colors.textInverse} />
+            <Text style={[styles.addText, { color: colors.textInverse }]}>Add</Text>
           </Pressable>
         }
       />
@@ -143,18 +152,20 @@ export default function AdminDashboardScreen() {
               >
                 <View style={styles.heroTop}>
                   <View style={[styles.heroIcon, { backgroundColor: colors.primarySoft }]}>
-                    <Icon name="trending-up" size={16} color={colors.primary} />
+                    <Icon name="trending-up" size={16} color={colors.accent} />
                   </View>
                   <Text style={[styles.heroLabel, { color: colors.textMuted }]}>Sales</Text>
                 </View>
                 <Text style={[styles.heroValue, { color: colors.text }]}>{totalSalesQty}</Text>
                 <Text style={[styles.heroSub, { color: colors.textMuted }]}>{totalSalesQty === 1 ? "item sold" : "items sold"} · {formatCurrency(totalSalesRevenue)}</Text>
                 <View style={styles.sparkWrap}>
-                  <Sparkline data={salesTrend.length ? salesTrend : [0, 1, 0, 2, 1, 3, totalSalesQty]} color={colors.primary} />
+                  <Sparkline data={salesTrend} color={colors.accent} />
                 </View>
               </Pressable>
 
-              {/* Earning */}
+              {/* Earning — profit, not revenue. The sub-line says which figure it is and
+                  what came off it, because a number a shopkeeper cannot account for is a
+                  number they stop trusting. */}
               <Pressable
                 onPress={() => open("/(admin)/orders")}
                 style={({ pressed }) => [styles.heroCard, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }, pressed && styles.pressed]}
@@ -166,9 +177,41 @@ export default function AdminDashboardScreen() {
                   <Text style={[styles.heroLabel, { color: colors.textMuted }]}>Earning</Text>
                 </View>
                 <Text style={[styles.heroValue, { color: colors.text }]}>{formatCurrency(totalEarning)}</Text>
-                <Text style={[styles.heroSub, { color: colors.success }]}>profit · 30d</Text>
+                <Text style={[styles.heroSub, { color: colors.success }]}>
+                  {returnedProfit > 0
+                    ? `profit after ${formatCurrency(returnedProfit)} returned`
+                    : "profit on delivered orders · 30d"}
+                </Text>
+                {unpricedItems > 0 ? (
+                  // The old figure filled a missing cost price in as 80% of the sale price
+                  // and reported the difference as earnings. Rather than guess, the
+                  // database counts these and leaves them out — and says so, because a
+                  // quietly low number is its own kind of lie.
+                  //
+                  // "Earnings exclude" rather than "N products have no cost price set",
+                  // because the number counts products that were *sold* in the window and
+                  // left out of this figure, not unpriced products sitting in the catalog.
+                  // The second wording was the one that was here, and it sent the owner to
+                  // a product list holding a different number of products than the one on
+                  // screen. `unpricedQty` — how many units of money are missing — is what
+                  // makes the warning feel like an amount rather than a chore.
+                  <Text
+                    style={[styles.heroWarn, { color: colors.warning }]}
+                    onPress={() => open("/(admin)/products")}
+                    accessibilityRole="link"
+                  >
+                    {`Earnings exclude ${unpricedItems} ${unpricedItems === 1 ? "product" : "products"} sold with no cost price set${
+                      unpricedQty > 0 ? ` · ${unpricedQty} ${unpricedQty === 1 ? "unit" : "units"}` : ""
+                    }`}
+                  </Text>
+                ) : null}
+                {unlinkedReturns > 0 ? (
+                  <Text style={[styles.heroWarn, { color: colors.warning }]} onPress={() => open("/(admin)/returns")} accessibilityRole="link">
+                    {unlinkedReturns} returned {unlinkedReturns === 1 ? "unit is" : "units are"} not counted back
+                  </Text>
+                ) : null}
                 <View style={styles.sparkWrap}>
-                  <Sparkline data={earningTrend.length ? earningTrend : [0, 2, 1, 3, 2, 4, Math.round(totalEarning / 30)]} color={colors.success} />
+                  <Sparkline data={earningTrend} color={colors.success} />
                 </View>
               </Pressable>
 
@@ -227,14 +270,14 @@ export default function AdminDashboardScreen() {
                     <View key={it.id}>
                       <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={it.onPress}>
                         <View style={[styles.rowIcon, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}>
-                          <Icon name={it.icon} size={16} color={colors.primary} />
+                          <Icon name={it.icon} size={16} color={colors.accent} />
                         </View>
                         <View style={styles.rowMain}>
                           <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{it.title}</Text>
                           <Text style={[styles.rowSub, { color: colors.textMuted }]} numberOfLines={1}>{it.sub}</Text>
                         </View>
                         <View style={[styles.chip, { borderColor: colors.primary + "22", backgroundColor: colors.primarySoft }]}>
-                          <Text style={[styles.chipText, { color: colors.primary }]}>{it.action}</Text>
+                          <Text style={[styles.chipText, { color: colors.accent }]}>{it.action}</Text>
                         </View>
                       </Pressable>
                       {idx < fixNow.length - 1 ? <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} /> : null}
@@ -260,7 +303,7 @@ export default function AdminDashboardScreen() {
 
             {/* ===== Command bar — feather pill ===== */}
             <View style={[styles.commandBar, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>
-              <Pressable onPress={() => open("/(admin)/products/add")} style={styles.cmd}><Icon name="add" size={16} color={colors.primary} /><Text style={[styles.cmdText, { color: colors.text }]}>Add</Text></Pressable>
+              <Pressable onPress={() => open("/(admin)/products/add")} style={styles.cmd}><Icon name="add" size={16} color={colors.accent} /><Text style={[styles.cmdText, { color: colors.text }]}>Add</Text></Pressable>
               <View style={[styles.cmdSep, { backgroundColor: colors.borderSoft }]} />
               <Pressable onPress={() => open("/(admin)/orders")} style={styles.cmd}><Icon name="receipt-long" size={16} color={colors.textMuted} /><Text style={[styles.cmdText, { color: colors.textMuted }]}>Orders</Text></Pressable>
               <Pressable onPress={() => open("/(admin)/products")} style={styles.cmd}><Icon name="inventory-2" size={16} color={colors.textMuted} /><Text style={[styles.cmdText, { color: colors.textMuted }]}>Products</Text></Pressable>
@@ -271,7 +314,7 @@ export default function AdminDashboardScreen() {
             <View style={[styles.cockpit, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>
               <View style={styles.cockpitHead}>
                 <Text style={[styles.cockpitTitle, { color: colors.text }]}>Products</Text>
-                <Pressable onPress={() => open("/(admin)/products")}><Text style={[styles.link, { color: colors.primary }]}>Manage →</Text></Pressable>
+                <Pressable onPress={() => open("/(admin)/products")}><Text style={[styles.link, { color: colors.accent }]}>Manage →</Text></Pressable>
               </View>
               <View style={styles.productMiniList}>
                 {recentLowPreview(lowStockBatches).map((p: any) => (
@@ -289,7 +332,7 @@ export default function AdminDashboardScreen() {
             <View style={[styles.panel, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>
               <View style={styles.panelHead}>
                 <Text style={[styles.panelTitle, { color: colors.text }]}>Latest orders</Text>
-                <Pressable onPress={() => open("/(admin)/orders")}><Text style={[styles.link, { color: colors.primary }]}>View all</Text></Pressable>
+                <Pressable onPress={() => open("/(admin)/orders")}><Text style={[styles.link, { color: colors.accent }]}>View all</Text></Pressable>
               </View>
               {recentOrders.length === 0 ? <EmptyState title="No orders" message="New orders will appear here." /> : recentOrders.slice(0, 4).map((o: any, i: number) => (
                 <View key={o.id}>
@@ -321,13 +364,16 @@ const styles = StyleSheet.create({
   heroGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   heroCard: { flexGrow: 1, flexBasis: "46%", minHeight: 92, borderRadius: radius.xl, borderWidth: 1, padding: spacing.md, gap: 2 },
   heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  heroIcon: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  heroIcon: { width: 26, height: 26, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   heroLabel: { fontSize: 10, fontWeight: "700", letterSpacing: 0.7, textTransform: "uppercase" },
   heroValue: { fontSize: 22, fontWeight: "800", letterSpacing: -0.4, marginTop: spacing.xs },
   heroSub: { fontSize: 11, fontWeight: "600" },
+  // The caveat under a headline figure. Sized like the sub-label so it reads as a footnote
+  // to the number above it rather than as a second metric competing with it.
+  heroWarn: { fontSize: 10, fontWeight: "600", marginTop: 1 },
   sparkWrap: { marginTop: spacing.xs, opacity: 0.9 },
   heroFoot: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.xs },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 6, height: 6, borderRadius: radius.pill },
   footText: { fontSize: 11 },
   mission: { gap: spacing.sm },
   missionWide: { flexDirection: "row", gap: spacing.sm },
@@ -340,17 +386,17 @@ const styles = StyleSheet.create({
   donutRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   legend: { gap: 4 },
   legRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legDot: { width: 8, height: 8, borderRadius: 4 },
+  legDot: { width: 8, height: 8, borderRadius: radius.pill },
   legText: { fontSize: 11, fontWeight: "600" },
   expiry: { fontSize: 11, fontWeight: "600", marginTop: spacing.xs },
   calm: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
   calmText: { fontSize: 12, fontWeight: "600" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, minHeight: 44 },
-  rowIcon: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  rowIcon: { width: 28, height: 28, borderRadius: radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   rowMain: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 13, fontWeight: "700" },
   rowSub: { fontSize: 11 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: spacing.sm, paddingVertical: 4 },
+  chip: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4 },
   chipText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
   hairline: { height: 1 },
   commandBar: { flexDirection: "row", alignItems: "center", borderRadius: radius.xl, borderWidth: 1, padding: spacing.xs, gap: spacing.xs },
@@ -364,10 +410,10 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radius.pill,
     borderWidth: 1,
   },
-  addText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  addText: { fontSize: 12, fontWeight: "700" },
   cockpitHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cockpitTitle: { fontSize: 13, fontWeight: "800" },
   link: { fontSize: 12, fontWeight: "700" },

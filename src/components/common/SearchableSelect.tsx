@@ -175,7 +175,7 @@ export default function SearchableSelect({
 
             {loading ? (
               <View style={styles.loading}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.accent} />
               </View>
             ) : visible.length === 0 ? (
               <Text style={[styles.empty, { color: colors.textMuted }]}>{emptyMessage}</Text>
@@ -206,8 +206,8 @@ export default function SearchableSelect({
                           <Text
                             style={[
                               styles.optionText,
-                              isSelected && { color: colors.primary, fontFamily: fontFamily.semiBold },
-                              { color: isSelected ? colors.primary : colors.text },
+                              isSelected && { color: colors.accent, fontFamily: fontFamily.semiBold },
+                              { color: isSelected ? colors.accent : colors.text },
                             ]}
                             numberOfLines={1}
                           >
@@ -219,7 +219,7 @@ export default function SearchableSelect({
                             </Text>
                           ) : null}
                         </View>
-                        {isSelected ? <Icon name="check" size={18} color={colors.primary} /> : null}
+                        {isSelected ? <Icon name="check" size={18} color={colors.accent} /> : null}
                       </Pressable>
                     );
                   }}

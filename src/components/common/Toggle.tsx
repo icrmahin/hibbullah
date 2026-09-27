@@ -20,6 +20,8 @@ export default function Toggle({
   ...props
 }: ToggleProps) {
   const colors = useThemeColors();
+  // A toggle's "on" track is a fill, and the thumb sitting on it is what has to read.
+  // `primary` is correct here — it is the same role as a primary button's background.
   const trackOn = variant === "danger" ? colors.danger : colors.primary;
   const trackOff = colors.border;
   const thumbOff = colors.backgroundAlt;

@@ -14,11 +14,15 @@ import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import spacing from '../../../constants/spacing';
 import typography from '../../../constants/typography';
+import { radius } from '../../../constants/sizes';
 
 export default function AdminOrdersScreen() {
   const colors = useThemeColors();
-  const { isMobile, isTablet, columns } = useResponsive();
+
   const { data: orders, loading, error, reload } = useAdminOrders();
+  // One-up on a phone, growing to three on a desktop — see `useResponsive` for why this
+  // is not the product grid's `columns`.
+  const { listColumns } = useResponsive();
   const [query, setQuery] = useState('');
 
   const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -45,8 +49,6 @@ export default function AdminOrdersScreen() {
       order.customerName.toLowerCase().includes(query.toLowerCase()),
   );
 
-  const gridColumns = isMobile ? 1 : isTablet ? 2 : Math.min(columns, 3);
-
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <AdminHeader title="Orders" subtitle={`${time} · ${orders.length} orders`} />
@@ -62,10 +64,10 @@ export default function AdminOrdersScreen() {
                   : "Try a different search."
               }
             />
-          ) : gridColumns > 1 ? (
+          ) : listColumns > 1 ? (
             <View style={styles.grid}>
               {filtered.map((order) => (
-                <View key={order.id} style={[styles.gridItem, { flexBasis: `${100 / gridColumns - 1}%` }]}>
+                <View key={order.id} style={[styles.gridItem, { flexBasis: `${100 / listColumns - 1}%` }]}>
                   <View
                     style={[styles.row, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}
                   >
@@ -75,7 +77,7 @@ export default function AdminOrdersScreen() {
                     </View>
                     <StatusBadge label={order.status} tone={order.status === 'PENDING' ? 'warning' : order.status === 'DELIVERED' ? 'success' : 'info'} />
                     <Text
-                      style={[styles.link, { color: colors.primary }]}
+                      style={[styles.link, { color: colors.accent }]}
                       onPress={() => router.push({ pathname: '/(admin)/orders/[orderId]', params: { orderId: order.id } })}
                     >
                       Review
@@ -96,7 +98,7 @@ export default function AdminOrdersScreen() {
                 </View>
                 <StatusBadge label={order.status} tone={order.status === 'PENDING' ? 'warning' : order.status === 'DELIVERED' ? 'success' : 'info'} />
                 <Text
-                  style={[styles.link, { color: colors.primary }]}
+                  style={[styles.link, { color: colors.accent }]}
                   onPress={() => router.push({ pathname: '/(admin)/orders/[orderId]', params: { orderId: order.id } })}
                 >
                   Review
@@ -119,7 +121,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.md,
     gap: spacing.sm,

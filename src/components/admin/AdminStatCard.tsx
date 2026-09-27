@@ -6,6 +6,7 @@ import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import typography from "../../constants/typography";
 import type { IconName } from "../common/Icon";
+import { radius } from "../../constants/sizes";
 
 type AdminStatCardProps = {
   label: string;
@@ -25,9 +26,10 @@ export default function AdminStatCard({
   const colors = useThemeColors();
   const shadows = useShadows();
 
+  // Ink, not a fill: this is the colour of a glyph and a sparkline stroke.
   const accentColor =
     accent === "green"
-      ? colors.primary
+      ? colors.accent
       : accent === "gold"
         ? colors.gold
         : colors.textMuted;
@@ -83,7 +85,7 @@ const styles = StyleSheet.create({
   marker: {
     width: 20,
     height: 2,
-    borderRadius: 1,
+    borderRadius: radius.sm,
     marginBottom: spacing.sm,
   },
   label: {

@@ -28,7 +28,9 @@ export default function CustomerProductsScreen() {
   const [manufacturerId, setManufacturerId] = useState<string | null>(null);
   const [categoryTerm, setCategoryTerm] = useState("");
   const [manufacturerTerm, setManufacturerTerm] = useState("");
-  const { isMobile, isTablet, columns } = useResponsive();
+  // Two product cards per row on a phone, growing from there. The `isMobile ? 1 :` prefix
+  // that used to sit in front of this is what made the catalog one-up on every phone.
+  const { columns } = useResponsive();
 
   const {
     data: products,
@@ -47,7 +49,6 @@ export default function CustomerProductsScreen() {
   const { data: categories, loading: categoriesLoading } = useCategories(categoryTerm);
   const { data: manufacturers, loading: manufacturersLoading } = useManufacturers(manufacturerTerm);
 
-  const gridColumns = isMobile ? 1 : isTablet ? 2 : columns;
   const searching = isSearchableTerm(query);
 
   const categoryOptions = useMemo(
@@ -84,10 +85,10 @@ export default function CustomerProductsScreen() {
           <FlashList
             data={products}
             keyExtractor={(item) => item.id}
-            numColumns={gridColumns}
+            numColumns={columns}
             // FlashList needs a stable key when the column count changes, and an
             // explicit height for multi-column layouts.
-            key={gridColumns === 1 ? "one" : `cols-${gridColumns}`}
+            key={`cols-${columns}`}
             drawDistance={DRAW_DISTANCE}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -239,8 +240,15 @@ const styles = StyleSheet.create({
    * produced by pairing half-gutter padding on the container with half-gutter
    * padding on every cell. Cells then sit on a 4px rhythm whether they are in a
    * one-, two-, or five-column layout.
+   *
+   * The container's share is `spacing.md` and not `spacing.sm`, so that the two
+   * halves add up to the same `spacing.lg` page margin every other screen in the
+   * app uses. At `spacing.sm` the catalog gave its cards 8px of screen edge while
+   * the home page gave the *same card* 16px — the gutter was uniform and the margin
+   * was not, which is the version of a layout bug that only shows up when you put
+   * the two screens side by side.
    */
-  content: { paddingHorizontal: spacing.sm, paddingBottom: spacing.xxl },
+  content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xxl },
   gridItem: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   footer: { paddingVertical: spacing.lg },
 });

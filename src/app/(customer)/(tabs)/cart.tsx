@@ -15,6 +15,7 @@ import { useResponsive } from "../../../hooks/useResponsive";
 import { useCart } from "../../../hooks/useCart";
 import { formatCurrency } from "../../../utils/currency";
 import { normalizeError } from "../../../utils/errorHandling";
+import { radius } from "../../../constants/sizes";
 
 export default function CustomerCartScreen() {
   const colors = useThemeColors();
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
   summaryColumn: { flex: 1, gap: spacing.md },
   mobileStack: { gap: spacing.lg },
   itemsList: { gap: spacing.md },
-  summaryBox: { borderRadius: 16, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
+  summaryBox: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
   summaryTitle: { fontWeight: "700", fontSize: 14, marginBottom: spacing.sm },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.xs },
   totalRow: { marginTop: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1 },

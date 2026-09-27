@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { FlatList, StyleSheet, Text, View, useWindowDimensions, Pressable } from "react-native";
+import { FlatList, StyleSheet, Text, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useFavorites } from "../../../providers/FavoritesProvider";
@@ -8,14 +8,16 @@ import EmptyState from "../../../components/common/EmptyState";
 import Icon from "../../../components/common/Icon";
 import spacing from "../../../constants/spacing";
 import typography from "../../../constants/typography";
+import { useResponsive } from "../../../hooks/useResponsive";
 
 export default function FavoritesScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const { items, loading } = useFavorites();
-
-  const columnWidth = (width - spacing.lg * 2 - spacing.md) / 2;
+  // Two per row on a phone, growing from there. The expression this replaces was the same
+  // division of the screen width by two that the home screen had, in a second file, which
+  // is why favourites stayed two-across forever while everything else was made responsive.
+  const { columns, cardWidth } = useResponsive();
 
   if (!loading && items.length === 0) {
     return (
@@ -44,11 +46,13 @@ export default function FavoritesScreen() {
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, spacing.lg) + 24 }]}
+        numColumns={columns}
+        // FlatList, unlike FlashList, has `columnWrapperStyle`, so the gutter is a real gap
+        // rather than the paired half-padding the catalog uses to keep cells on one rhythm.
         columnWrapperStyle={{ gap: spacing.md }}
+        contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, spacing.lg) + 24 }]}
         renderItem={({ item }) => (
-          <View style={{ width: columnWidth, marginBottom: spacing.md }}>
+          <View style={{ width: cardWidth, marginBottom: spacing.md }}>
             <ProductCard
               product={item}
               compact

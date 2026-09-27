@@ -39,6 +39,16 @@ export async function createReturnRequest(input: {
   productName: string
   quantity: number
   reason: string
+  /**
+   * The order line this is a return of.
+   *
+   * Not optional in spirit: `return_requests` used to carry only a product *name*, so when
+   * the shop approved the return the database had no idea which product to put back and
+   * the units were lost. The name is still sent, because it is what the screen shows, but
+   * the line is what makes the stock come back.
+   */
+  orderItemId?: string;
+  productId?: string;
 }): Promise<ReturnRequest> {
   const { error: vError } = await supabase.rpc('validate_return', {
     p_order_id: input.orderId,
@@ -55,6 +65,8 @@ export async function createReturnRequest(input: {
       quantity: input.quantity,
       reason: input.reason,
       status: 'PENDING',
+      order_item_id: input.orderItemId ?? null,
+      product_id: input.productId ?? null,
     })
     .select()
     .single()
@@ -67,7 +79,7 @@ export async function createReturnRequests(inputs: {
   customerId: string
   customerName: string
   reason: string
-  items: { productName: string; quantity: number }[]
+  items: { productName: string; quantity: number; orderItemId?: string; productId?: string }[]
 }): Promise<ReturnRequest[]> {
   if (inputs.items.length === 0) throw new Error('No items selected for return')
   const { error: vError } = await supabase.rpc('validate_return', {
@@ -83,6 +95,8 @@ export async function createReturnRequests(inputs: {
     quantity: it.quantity,
     reason: inputs.reason,
     status: 'PENDING' as const,
+    order_item_id: it.orderItemId ?? null,
+    product_id: it.productId ?? null,
   }))
   const { data, error } = await supabase.from('return_requests').insert(rows).select()
   if (error) throw supabaseErrorToAppError(error)

@@ -16,7 +16,7 @@ export default function StatusBadge({ label, tone = "neutral" }: StatusBadgeProp
     success: { bg: colors.successSoft, fg: colors.success, border: colors.successBorder, dot: colors.success },
     warning: { bg: colors.warningSoft, fg: colors.warning, border: colors.warningBorder, dot: colors.warning },
     danger: { bg: colors.dangerSoft, fg: colors.danger, border: colors.dangerBorder, dot: colors.danger },
-    info: { bg: colors.primarySoft, fg: colors.primary, border: colors.primaryMuted, dot: colors.primary },
+    info: { bg: colors.primarySoft, fg: colors.accent, border: colors.primaryMuted, dot: colors.accent },
     neutral: { bg: colors.background, fg: colors.textMuted, border: colors.border, dot: colors.textMuted },
   } as const;
 
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 6, height: 6, borderRadius: radius.pill },
   text: {
     fontFamily: fontFamily.semiBold,
     fontSize: fontSize.micro,

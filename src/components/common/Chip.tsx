@@ -35,7 +35,7 @@ export default function Chip({
         isFilter && styles.filter,
         {
           backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt,
-          borderColor: selected ? colors.primary : colors.border,
+          borderColor: selected ? colors.accent : colors.border,
         },
         selected && styles.selected,
       ]}
@@ -44,7 +44,7 @@ export default function Chip({
       accessibilityLabel={label}
     >
       {icon}
-      <Text style={[styles.text, selected && styles.selectedText, { color: selected ? colors.primary : colors.text }]} numberOfLines={1}>
+      <Text style={[styles.text, selected && styles.selectedText, { color: selected ? colors.accent : colors.text }]} numberOfLines={1}>
         {label}
       </Text>
       {onRemove ? (

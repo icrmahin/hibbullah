@@ -41,7 +41,7 @@ export default function Header({
             accessibilityLabel="Go back"
             hitSlop={8}
           >
-            <Icon name="arrow-back" size={22} color={colors.primary} />
+            <Icon name="arrow-back" size={22} color={colors.accent} />
           </Pressable>
         ) : null}
         <View style={styles.titleArea}>

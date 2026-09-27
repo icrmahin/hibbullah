@@ -145,7 +145,7 @@ function PromoCard({
       accessibilityLabel={`${headline} ${product.name}`}
     >
       <View style={styles.cardLeft}>
-        <Text style={[styles.headline, { color: colors.primary }]}>{headline}</Text>
+        <Text style={[styles.headline, { color: colors.accent }]}>{headline}</Text>
         <Text style={[styles.sub, { color: colors.textMuted }]} numberOfLines={1}>
           Selected medicines
         </Text>
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: radius.pill,
   },
   dotActive: {
     width: 18,

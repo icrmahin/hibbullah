@@ -18,6 +18,7 @@ import type { Order, OrderStatus } from '../../../types/order';
 import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
 import { normalizeError } from '../../../utils/errorHandling';
+import { radius } from '../../../constants/sizes';
 
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
@@ -171,7 +172,7 @@ export default function AdminOrderDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg },
+  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
   customer: { fontSize: typography.h3, fontWeight: '700', marginBottom: spacing.sm },
   meta: { fontSize: typography.bodySmall, marginTop: spacing.sm },
   sectionTitle: { fontSize: typography.h3, fontWeight: '700', marginBottom: spacing.md },

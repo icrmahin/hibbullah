@@ -17,6 +17,7 @@ import { fetchReturnById, updateReturnStatus } from '../../../services/returns';
 import { normalizeError } from '../../../utils/errorHandling';
 import { useConfirm } from '../../../hooks/useConfirm';
 import ConfirmDialog from '../../../components/common/ConfirmDialog';
+import { radius } from '../../../constants/sizes';
 
 export default function AdminReturnDetailScreen() {
   const colors = useThemeColors();
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   card: {
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
   },

@@ -13,6 +13,7 @@ import spacing from '../../../constants/spacing';
 import typography from '../../../constants/typography';
 import { fetchReturns } from '../../../services/returns';
 import { formatDateTime } from '../../../utils/date';
+import { radius } from '../../../constants/sizes';
 
 export default function AdminReturnsScreen() {
   const colors = useThemeColors();
@@ -86,13 +87,27 @@ export default function AdminReturnsScreen() {
                 {`Qty ${item.quantity}`} · {formatDateTime(item.createdAt)}
               </Text>
               <Text style={[styles.reason, { color: colors.textMuted }]}>{item.reason}</Text>
+              {/* What the approval actually did to the stock. A return can be approved and
+                  still put nothing back — it has to name an order line, and an older row or
+                  a request for more units than were sold will not. That used to be a silent
+                  no-op, and the shop had no way to see the stock quietly draining away. */}
+              {item.restockNote ? (
+                <Text
+                  style={[
+                    styles.restockNote,
+                    { color: /^NOT restocked/i.test(item.restockNote) ? colors.danger : colors.textMuted },
+                  ]}
+                >
+                  {item.restockNote}
+                </Text>
+              ) : null}
               <View style={styles.footer}>
                 <StatusBadge
                   label={item.status}
                   tone={item.status === 'APPROVED' || item.status === 'PROCESSED' ? 'success' : item.status === 'REJECTED' ? 'danger' : 'warning'}
                 />
                 <Text
-                  style={[styles.link, { color: colors.primary }]}
+                  style={[styles.link, { color: colors.accent }]}
                   onPress={() =>
                     router.push({
                       pathname: '/(admin)/returns/[returnId]',
@@ -115,13 +130,16 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   card: {
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
   },
   order: { fontSize: typography.body, fontWeight: '700' },
   meta: { fontSize: typography.bodySmall, marginTop: spacing.xs },
   reason: { fontSize: typography.bodySmall, marginTop: spacing.xs, marginBottom: spacing.sm },
+  // The outcome of the approval, in the database's own words. Kept at the same size as the
+  // reason above it: it is bookkeeping detail the admin needs, not a headline.
+  restockNote: { fontSize: typography.caption, marginTop: -spacing.xs, marginBottom: spacing.sm, fontStyle: 'italic' },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   link: { fontWeight: '700' },
 });

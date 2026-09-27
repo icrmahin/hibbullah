@@ -65,14 +65,14 @@ export default function CustomerNavigation() {
               accessibilityState={{ selected: active }}
             >
               <View style={[styles.iconContainer, active && { backgroundColor: colors.primarySoft }]}>
-                <Icon name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.primary : colors.textMuted} />
+                <Icon name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.accent : colors.textMuted} />
                 {item.badge && distinctCount > 0 ? (
                   <View style={[styles.badge, { backgroundColor: colors.primary }]}>
                     <Text style={[styles.badgeText, { color: colors.white }]}>{distinctCount > 99 ? "99+" : String(distinctCount)}</Text>
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.label, { color: active ? colors.primary : colors.textMuted }]}>{item.label}</Text>
+              <Text style={[styles.label, { color: active ? colors.accent : colors.textMuted }]}>{item.label}</Text>
             </Pressable>
           );
         })}
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     minWidth: 14,
     height: 14,
     paddingHorizontal: 2,
-    borderRadius: 7,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },

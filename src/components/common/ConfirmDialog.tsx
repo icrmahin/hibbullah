@@ -47,7 +47,9 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   const colors = useThemeColors();
   const shadows = useShadows();
-  const accent = destructive ? colors.danger : colors.primary;
+  // Ink: the dialog's title and its icon circle's glyph. The circle behind the icon is
+  // `accent + "22"`, a 13%-alpha wash, so the glyph has to be readable against the *page*.
+  const accent = destructive ? colors.danger : colors.accent;
 
   return (
     <RNModal
@@ -118,7 +120,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },

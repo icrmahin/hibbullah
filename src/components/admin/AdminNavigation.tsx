@@ -71,13 +71,13 @@ export default function AdminNavigation() {
                 <Icon
                   name={item.icon}
                   size={18}
-                  color={active ? colors.primary : colors.textMuted}
+                  color={active ? colors.accent : colors.textMuted}
                 />
               </View>
               <Text
                 style={[
                   styles.label,
-                  { color: active ? colors.primary : colors.textMuted },
+                  { color: active ? colors.accent : colors.textMuted },
                 ]}
               >
                 {item.label}
@@ -95,9 +95,9 @@ export default function AdminNavigation() {
             accessibilityState={{ selected: isMenuActive }}
           >
             <View style={[styles.pill, isMenuActive && { backgroundColor: colors.primarySoft }]}>
-              <Icon name="menu" size={18} color={isMenuActive ? colors.primary : colors.textMuted} />
+              <Icon name="menu" size={18} color={isMenuActive ? colors.accent : colors.textMuted} />
             </View>
-            <Text style={[styles.label, { color: isMenuActive ? colors.primary : colors.textMuted }]}>Menu</Text>
+            <Text style={[styles.label, { color: isMenuActive ? colors.accent : colors.textMuted }]}>Menu</Text>
           </Pressable>
         </View>
       </View>
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   pill: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },

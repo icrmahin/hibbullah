@@ -195,7 +195,7 @@ export default function ProductForm({
     if (costPrice) {
       if (Number.isNaN(costNum) || costNum < 0) next.costPrice = "Enter a valid cost price.";
       else if (!isEmpty(price) && !Number.isNaN(priceNum) && costNum > priceNum)
-        next.costPrice = "Cost cannot exceed selling price.";
+        next.costPrice = "That is more than the selling price, so check the two numbers.";
     }
 
     const originalNum = originalPrice ? Number(originalPrice) : NaN;
@@ -211,7 +211,7 @@ export default function ProductForm({
       // (check_discount trigger → RPC 400), so block it here with a message
       // instead of a failed upload.
       else if (!originalPrice)
-        next.discountPercent = "Add an original price, or leave discount empty.";
+        next.discountPercent = "Set the price before discount too, so the customer can see what it dropped from.";
     }
 
     // PostgREST casts p_expiry_date to date before create_product runs, so
@@ -232,9 +232,9 @@ export default function ProductForm({
 
     if (expiryDate) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate.trim()))
-        next.expiryDate = "Use YYYY-MM-DD (e.g. 2027-05-12).";
+        next.expiryDate = "Write it as 2027-05-12 — four digits for the year, then two, then two.";
       else if (Number.isNaN(Date.parse(expiryDate.trim())))
-        next.expiryDate = "Enter a valid date (e.g. 2027-05-12).";
+        next.expiryDate = "That is not a real date. Write it as 2027-05-12.";
     }
 
     return next;
@@ -398,7 +398,7 @@ export default function ProductForm({
         style={[styles.addToggle, { borderColor: colors.borderLight, backgroundColor: colors.backgroundAlt }]}
         accessibilityRole="button"
       >
-        <Text style={[styles.addToggleText, { color: colors.primary }]}>
+        <Text style={[styles.addToggleText, { color: colors.accent }]}>
           {isOpen ? `▼ ${hideLabel}` : `＋ ${toggleLabel}`}
         </Text>
       </Pressable>
@@ -431,6 +431,30 @@ export default function ProductForm({
 
   const busy = saving || uploadingSlot !== null;
 
+  /**
+   * What this product earns, said in the owner's terms rather than as a margin.
+   *
+   * Hoisted out of the JSX because two things need the same numbers: the sentence, and
+   * whether to render it in the danger colour. Doing it inside an inline IIFE is what made
+   * the first attempt reach for `c` and `p` in the `style` prop, where they are not in
+   * scope — the two halves of one fact drifting into two places.
+   *
+   * A cost at or above the selling price is not a small margin, it is a loss on every pack,
+   * and it is the most expensive mistake this form allows. It is said in words and shown in
+   * the danger colour, rather than rendered as a negative percentage under the word
+   * "margin" as it was before.
+   */
+  const priceNum = Number(price);
+  const costNum = costPrice ? Number(costPrice) : NaN;
+  const hasBothPrices =
+    Number.isFinite(priceNum) && priceNum > 0 && Number.isFinite(costNum);
+  const sellingAtALoss = hasBothPrices && costNum >= priceNum;
+  const earningHint = !hasBothPrices
+    ? "Add what you pay for it and this product starts counting towards your earnings."
+    : sellingAtALoss
+      ? "You are paying more for this than you are selling it for."
+      : `You make ৳ ${(priceNum - costNum).toFixed(2)} on each pack · ${(((priceNum - costNum) / priceNum) * 100).toFixed(0)}% of the selling price`;
+
   return (
     <>
       <ScrollView
@@ -444,25 +468,27 @@ export default function ProductForm({
             { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight, ...shadows.sm },
           ]}
         >
-          {SECTION("Basics")}
+          {SECTION("The medicine")}
 
           <View style={styles.row}>
             <View style={styles.field}>
               <Input
                 label="Product name"
+                hint="What customers will recognise on the shelf — include the strength, e.g. Napa Extra 500 mg"
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
-                placeholder="e.g. Paracetamol 500mg"
+                placeholder="e.g. Napa Extra 500 mg"
               />
             </View>
             <View style={styles.field}>
               <Input
                 label="Brand"
+                hint="The brand printed on the pack. The company that makes it goes in Manufacturer below."
                 value={brand}
                 onChangeText={setBrand}
                 error={errors.brand}
-                placeholder="e.g. Panadol"
+                placeholder="e.g. Napa"
               />
             </View>
           </View>
@@ -470,7 +496,8 @@ export default function ProductForm({
           <View style={styles.row}>
             <View style={styles.field}>
               <Input
-                label="Generic name"
+                label="Generic name (the medicine inside)"
+                hint="The same medicine under every brand — e.g. Paracetamol. Customers search by this."
                 value={genericName}
                 onChangeText={setGenericName}
                 error={errors.genericName}
@@ -479,11 +506,11 @@ export default function ProductForm({
             </View>
             <View style={styles.field}>
               <Input
-                label="Unit"
+                label="What customers buy"
                 value={unit}
                 onChangeText={setUnit}
                 error={errors.unit}
-                placeholder="pack, bottle, tube"
+                placeholder="pack, bottle, strip, tube"
               />
             </View>
           </View>
@@ -545,12 +572,13 @@ export default function ProductForm({
             </View>
           </View>
 
-          {SECTION("Pricing & stock")}
+          {SECTION("What it costs, and what you sell it for")}
 
           <View style={styles.row}>
             <View style={styles.field}>
               <Input
-                label="Price"
+                label="Selling price"
+                hint="What the customer pays for one pack"
                 value={price}
                 onChangeText={setPrice}
                 keyboardType="decimal-pad"
@@ -560,7 +588,7 @@ export default function ProductForm({
             </View>
             <View style={styles.field}>
               <Input
-                label="Cost price"
+                label="What you pay for it"
                 value={costPrice}
                 onChangeText={(v) => {
                   setCostPrice(v);
@@ -569,27 +597,21 @@ export default function ProductForm({
                 keyboardType="decimal-pad"
                 error={errors.costPrice}
                 placeholder="Optional · e.g. 320"
-                hint={isEditing ? "Left untouched, the current cost is kept." : undefined}
+                hint="What the supplier charges you for one pack. Leave it empty and this product is left out of your earnings, and listed as one to fill in."
               />
             </View>
           </View>
           {costPrice || price ? (
-            <Text style={[styles.hint, { color: colors.textMuted }]}>
-              {(() => {
-                const p = Number(price);
-                const c = Number(costPrice);
-                if (!p || Number.isNaN(p) || !c || Number.isNaN(c))
-                  return "Leave cost empty to auto-set price×0.8";
-                const margin = ((p - c) / p) * 100;
-                return `Margin ${margin.toFixed(1)}% · Profit ${c < p ? `৳ ${(p - c).toFixed(2)}` : "—"} per unit`;
-              })()}
+            <Text style={[styles.hint, { color: sellingAtALoss ? colors.danger : colors.textMuted }]}>
+              {earningHint}
             </Text>
           ) : null}
 
           <View style={styles.row}>
             <View style={styles.field}>
               <Input
-                label="Original price"
+                label="Price before discount"
+                hint="Only needed if you are running a discount"
                 value={originalPrice}
                 onChangeText={(v) => {
                   setOriginalPrice(v);
@@ -602,7 +624,8 @@ export default function ProductForm({
             </View>
             <View style={styles.field}>
               <Input
-                label="Discount (%)"
+                label="Discount"
+                hint="A percentage off, e.g. 10 for 10% off"
                 value={discountPercent}
                 onChangeText={(v) => {
                   setDiscountPercent(v);
@@ -627,7 +650,7 @@ export default function ProductForm({
                 keyboardType="numeric"
                 error={errors.stock}
                 placeholder="0"
-                hint={isEditing ? "Left untouched, the current batches are kept." : undefined}
+                hint={isEditing ? "Leave this empty to keep the stock you already have." : undefined}
               />
             </View>
             <View style={styles.field} />
@@ -644,38 +667,39 @@ export default function ProductForm({
             ]}
             accessibilityRole="button"
             accessibilityLabel={
-              showAdvanced ? "Hide advanced batch options" : "Show advanced batch options"
+              showAdvanced
+                ? "Hide the batch number and expiry date"
+                : "Show the batch number and expiry date"
             }
           >
             <Text
               style={[
                 styles.advancedToggleText,
-                { color: showAdvanced ? colors.primary : colors.textMuted },
+                { color: showAdvanced ? colors.accent : colors.textMuted },
               ]}
             >
               {showAdvanced
-                ? "▲ Advanced · batch & expiry"
-                : "▼ Advanced · batch & expiry (auto if empty)"}
+                ? "▲ This delivery's batch and expiry date"
+                : "▼ This delivery's batch and expiry date (leave empty if you don't know them)"}
             </Text>
           </Pressable>
           {showAdvanced ? (
             <>
-              {SECTION("Batch · auto-handled")}
               <Text style={[styles.hint, { color: colors.textMuted }]}>
-                Leave empty to auto-generate BATCH-XXXX-001 and skip expiry. Stock is the sum of
-                batches — no ID handling needed.
+                Most people can leave both of these empty and add them later. An expiry date is
+                what lets the app warn you before a medicine goes out of date.
               </Text>
               <View style={styles.row}>
                 <View style={styles.field}>
                   <Input
-                    label="Batch number"
+                    label="Batch number (on the box)"
                     value={batchNumber}
                     onChangeText={(v) => {
                       setBatchNumber(v);
                       markTouched("batchNumber");
                     }}
                     error={errors.batchNumber}
-                    placeholder="Auto: BATCH-XXXXXXXX-001"
+                    placeholder="Optional — printed on the pack"
                   />
                 </View>
                 <View style={styles.field}>
@@ -686,7 +710,7 @@ export default function ProductForm({
                       setExpiryDate(v);
                       markTouched("expiryDate");
                     }}
-                    placeholder="YYYY-MM-DD (optional)"
+                    placeholder="2027-05-12"
                     error={errors.expiryDate}
                     autoCapitalize="none"
                   />
@@ -695,17 +719,17 @@ export default function ProductForm({
             </>
           ) : null}
 
-          {SECTION("Images")}
+          {SECTION("Photos")}
 
           <Text style={[styles.hint, { color: colors.textMuted }]}>
-            Picked images upload to Cloudinary right away and replace the previous file for this
-            product. All product text and numbers are saved to the database.
+            Photos upload as soon as you pick them, so you can see them straight away. The old
+            photo is only replaced once you press Save.
           </Text>
 
           <View style={styles.imageRow}>
             <View style={styles.imageSlot}>
               <ImageUpload
-                label="Primary image (optional)"
+                label="Main photo"
                 uri={primaryImage}
                 uploading={uploadingSlot === "primary"}
                 onPick={(uri) => void handlePickImage(uri, "primary")}
@@ -714,7 +738,7 @@ export default function ProductForm({
             </View>
             <View style={styles.imageSlot}>
               <ImageUpload
-                label="Secondary image (optional)"
+                label="Second photo (optional)"
                 uri={secondaryImage}
                 uploading={uploadingSlot === "secondary"}
                 onPick={(uri) => void handlePickImage(uri, "secondary")}
@@ -729,43 +753,44 @@ export default function ProductForm({
           <View style={styles.field}>
             <Input
               label="Description"
+              hint="A few lines customers read on the product page — what it treats, and how to take it."
               value={description}
               onChangeText={setDescription}
               multiline
               error={errors.description}
-              placeholder="Product summary shown to customers"
+              placeholder="What it is used for, and how it is taken"
             />
           </View>
 
           <View style={[styles.switches, { borderTopColor: colors.borderLight }]}>
             <View style={styles.switchRow}>
               <View style={styles.switchText}>
-                <Text style={[styles.switchLabel, { color: colors.text }]}>Active</Text>
+                <Text style={[styles.switchLabel, { color: colors.text }]}>Show in the shop</Text>
                 <Text style={[styles.switchHint, { color: colors.textMuted }]}>
-                  Visible to customers and search
+                  Turn this off to take the product off the shelf without deleting it
                 </Text>
               </View>
               <Switch
                 value={isActive}
                 onValueChange={setIsActive}
                 trackColor={{ false: colors.border, true: colors.primarySoft }}
-                thumbColor={isActive ? colors.primary : colors.textMuted}
-                accessibilityLabel="Active"
+                thumbColor={isActive ? colors.accent : colors.textMuted}
+                accessibilityLabel="Show in the shop"
               />
             </View>
             <View style={styles.switchRow}>
               <View style={styles.switchText}>
-                <Text style={[styles.switchLabel, { color: colors.text }]}>Featured</Text>
+                <Text style={[styles.switchLabel, { color: colors.text }]}>Show as trending</Text>
                 <Text style={[styles.switchHint, { color: colors.textMuted }]}>
-                  Shown in trending sections
+                  Puts it in the trending row on the home page
                 </Text>
               </View>
               <Switch
                 value={isFeatured}
                 onValueChange={setIsFeatured}
                 trackColor={{ false: colors.border, true: colors.primarySoft }}
-                thumbColor={isFeatured ? colors.primary : colors.textMuted}
-                accessibilityLabel="Featured"
+                thumbColor={isFeatured ? colors.accent : colors.textMuted}
+                accessibilityLabel="Show as trending"
               />
             </View>
           </View>
@@ -790,7 +815,7 @@ export default function ProductForm({
         />
         {isEditing ? (
           <Text style={[styles.note, { color: colors.textMuted }]}>
-            Only the fields you change are saved.
+            Anything you do not change is left as it was.
           </Text>
         ) : null}
       </View>

@@ -80,11 +80,11 @@ export default function Select({
                 accessibilityRole="radio"
                 accessibilityState={{ selected: opt.value === value }}
               >
-                <Text style={[styles.optionText, opt.value === value && styles.optionTextSelected, { color: opt.value === value ? colors.primary : colors.text }]}>
+                <Text style={[styles.optionText, opt.value === value && styles.optionTextSelected, { color: opt.value === value ? colors.accent : colors.text }]}>
                   {opt.label}
                 </Text>
                 {opt.value === value && (
-                  <Icon name="check" size={18} color={colors.primary} />
+                  <Icon name="check" size={18} color={colors.accent} />
                 )}
               </Pressable>
             ))}

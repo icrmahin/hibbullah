@@ -31,6 +31,60 @@ const MIGRATIONS_DIR = 'supabase/migrations'
 const norm = (s) => s.replace(/--[^\n]*/g, '').replace(/\s+/g, ' ').trim()
 
 /**
+ * Strip `//` and block comments from TypeScript, preserving line numbers.
+ *
+ * Scanned rather than matched, because `auth-callback.tsx` contains the string
+ * `"hibbullah://auth-callback"` and a slash-slash replace would cut that line in half —
+ * silently dropping the real `color: '#666'` a few characters earlier on it. A checker
+ * that loses code to its own comment handling reports a clean file.
+ *
+ * Newlines are kept so a line index still points at the right source line.
+ */
+function stripTsComments(src) {
+  let out = ''
+  let i = 0
+  let quote = null
+  while (i < src.length) {
+    const c = src[i]
+    const d = src[i + 1]
+    if (quote) {
+      if (c === '\\') {
+        out += c + (d ?? '')
+        i += 2
+        continue
+      }
+      if (c === quote) quote = null
+      out += c
+      i += 1
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c
+      out += c
+      i += 1
+      continue
+    }
+    if (c === '/' && d === '/') {
+      while (i < src.length && src[i] !== '\n') i += 1
+      continue
+    }
+    if (c === '/' && d === '*') {
+      i += 2
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) {
+        // A block comment's newlines are kept so line indices stay aligned.
+        if (src[i] === '\n') out += '\n'
+        i += 1
+      }
+      i += 2
+      continue
+    }
+    out += c
+    i += 1
+  }
+  return out
+}
+
+/**
  * Pull `create ... function <name>(...)` bodies out of a SQL string.
  *
  * Scanned rather than matched with a single regex, because the dollar-quote tag is whatever
@@ -345,6 +399,13 @@ const INTERNAL_ONLY = [
   'public.notify_user',
   'public.is_admin_email',
   'public.rls_auto_enable',
+  // Added with the profit/restock migration. `restock_order_lines` is the sharpest of
+  // them: reachable by anybody who can guess an order id, it would put stock back into a
+  // batch. It is only ever meant to be called from inside transition_order_status and from
+  // the return trigger.
+  'public.restock_order_lines',
+  'public.approve_return_stock',
+  'public.profit_since',
 ]
 
 // The LAST definition of each function across the migration set, for the same reason the
@@ -353,6 +414,39 @@ const INTERNAL_ONLY = [
 const latestBodies = (() => {
   const out = new Map()
   for (const m of migrations) for (const [k, v] of functionBodies(m.sql)) out.set(k, v)
+  return out
+})()
+
+/**
+ * The migration that last defines each function, as a position in the migration sequence.
+ *
+ * A revoke is tied to a *signature*, and Postgres treats a function that gained an argument
+ * as a different function entirely. So what a revoke has to do is cover a definition that
+ * is not newer than itself — a revoke left behind by an earlier signature does not apply to
+ * the one that replaced it. Searching every migration's text at once cannot express that,
+ * and the mutation suite is what proved it: dropping the `deduct_inventory_fifo` revoke
+ * from the lockdown migration still left a passing check, because a later migration
+ * happened to contain one for the newer signature.
+ *
+ * So the rule is ordering, not sameness: a revoke counts only from the defining migration
+ * onwards. That is what makes `deduct_inventory_fifo(uuid, integer, uuid)` — created with
+ * a third argument while only `(uuid, integer)` had ever been revoked — fail.
+ *
+ * Note what this does *not* do: it does not parse argument lists, so a revoke in a later
+ * file would satisfy a function redefined with a different signature in between. Comparing
+ * signatures exactly is possible but brittle — Postgres drops `default` values from
+ * identity arguments while the definition text keeps them, so a legitimate `default null`
+ * would read as a mismatch. The authoritative per-signature proof is the live grants, which
+ * `verify-profit-and-restock.mjs` exercises from anon, from a customer and from an admin.
+ *
+ * The bootstrap is deliberately excluded: it replays every migration, so it would satisfy
+ * any revoke from any function.
+ */
+const definingIndex = (() => {
+  const out = new Map()
+  migrations.forEach((m, i) => {
+    for (const k of functionBodies(m.sql).keys()) out.set(k, i)
+  })
   return out
 })()
 
@@ -375,17 +469,35 @@ for (const fn of INTERNAL_ONLY) {
   // argument gains a default; what it must prove is that a revoke exists and names all
   // three of public/anon/authenticated.
   //
+  // Scoped to the defining migration and everything after it, not to the concatenation of
+  // all of them. `revoke ... from public` is not enough either, because Supabase's default
+  // privileges grant EXECUTE to `authenticated` on every new function at CREATE time — so
+  // revoking from PUBLIC alone leaves every signed-in customer able to call it, which is
+  // how `restock_order_lines` would have become a way to add stock to any batch.
+  //
   // The revokes are read out of the migration text rather than the catalog because this
-  // file is a static check that runs with no database credentials. `verify-admin-areas.mjs`
-  // asserts the same property against the live grants, which is what proves the statement
-  // here actually took effect rather than merely being present in a file.
-  const revoke = allMigrationSql.match(
-    new RegExp(`revoke\\s+all\\s+on\\s+function\\s+public\\.${ident}\\s*\\([^)]*\\)[^;]*;`, 'i'),
-  )?.[0]
+  // file is a static check that runs with no database credentials.
+  // `verify-profit-and-restock.mjs` asserts the same property against the live grants, from
+  // anon, a customer and an admin, which is what proves the statement here took effect.
+  // A function no migration ever redefines — `rls_auto_enable` is the only one — comes from
+  // the bootstrap, and every migration runs after the bootstrap. So the search starts at the
+  // first migration and the label says where the definition actually lives, rather than
+  // reporting a function that plainly exists as "defined in no migration at all".
+  const definedByMigration = definingIndex.has(fn)
+  const from = definingIndex.get(fn) ?? 0
+  const definedIn = definedByMigration ? migrations[from].f : 'apply-to-hibbullah-hosted.sql (the bootstrap)'
+  const pattern = new RegExp(`revoke\\s+all\\s+on\\s+function\\s+public\\.${ident}\\s*\\([^)]*\\)[^;]*;`, 'i')
+  let cover = null
+  for (let i = from; i < migrations.length && !cover; i++) {
+    const hit = migrations[i].sql.match(pattern)?.[0]
+    if (hit && /from\s+public\s*,\s*anon\s*,\s*authenticated/i.test(hit)) cover = migrations[i].f
+  }
   report(
-    Boolean(revoke) && /from\s+public\s*,\s*anon\s*,\s*authenticated/i.test(revoke),
-    `${fn} is revoked from public, anon and authenticated`,
-    revoke ? '' : 'no matching revoke statement in the migrations',
+    cover !== null,
+    `${fn} is revoked from public, anon and authenticated, in or after the migration that defines it`,
+    cover
+      ? `defined in ${definedIn}, revoked in ${cover}`
+      : `defined in ${definedIn} and never revoked in or after it`,
   )
 }
 
@@ -665,6 +777,494 @@ report(
 )
 
 report(dbAdmins.length === 3, `the allowlist holds exactly 3 administrators`, dbAdmins.join(', '))
+
+// ── Earning is profit, and stock comes back ─────────────────────────────────────────
+//
+// Both of these shipped broken in a way that nothing reported. The dashboard's "Earning"
+// card was answered by a JavaScript fallback because the RPC's own guard read a JWT claim
+// this project has never had, so it raised for every caller; the fallback counted cancelled
+// orders as sales and filled a missing cost price in as `unit_price * 0.8`. And cancelling
+// an order never returned the deducted units to `inventory_items`, so the stock was gone
+// from the shop for good. Approving a return did nothing at all.
+//
+// Each assertion below names one of those specific defects, because the general statement
+// ("the dashboard should be right") is not something a static check can say anything about.
+const PROFIT_MIGRATION = `${MIGRATIONS_DIR}/20260930010000_real_profit_and_stock_restore.sql`
+const profitSql = readFileSync(PROFIT_MIGRATION, 'utf8')
+const profitBodies = functionBodies(profitSql)
+const dashboardBody = latestBodies.get('public.get_admin_dashboard_sales') ?? ''
+const profitSinceBody = latestBodies.get('public.profit_since') ?? ''
+const transitionBody = latestBodies.get('public.transition_order_status') ?? ''
+// Comment-stripped copies. The prose in these files quotes the old broken expressions on
+// purpose -- `unit_price * 0.8` is named in the comment explaining that it was removed --
+// so a raw search finds the explanation and concludes the bug is still there, which is the
+// same trap the delivery-fee checks above call out.
+const adminTs = readFileSync('src/services/admin.ts', 'utf8').replace(/^\s*\/\*[\s\S]*?\*\//gm, '').replace(/\/\/[^\n]*/g, '')
+const returnsTs = readFileSync('src/services/returns.ts', 'utf8')
+const errorsTs = readFileSync('src/lib/errors.ts', 'utf8')
+
+// The guard that made the whole thing invisible: it refused every caller, admin included,
+// so the fallback was the only thing that ever answered. `auth.jwt() ->> 'role'` is a claim
+// this project has no mechanism to produce — the access-token hook is disabled and the hook
+// function writes `app_role`, not `role` — so the comparison was always true.
+report(
+  /if\s+not\s+public\.is_admin\(\)\s+then/.test(dashboardBody),
+  'get_admin_dashboard_sales guards on the admin allowlist',
+)
+report(
+  !/auth\.jwt\(\)\s*->>\s*'role'/.test(dashboardBody),
+  'get_admin_dashboard_sales no longer reads a role claim the project has never had',
+  dashboardBody.match(/auth\.jwt\(\)[^\n]*/)?.[0] ?? '',
+)
+// Profit counts delivered orders and nothing else. A PENDING order has not been sold, so
+// cancelling needs no reversal — the order was never in the figure to begin with.
+for (const [label, body] of [
+  ['get_admin_dashboard_sales', dashboardBody],
+  ['profit_since', profitSinceBody],
+]) {
+  report(
+    /status\s*=\s*'DELIVERED'/.test(body),
+    `${label} counts DELIVERED orders only`,
+  )
+  report(
+    !/status\s*<>?\s*'CANCELLED'|status\s*!=\s*'CANCELLED'/.test(body),
+    `${label} does not merely exclude CANCELLED and count everything else as sales`,
+  )
+  // The fabricated margin. `coalesce(cost_price, unit_price * 0.8)` invents a 20% margin for
+  // any product the owner has not priced the cost of, and reports it as earnings.
+  report(
+    !/0\.8/.test(body),
+    `${label} never invents a cost price`,
+    body.match(/[^\n]*0\.8[^\n]*/)?.[0]?.trim().slice(0, 90) ?? '',
+  )
+  report(
+    /cost_price\s+is\s+not\s+null/.test(body) || /profit_since/.test(body),
+    `${label} requires a real cost price and reports the ones that are missing`,
+  )
+}
+// `unpricedItems` is rendered as "N products have no cost price set", and it was
+// `count(*) filter (where p.cost_price is null)` — a count of order *lines*. One product
+// sold three times inside the window reported as three products, and the card's link went
+// to a catalog that could not possibly hold three of them. `unpricedQty` stays a line sum,
+// because there the quantity is the point; only the product count is deduplicated.
+report(
+  /count\(\s*distinct\s+p\.id\s*\)\s+filter/i.test(profitSinceBody),
+  'the unpriced figure counts products, not order lines, so the number matches the noun in front of it',
+  profitSinceBody
+    .split('\n')
+    .find((l) => /count\(/.test(l) && /cost_price is null/.test(l))
+    ?.trim()
+    .slice(0, 80) ?? '',
+)
+// An approved return comes off at its approval date, so approving one today reduces
+// today's figure rather than rewriting last month's.
+report(
+  /approved_at\s*>=\s*p_since/.test(profitSinceBody) && /approved_at/.test(profitSinceBody),
+  'profit_since dates its reversals by when the return was approved',
+)
+
+// The same rule on the client, which is where it was still being broken.
+//
+// The database was fixed first and the client was missed. `createProduct` computed
+// `Math.round(price * 0.8 * 100) / 100` for any product whose cost box was left empty, on
+// the reasonable-sounding grounds that pharmacies run on a 20% margin. So the unpriced
+// products the migration was built to *exclude and name* were being handed a fabricated
+// cost at the RPC boundary, and `profit_since` then summed that invention as earnings —
+// correctly, from a number no one ever paid. The dashboard check passed the whole time,
+// because the dashboard check is about the SQL.
+//
+// This is the shape of the hole rather than a one-off: the cost that reaches the database
+// has to be the number the owner typed, or nothing. Any arithmetic on the way there is an
+// invention, whatever the factor.
+const productsService = stripTsComments(readFileSync('src/services/products.ts', 'utf8'))
+const inventedCosts = [
+  ...productsService.matchAll(/\bcost_?price\b\s*[:=][^\n;]*/gi),
+]
+  .map((m) => m[0])
+  .filter((line) => /(?:price\s*[*+\-/]\s*[\d.]|[*+\-/]\s*[\d.]\s*)/.test(line))
+report(
+  inventedCosts.length === 0,
+  'createProduct sends the cost the owner typed, or none — it never derives one from the price',
+  inventedCosts.length ? inventedCosts[0].trim().slice(0, 90) : 'the 20% margin is gone from the client too',
+)
+
+// The same rule in the copy — the form's own hint — is checked with the other UI guards,
+// further down, because it is a statement about the UI and not about this service.
+
+// The allocation table is what makes a cancel an undo rather than a guess: without it the
+// only possible restock is "some batch", which is how stock gets invented.
+report(
+  /create\s+table\s+if\s+not\s+exists\s+public\.order_item_allocations/.test(profitSql),
+  'the migration creates the order-line → batch allocation table',
+)
+report(
+  /restocked_quantity\s+<\s*(a\.)?quantity/.test(profitBodies.get('public.restock_order_lines') ?? ''),
+  'restock_order_lines stops at what the line actually took',
+)
+report(
+  /if\s+v_alloc_rows\s*>\s*0\s+then/.test(profitBodies.get('public.restock_order_lines') ?? ''),
+  'restock_order_lines only falls back to another batch when the line has no allocation at all',
+)
+// A cancelled order is the case the shopkeeper reported: the stock must come back.
+report(
+  /if\s+p_new_status\s*=\s*'CANCELLED'\s+then/.test(transitionBody) &&
+    /restock_order_lines/.test(transitionBody),
+  'transition_order_status restocks when an order is cancelled',
+)
+report(
+  /create\s+trigger\s+trg_return_restock/.test(profitSql),
+  'approving a return is wired to restock the stock',
+)
+report(
+  /old\.status\s+is\s+distinct\s+from\s+'APPROVED'/.test(profitBodies.get('public.trg_return_restock') ?? ''),
+  'the return trigger fires only on the crossing to APPROVED, so approving twice is harmless',
+)
+// The client must not re-introduce the fallback. This is the assertion that matters most,
+// because the fallback was not wrong by accident — it was wrong in two specific ways that
+// each looked defensible on the page.
+report(
+  !/unit\s*\*\s*0\.8/.test(adminTs),
+  'the dashboard service contains no client-side profit guess',
+  adminTs.match(/[^\n]*0\.8[^\n]*/)?.[0]?.trim().slice(0, 90) ?? '',
+)
+report(
+  !/from\('order_items'\)/.test(adminTs),
+  'the dashboard service does not re-aggregate order_items, which is how cancelled orders counted as sales',
+)
+report(
+  /if\s*\(error\)\s*throw\s+supabaseErrorToAppError\(error\)/.test(adminTs),
+  'the dashboard service reports an aggregate failure instead of substituting its own number',
+)
+// The app has to name the order line, or approving a return still restores nothing.
+//
+// Matched on the `it.` form specifically, not on either variable name. `createReturnRequest`
+// and `createReturnRequests` both write `order_item_id`, and accepting `input` as well let
+// the single-item function satisfy the check on its own — the mutation suite caught a broken
+// bulk path passing because a sibling function still had the right shape. The bulk function
+// is the one the order screen calls, so it is the one worth asserting.
+report(
+  /order_item_id:\s*it\.orderItemId/.test(returnsTs),
+  'a filed return names the order line it belongs to',
+)
+report(
+  /orderItemId:\s*it\.id/.test(readFileSync('src/app/(customer)/order/[orderId].tsx', 'utf8')),
+  'the order screen passes the line id the customer selected',
+)
+// A database `raise` is a stated refusal, not a crash. Without this branch every deliberate
+// refusal — "Cart is empty", "Delivery address is required" — reached the user as
+// "An unexpected error occurred", which reads as an app bug rather than as the rule firing.
+//
+// Matched as the whole branch rather than as two separate tokens. Looking for `P0001` and
+// `AppErrorType.VALIDATION` anywhere in the file passed even with the branch deleted: the
+// explanation above it names the SQLSTATE, and the `message.includes('validation')` branch
+// above that already returns VALIDATION. Two loose checks are worse than one tight one,
+// because they report confidence without having tested anything.
+report(
+  /if \(error\?\.code === 'P0001'[\s\S]{0,400}?AppErrorType\.VALIDATION/.test(errorsTs),
+  'supabaseErrorToAppError classifies a Postgres raise as a validation refusal',
+)
+
+// ── one corner radius scale across the whole UI ─────────────────────────────────────
+//
+// Out of scope for a file about SQL, and here because it is the same kind of guarantee:
+// two things in the codebase that are supposed to be the same thing, drifting apart, with
+// nothing failing when they do.
+//
+// 85 call sites had a hard-coded `borderRadius`, across 14 different values, ten of which
+// were not on the scale. Most of the damage was `width / 2` written out longhand -- a 36×36
+// button at 18, a 28×28 tile at 14, a 30×30 button at 15 -- so a circle was a magic number
+// and sat next to a card that was also `16` while meaning something completely different.
+// The two complaints that started it ("some are so high they look like capsules, some so low
+// they look razor sharp") were both true of the same style name in two files.
+//
+// The ESLint rule `hibbullah/radius-token` is the enforcement. This assertion is here so
+// the property is checked by the same command that checks everything else, and so it fails
+// with the file and line rather than only as a lint error someone can skip.
+//
+// `src/constants/sizes.ts` is excluded: it is the scale.
+const UI_FILES = (() => {
+  const out = []
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`
+      if (e.isDirectory()) walk(p)
+      else if (/\.tsx?$/.test(e.name) && p !== 'src/constants/sizes.ts') out.push(p)
+    }
+  }
+  walk('src')
+  return out.sort()
+})()
+
+const hardCodedRadii = []
+for (const file of UI_FILES) {
+  readFileSync(file, 'utf8')
+    .split('\n')
+    .forEach((line, i) => {
+      // Only the shorthand is banned. `borderTopLeftRadius` and friends are not part of the
+      // scale and there are none of them, so matching them would be a check about a thing
+      // that does not exist rather than a check about this one.
+      if (/\bborderRadius:\s*[0-9]/.test(line)) hardCodedRadii.push(`${file}:${i + 1}`)
+    })
+}
+report(
+  hardCodedRadii.length === 0,
+  'no screen hard-codes a border radius — every corner comes from the radius scale',
+  hardCodedRadii.length ? `${hardCodedRadii.length} site(s): ${hardCodedRadii.slice(0, 4).join(', ')}` : `${UI_FILES.length} files`,
+)
+
+// Copy that promises a behaviour is a separate kind of thing to check, and this one had
+// already gone wrong.
+//
+// The product form carried this hint for the whole life of the app:
+//
+//   "Leave cost empty to auto-set price×0.8"
+//
+// It was never wrong as a description of the behaviour of the day — `createProduct` really
+// did fill in `price * 0.8`. It outlived it. The database was changed in this same work to
+// stop guessing that margin and to exclude unpriced products from the earnings figure, and
+// the hint went on instructing the shop to rely on the guess. A check on the arithmetic
+// cannot see it, because a string is not an arithmetic: this is a promise about what the app
+// does, and promises outlive implementations. So it is checked as one.
+const marginPromises = []
+for (const file of UI_FILES) {
+  readFileSync(file, 'utf8')
+    .split('\n')
+    .forEach((line, i) => {
+      if (/auto-?set|auto-?fill|automatically/i.test(line) && /0\.8|20%|margin|cost/i.test(line)) {
+        marginPromises.push(`${file}:${i + 1} promises an automatic cost price`)
+      }
+    })
+}
+report(
+  marginPromises.length === 0,
+  'no screen promises the owner an automatic cost price — an unpriced product stays unpriced and gets listed',
+  marginPromises.length ? marginPromises.slice(0, 3).join(' | ') : `${UI_FILES.length} files`,
+)
+
+// ── one grid, and it is two cards wide on a phone ─────────────────────────────────────
+//
+// The requirement is simple and the app had eight answers to it. "Two product cards per
+// row on any phone, more as the screen grows" was stated once and implemented seven times:
+// `COLUMNS` said `xs: 1, sm: 1`; five screens copied `isMobile ? 1 : isTablet ? 2 : columns`
+// over the top of it; the admin catalog used `isDesktop`; and the home page and the
+// favourites screen each divided the screen width by two themselves, with the same
+// expression, in two files. The copies had already drifted — two capped the result at
+// three, three did not — so the catalogue and the search grid disagreed about tablets and
+// the admin's own product list was one-up on the handset the owner was holding.
+//
+// `useResponsive` is now the only statement of the policy, and it has two because product
+// cards and order rows genuinely want different minimum widths. These checks exist so a
+// fourth copy cannot appear.
+const responsiveCode = stripTsComments(readFileSync('src/hooks/useResponsive.ts', 'utf8'))
+
+// Checked against the real values, not the existence of a constant. `PRODUCT_COLUMNS` was
+// `xs: 1, sm: 1` for the whole life of this file and satisfied every check that only asked
+// whether the map was there.
+const phoneColumns = responsiveCode.match(/PRODUCT_COLUMNS\s*=\s*\{([\s\S]*?)\}/)?.[1] ?? ''
+const phoneCols = Object.fromEntries(
+  [...phoneColumns.matchAll(/\b(xs|sm|md|lg|xl|xxl):\s*(\d+)/g)].map(([, k, v]) => [k, Number(v)]),
+)
+report(
+  phoneCols.xs === 2 && phoneCols.sm === 2,
+  'the product grid is two cards wide on every phone width',
+  `xs: ${phoneCols.xs}, sm: ${phoneCols.sm} — and the count only grows from there: ${[phoneCols.md, phoneCols.lg, phoneCols.xl, phoneCols.xxl].join(', ')}`,
+)
+report(
+  // Growing is a direction, not a value: each breakpoint must be at least the one below it.
+  ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'].every((k, i, all) => i === 0 || phoneCols[k] >= phoneCols[all[i - 1]]),
+  'the product grid never loses a column as the screen gets wider',
+  ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'].map((k) => `${k}: ${phoneCols[k]}`).join(', '),
+)
+
+const listColsBlock = responsiveCode.match(/LIST_COLUMNS\s*=\s*\{([\s\S]*?)\}/)?.[1] ?? ''
+const listCols = Object.fromEntries(
+  [...listColsBlock.matchAll(/\b(xs|sm|md|lg|xl|xxl):\s*(\d+)/g)].map(([, k, v]) => [k, Number(v)]),
+)
+report(
+  // The reason `listColumns` exists at all: forcing an order row — a status, a date, an
+  // item count and a total — into 170px to match the product grid would make it unreadable.
+  listCols.xs === 1 && listCols.sm === 1,
+  'an order or customer row stays one-up on a phone, because it is not a product card',
+  `xs: ${listCols.xs}, sm: ${listCols.sm} — up to ${Math.max(...Object.values(listCols))} on a desktop`,
+)
+
+const gridCopies = []
+for (const file of UI_FILES) {
+  const code = stripTsComments(readFileSync(file, 'utf8'))
+  code.split('\n').forEach((line, i) => {
+    // The expression, verbatim, that five screens used to carry.
+    if (/\bisMobile\s*\?\s*1\s*:/.test(line)) gridCopies.push(`${file}:${i + 1} re-derives the column count`)
+    // A literal column count, which is the same policy in a shorter form.
+    const n = line.match(/numColumns=\{(\d+)\}/)
+    if (n) gridCopies.push(`${file}:${i + 1} hard-codes ${n[1]} column(s)`)
+    // The screen-width division, which home and favourites each wrote out longhand.
+    if (/\(\s*width\s*-\s*spacing\.[a-z]+\s*\*\s*2\s*-/.test(line)) gridCopies.push(`${file}:${i + 1} divides the screen width itself`)
+  })
+}
+report(
+  gridCopies.length === 0,
+  'every grid takes its column count from useResponsive — no screen holds its own',
+  gridCopies.length ? gridCopies.slice(0, 4).join(' | ') : `${UI_FILES.length} files`,
+)
+
+// …and every screen that draws a product card actually has a grid.
+//
+// The two checks above both ask whether a screen that *has* a column policy gets it from the
+// hook. Neither asks whether the screen has a policy at all, and the answer was no twice.
+// `products/category/[categoryId].tsx` and `products/manufacturer/[manufacturerId].tsx`
+// each rendered a `ProductCard` from a `FlashList` with no `numColumns` prop, which
+// defaults to 1 — so those two routes showed one full-width card per row while the catalog
+// next to them showed two. They were missed in the first pass because the search for
+// duplication looked for copies of the policy and these had none to copy.
+//
+// The general form of the bug is a screen added later, or a screen that was never in the
+// list, quietly inheriting a library default. So the check is per-screen and by presence:
+// any file that renders a product card must place it in a grid the hook drives.
+const ungridded = []
+for (const file of UI_FILES) {
+  const code = stripTsComments(readFileSync(file, 'utf8'))
+  if (!/<ProductCard\b/.test(code)) continue
+  // A `numColumns` from the hook, or a measured card width — the two shapes the app draws
+  // a card grid in. A horizontal scroller is a legitimate third and is named here so that
+  // adding one is a deliberate act rather than something this check has to be argued out of.
+  if (/numColumns=\{columns\}/.test(code)) continue
+  if (/useResponsive\(\)/.test(code) && /\bcardWidth\b/.test(code)) continue
+  ungridded.push(`${file.split('/').pop()} (${/<FlashList/.test(code) ? 'FlashList, no numColumns' : 'no grid found'})`)
+}
+report(
+  ungridded.length === 0,
+  'every screen that draws a product card puts it in a two-up grid — none is left on a library default',
+  ungridded.length ? ungridded.join(' | ') : 'catalog, search, favourites, home, category, manufacturer, admin',
+)
+
+// The page margin, as opposed to the column count.
+//
+// These were uniform in the wrong respect: the catalog and the search screen each gave a
+// card 4px of container padding plus the 4px on the cell, so the *gutter* was a tidy 8px at
+// every column count — and the *page margin* was 8px, where the home page, the favourites
+// screen and every non-list screen used 16. Same card, half the margin, depending which
+// screen it was on. It is the kind of difference that is invisible alone and obvious in a
+// screenshot of two screens side by side.
+// FlashList v2 has no `columnWrapperStyle`, so the gutter has to come from padding on the
+// cells, and the container's share is the page margin. `spacing.md` on the container plus
+// `spacing.sm` on the cell is `spacing.lg`, the margin everything else uses.
+//
+// The check names the two files rather than sweeping up every `numColumns`, because the
+// admin catalog is genuinely a different case: it sits inside a `ResponsiveContainer` that
+// already owns the page margin, and stacks its own on top, so it lands at 20px rather than
+// 16. That one is a known outstanding item in `docs/TODO.md`, and a check that quietly
+// included it would have had to either fail on a state we are not fixing here, or pass by
+// not looking — which is the failure mode this file exists to prevent. If the admin margin
+// is brought in line, add `src/app/(admin)/products/index.tsx` to `CUSTOMER_GRIDS`.
+const CUSTOMER_GRIDS = ['src/app/(customer)/(tabs)/products.tsx', 'src/app/(customer)/search.tsx']
+const edgeMargins = CUSTOMER_GRIDS.map((file) => {
+  const code = stripTsComments(readFileSync(file, 'utf8'))
+  const container = code.match(/content:\s*\{[^}]*paddingHorizontal:\s*(spacing\.\w+)/)?.[1] ?? 'none'
+  const cell = code.match(/gridItem:\s*\{[^}]*paddingHorizontal:\s*(spacing\.\w+)/)?.[1] ?? 'none'
+  return {
+    file: file.split('/').pop(),
+    ok: container === 'spacing.md' && cell === 'spacing.sm',
+    detail: `${container} + ${cell}`,
+  }
+})
+report(
+  edgeMargins.every((e) => e.ok),
+  'the customer product grids share one page margin — container and cell padding add up to spacing.lg',
+  edgeMargins.map((e) => `${e.file}: ${e.detail}${e.ok ? '' : ' ✗'}`).join(' | '),
+)
+
+// ── one palette, and a shadow that actually casts one ───────────────────────────────
+//
+// The dark theme had three defects that no test and no screenshot would have caught,
+// because each of them was invisible in the one situation anyone looks at a mockup: a
+// light desktop, with a screenshot, taken once.
+//
+// 1. `buildShadows` took the palette and named the parameter `_colors`. Every shadow was
+//    a hard-coded `rgba(0,0,0,0.04..0.10)`, and a black shadow at 4% on a `#0A0C0B` page
+//    casts nothing — there is no darker neighbour. So dark mode had no working elevation
+//    at all: every card, sheet and header was held off the page by its border hairline
+//    alone. The fix is the accent glow, and the check is that the shadow module actually
+//    reads the palette.
+//
+// 2. `dark` was inferred in places by `colors.background === "#111A17"` — a colour
+//    compared to a hex literal. Retune the background and every one of those comparisons
+//    silently becomes false with no error anywhere. `resolvedTheme` is the answer, and the
+//    check is that no screen compares a colour to a hex again.
+//
+// 3. Six files carried their own hex literals, including `#1A2420` — a dark-mode surface —
+//    as the placeholder behind a product photo in *both* themes, so light mode showed a
+//    near-black rectangle behind every product with no picture.
+const shadowsTs = readFileSync('src/constants/shadows.ts', 'utf8')
+const shadowsCode = stripTsComments(shadowsTs)
+
+report(
+  // The glow has to be in the shadow, not merely defined in the palette. `glow` and
+  // `glowStrong` were added to `darkUtil` in this same change and had zero readers, which
+  // is the exact failure `onStatus` and `accentMuted` were deleted for — a token that
+  // documents an intent nothing implements.
+  /colors\.glow(Strong)?\b/.test(shadowsCode),
+  'the shadow system casts the accent glow, so dark mode has elevation',
+  'a near-black surface has no darker neighbour to cast onto; the glow is the lift',
+)
+report(
+  // The original signature was `buildShadows(_colors)`: the parameter was there, named, and
+  // unused, which is why every shadow was a hard-coded black and dark mode had no
+  // elevation. The check is that every parameter is *referenced in the body*, not that the
+  // word "colors" appears in it — the first version of this check searched the body for
+  // `colors.` and passed on the broken version, because renaming the parameter to
+  // `_colors` leaves the body's `colors.glowStrong` textually intact while making it a
+  // reference to a variable that does not exist.
+  (() => {
+    const sig = shadowsCode.match(/function buildShadows\(([^)]*)\)/)?.[1]
+    // The body only — everything after the signature's closing paren. An earlier version
+    // matched from `function buildShadows(` through the first `\n}`, which *includes* the
+    // signature, so the parameter name was found in the parameter list and the check
+    // passed on the very code it was written to catch.
+    const body = shadowsCode.split(/function buildShadows\([^)]*\)/)[1]?.split(/\n\}/)[0] ?? ''
+    if (!sig) return false
+    const params = sig
+      .split(',')
+      .map((p) => p.trim().split(':')[0].trim().replace(/=.*$/, '').trim())
+      .filter(Boolean)
+    return params.length > 0 && params.every((p) => body.includes(p))
+  })(),
+  'buildShadows uses every parameter it declares — the palette is read, not just accepted',
+)
+
+const hexLiterals = []
+const themeSniffs = []
+for (const file of UI_FILES) {
+  if (file.startsWith('src/constants/')) continue
+  // Comments are stripped first, and this is why the two checks below cannot simply look
+  // for `#` in the raw source. The explanations written next to these very fixes quote the
+  // old hex values — `#111A17`, `#1A2420`, `#3D4A46` — so a naive scan reported the
+  // documentation of the bug as the bug. A check that fires on its own comments is a check
+  // nobody will keep running.
+  const code = stripTsComments(readFileSync(file, 'utf8'))
+  code.split('\n').forEach((line, i) => {
+    // `#fff` is the one literal with a legitimate reason to stay inline: a token for
+    // full white would be a token whose name is longer than its value.
+    const m = line.match(/#[0-9A-Fa-f]{3,8}\b/g)
+    if (m && !m.every((h) => /^#(?:fff|FFF|ffffff|FFFFFF)$/.test(h))) {
+      hexLiterals.push(`${file}:${i + 1} ${line.trim().slice(0, 60)}`)
+    }
+    // A colour compared to a hex — the exact expression that failed silently when the
+    // dark background was retuned from `#111A17` to `#0A0C0B`.
+    if (/colors\.[a-zA-Z]+\s*===?\s*["']#[0-9A-Fa-f]{3,8}["']/.test(line)) {
+      themeSniffs.push(`${file}:${i + 1} ${line.trim().slice(0, 60)}`)
+    }
+  })
+}
+report(
+  hexLiterals.length === 0,
+  'no screen hard-codes a colour — every value comes from the palette',
+  hexLiterals.length ? `${hexLiterals.length}: ${hexLiterals.slice(0, 3).join(' | ')}` : `${UI_FILES.length} files`,
+)
+report(
+  themeSniffs.length === 0,
+  'no screen infers the theme by comparing a colour to a hex — use resolvedTheme',
+  themeSniffs.length ? `${themeSniffs.length}: ${themeSniffs.slice(0, 3).join(' | ')}` : `${UI_FILES.length} files`,
+)
 
 console.log(problems === 0 ? '\n=== IN SYNC ===' : `\n=== ${problems} DIFFERENCE(S) ===`)
 process.exitCode = problems === 0 ? 0 : 1

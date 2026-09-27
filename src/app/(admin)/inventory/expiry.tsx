@@ -10,6 +10,7 @@ import { useAdminInventory } from '../../../hooks/useAdmin';
 import spacing from '../../../constants/spacing';
 import { config } from '../../../constants/config';
 import { formatDate } from '../../../utils/date';
+import { radius } from '../../../constants/sizes';
 
 export default function ExpiryManagementScreen() {
   const colors = useThemeColors();
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   card: {
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
   },

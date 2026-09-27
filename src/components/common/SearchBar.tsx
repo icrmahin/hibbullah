@@ -67,7 +67,7 @@ export default function SearchBar({
           accessibilityRole="button"
           accessibilityLabel="Clear search"
         >
-          <Icon name="close" size={14} color={colors.primary} />
+          <Icon name="close" size={14} color={colors.accent} />
         </Pressable>
       ) : null}
     </View>
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   clearButton: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },

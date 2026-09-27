@@ -12,14 +12,56 @@ const BREAKPOINTS = {
   xxl: 1280,
 } as const;
 
-const COLUMNS = {
-  xs: 1,
-  sm: 1,
-  md: 2,
+/**
+ * Product cards per row, by breakpoint. Two on every phone width.
+ *
+ * These were `xs: 1, sm: 1`, and five screens each worked around that with their own copy
+ * of `isMobile ? 1 : isTablet ? 2 : columns`. Five copies of one policy is five places
+ * for the policy to disagree with itself, and they did: two capped the result at three,
+ * three did not, the product grid and the search grid disagreed about tablet, and home
+ * and favourites ignored the hook altogether and divided the screen width by two
+ * themselves. The rule is "two cards on a phone, more as the screen grows", and it now
+ * has exactly one statement.
+ *
+ * `md` is 576px, the first tablet width. Three cards fit there at about 173px each, which
+ * is the width a single-column card was already being squeezed to on a phone.
+ */
+const PRODUCT_COLUMNS = {
+  xs: 2,
+  sm: 2,
+  md: 3,
   lg: 3,
   xl: 4,
   xxl: 5,
 } as const;
+
+/**
+ * Order, customer and audit *rows* per breakpoint. Not the same as the product grid, and
+ * this is the one place a single `columns` would have been the wrong abstraction.
+ *
+ * A product card is a thumbnail, a name and a price, and two of those fit a 375px screen
+ * without complaint. An order row is a status, a date, an item count and a total, and at
+ * 170px wide it wraps into a shape nobody can read — which is why these screens have
+ * always been one-up on a phone, and why forcing them to match the product grid would have
+ * made them worse. Above the phone they grow, capped at three so a desktop row does not
+ * stretch into a ribbon.
+ */
+const LIST_COLUMNS = {
+  xs: 1,
+  sm: 1,
+  md: 2,
+  lg: 2,
+  xl: 3,
+  xxl: 3,
+} as const;
+
+/**
+ * The gutter the product grids are drawn on: `spacing.lg` of page padding either side and
+ * `spacing.md` between cards. Home and favourites both hard-coded this arithmetic — the
+ * same expression, twice, in two files — so a change to the page gutter had to be made
+ * twice or not at all.
+ */
+const GRID = { padding: spacing.lg, gap: spacing.md } as const;
 
 const SIDEBAR_WIDTH = {
   lg: 260,
@@ -48,11 +90,20 @@ export function useResponsive() {
   const isDesktop = width >= BREAKPOINTS.lg;
   const isWide = width >= BREAKPOINTS.xl;
 
-  const columns = COLUMNS[breakpoint];
+  const columns = PRODUCT_COLUMNS[breakpoint];
+  const listColumns = LIST_COLUMNS[breakpoint];
   const sidebarWidth = isDesktop ? (SIDEBAR_WIDTH as Record<string, number>)[breakpoint] ?? 260 : 0;
 
-  const contentWidth = isDesktop ? width - sidebarWidth : width;
-  const cardWidth = contentWidth / columns - (spacing.lg * (columns - 1)) / columns;
+  /**
+   * The width of one card in a `flexWrap` grid.
+   *
+   * This is a *screen* measurement, not a *content-area* one, and the distinction was the
+   * bug in the version it replaces. That one subtracted `sidebarWidth` — which is 260 at
+   * `lg` — from the total, and so reported a 508px content area for a customer screen at
+   * 768px that has no sidebar at all. Nothing called it, which is how a wrong number gets
+   * to sit in a hook unchallenged for as long as it liked.
+   */
+  const cardWidth = (width - GRID.padding * 2 - GRID.gap * (columns - 1)) / columns;
 
   return {
     width,
@@ -62,9 +113,11 @@ export function useResponsive() {
     isTablet,
     isDesktop,
     isWide,
+    /** Product cards per row. Two on every phone. */
     columns,
+    /** Order/customer rows per row. One on a phone, up to three on a desktop. */
+    listColumns,
     sidebarWidth,
-    contentWidth,
     cardWidth,
   };
 }

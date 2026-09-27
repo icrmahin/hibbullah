@@ -15,18 +15,22 @@ import { normalizeError } from "../../../utils/errorHandling";
 import { formatDateTime } from "../../../utils/date";
 import Icon from "../../../components/common/Icon";
 import type { NotificationItem } from "../../../types/notification";
+import { radius } from "../../../constants/sizes";
 
 function statusColor(type: NotificationItem["type"], colors: any) {
   switch (type) {
     case "alert":
       return colors.danger; // red urgent
     case "warning":
-      return "#EAB308"; // yellow mid
+      // Was a hard-coded `#EAB308`, which is a *yellow* unrelated to both palettes — a
+      // notification dot in a colour the rest of the app does not contain. `warning` is the
+      // palette's amber and is contrast-checked in both themes.
+      return colors.warning;
     case "success":
-      return colors.success; // green success
+      return colors.success;
     case "info":
     default:
-      return colors.primary; // fallback green-ish
+      return colors.accent;
   }
 }
 
@@ -152,7 +156,7 @@ export default function CustomerNotificationsScreen() {
           <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
           {items.length > 0 ? (
             <Pressable onPress={handleMarkAllRead} hitSlop={6}>
-              <Text style={[styles.markAll, { color: colors.primary }]}>Mark all read</Text>
+              <Text style={[styles.markAll, { color: colors.accent }]}>Mark all read</Text>
             </Pressable>
           ) : null}
         </View>
@@ -272,14 +276,14 @@ const styles = StyleSheet.create({
     right: 16,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
     boxShadow: "0px 2px 4px rgba(0,0,0,0.08)",
   },
-  floatingPress: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18 },
+  floatingPress: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
   container: { paddingHorizontal: spacing.lg, gap: spacing.md },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 18, fontWeight: "800" },
@@ -288,7 +292,7 @@ const styles = StyleSheet.create({
   clearRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: 1,
     overflow: "hidden",
   },
@@ -310,17 +314,17 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     gap: spacing.md,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.md,
     alignItems: "flex-start",
   },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+  statusDot: { width: 8, height: 8, borderRadius: radius.pill, marginTop: 6 },
+  unreadDot: { width: 8, height: 8, borderRadius: radius.pill, marginTop: 6 },
   cardBody: { flex: 1, gap: 4 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
   cardTitle: { fontSize: 13, fontWeight: "700", flex: 1 },
-  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1 },
+  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, borderWidth: 1 },
   statusText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
   body: { fontSize: 12, lineHeight: 16 },
   time: { fontSize: 11, marginTop: 2 },

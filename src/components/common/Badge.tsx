@@ -17,7 +17,7 @@ type BadgeProps = {
 export default function Badge({ label, variant = "neutral", dot = false, style }: BadgeProps) {
   const colors = useThemeColors();
   const palette: Record<BadgeVariant, { bg: string; fg: string }> = {
-    primary:  { bg: colors.primarySoft, fg: colors.primary },
+    primary:  { bg: colors.primarySoft, fg: colors.accent },
     success:  { bg: colors.successSoft, fg: colors.success },
     warning:  { bg: colors.warningSoft, fg: colors.warning },
     danger:   { bg: colors.dangerSoft, fg: colors.danger },
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radius.pill,
   },
   text: {
     fontFamily: fontFamily.semiBold,

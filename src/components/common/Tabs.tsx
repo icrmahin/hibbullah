@@ -38,7 +38,7 @@ export default function Tabs({ tabs, activeKey, onChange, fullWidth = false, sty
               fullWidth && styles.tabFull,
               {
                 backgroundColor: active ? colors.primary : colors.backgroundAlt,
-                borderColor: active ? colors.primary : colors.border,
+                borderColor: active ? colors.accent : colors.border,
               },
             ]}
             accessibilityRole="tab"

@@ -344,11 +344,23 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   const price = Number(input.price)
   if (!Number.isFinite(price) || price <= 0) throw new Error('Enter a valid price.')
 
+  // A product with no cost price is stored with no cost price.
+  //
+  // This used to invent one: `Math.round(price * 0.8 * 100) / 100`, on the reasoning that
+  // pharmacies work on a 20% margin. So every product the owner had not personally priced
+  // was given a cost that was never paid, and then `profit_since` — which sums
+  // `price - cost_price` over delivered orders — reported that invention as money earned,
+  // accurately, from a fabricated input. Migration 20260930010000 made an unpriced product
+  // *excluded and named* in the earnings report; this line was quietly re-including every
+  // one of them at the database boundary, one RPC call earlier.
+  //
+  // The product still saves. Not knowing what you paid for something is a normal state for
+  // a shop, and refusing the save would be worse; the consequence is that the item shows
+  // up in the report's `unpricedItems` list so the owner can fill it in, which is the whole
+  // reason that field exists.
   const costInput = input.costPrice != null ? Number(input.costPrice) : NaN
-  const costPrice = Number.isFinite(costInput)
-    ? costInput
-    : Math.round(price * 0.8 * 100) / 100
-  if (costPrice < 0 || costPrice > price)
+  const costPrice = Number.isFinite(costInput) ? costInput : null
+  if (costPrice !== null && (costPrice < 0 || costPrice > price))
     throw new Error('Cost cannot exceed selling price.')
 
   const stock = Number(input.stock ?? 0)

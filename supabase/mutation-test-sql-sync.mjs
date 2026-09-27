@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process'
 
 const LOCK = 'supabase/migrations/20260928010000_secdef_grants_and_guards.sql'
 const REPORTS = 'supabase/migrations/20260928020000_reports_and_customer_spend.sql'
+const PROFIT = 'supabase/migrations/20260930010000_real_profit_and_stock_restore.sql'
 const HOSTED = 'supabase/apply-to-hibbullah-hosted.sql'
 const REPORTS_TS = 'src/services/reports.ts'
 const EXPIRY_TS = 'src/app/(admin)/inventory/expiry.tsx'
@@ -18,8 +19,23 @@ const DIFF_TS = 'src/utils/auditDiff.ts'
 
 const cases = [
   ['drop the notify_user revoke', LOCK, (s) => s.replace(/^revoke all on function public\.notify_user[^\n]*\n/m, '')],
-  ['drop the deduct_inventory_fifo revoke', LOCK, (s) => s.replace(/^revoke all on function public\.deduct_inventory_fifo[^\n]*\n/m, '')],
-  ['narrow the revokes to public only', LOCK, (s) => s.replace('from public, anon, authenticated;', 'from public;')],
+  // Retargeted. This used to break the `deduct_inventory_fifo` revoke in the lockdown
+  // migration, and it quietly stopped proving anything the moment the profit migration
+  // redefined that function with a third argument: the old signature's revoke became
+  // irrelevant, so removing it left the current function correctly covered and the check
+  // rightly passed. A mutation has to break the thing that is actually load-bearing, and
+  // this suite exists precisely to notice when one quietly stops doing that.
+  //
+  // `deduct_inventory_fifo` is now mutated where it is defined instead, further down.
+  [
+    'narrow the notify_user revoke to PUBLIC only',
+    LOCK,
+    (s) =>
+      s.replace(
+        /^revoke all on function public\.notify_user\(.*\) from public, anon, authenticated;$/m,
+        'revoke all on function public.notify_user(p_user_id uuid, p_title text, p_body text, p_type text) from public;',
+      ),
+  ],
   [
     'remove the is_admin guard from get_reports',
     REPORTS,
@@ -107,6 +123,218 @@ const cases = [
     'stop checking that the single-notification read reached a row',
     'src/services/notifications.ts',
     (s) => s.replace("requireAffected(data, 'this notification')", ''),
+  ],
+  // ── profit and restock ──────────────────────────────────────────────────────────
+  //
+  // Every case below undoes one specific thing that shipped broken. They are grouped here
+  // because the reason they are worth mutating is the same reason: each defect was locally
+  // reasonable, so nothing short of deliberately breaking it would have shown the check
+  // was watching.
+  [
+    'narrow the restock revokes to PUBLIC only, leaving customers able to add stock',
+    PROFIT,
+    (s) =>
+      s
+        .replace(
+          /^revoke all on function public\.restock_order_lines[^\n]*$/m,
+          'revoke all on function public.restock_order_lines(uuid, uuid, integer, text) from public;',
+        )
+        .replace(
+          /^revoke all on function public\.profit_since[^\n]*$/m,
+          'revoke all on function public.profit_since(timestamptz) from public;',
+        ),
+  ],
+  [
+    'put a client-side profit guess back in the dashboard service',
+    'src/services/admin.ts',
+    (s) => s.replace('const j = data as DashboardSalesJson', 'const j = { totalSalesQty: 0, totalSalesRevenue: 0, totalEarning: 0, salesTrend: [], earningTrend: [] } as unknown as DashboardSalesJson\n  const _guess = (unit: number) => unit * 0.8\n  void _guess'),
+  ],
+  [
+    'let the dashboard service re-aggregate order_items, which is how cancelled orders counted as sales',
+    'src/services/admin.ts',
+    (s) => s.replace('const j = data as DashboardSalesJson', "const j = { ...data, totalEarning: (await supabase.from('order_items').select('quantity')).data?.length ?? 0 } as unknown as DashboardSalesJson"),
+  ],
+  [
+    'stop letting a Postgres raise be a validation refusal',
+    'src/lib/errors.ts',
+    // The condition lists three SQLSTATEs, so it has to be matched whole — an earlier
+    // version of this mutation stopped at the first `'P0001'` looking for a closing paren
+    // that is not there, never applied, and the harness correctly reported it as BROKEN
+    // rather than as a passing test.
+    (s) => s.replace(/\n {2}if \(error\?\.code === 'P0001'[^\n]*\{[\s\S]*?\n {2}\}\n/, '\n'),
+  ],
+  [
+    'stop sending the order line, so approving a return restores nothing',
+    'src/services/returns.ts',
+    // Scoped to the `it.` form on purpose. `createReturnRequest` and `createReturnRequests`
+    // both write `order_item_id`, and a bare `replace` takes the first — the `input.` one
+    // — leaving the line the order screen actually uses intact, so the mutation applied and
+    // the check still passed. A mutation that cannot fail proves nothing, and this one was
+    // proving nothing while reporting as though it were.
+    (s) => s.replace('order_item_id: it.orderItemId ?? null,', 'order_item_id: null,'),
+  ],
+  [
+    'revert the dashboard guard to the role claim the project has never had',
+    PROFIT,
+    (s) => s.replace("if not public.is_admin() then\n    raise exception 'Only admins can query dashboard sales';", "if auth.jwt() ->> 'role' <> 'admin' then\n    raise exception 'Only admins can query dashboard sales';"),
+  ],
+  [
+    'invent a cost price for a product the owner never priced',
+    PROFIT,
+    (s) => s.replace('and p.cost_price is not null', "and coalesce(p.cost_price, oi.unit_price * 0.8) is not null"),
+  ],
+  [
+    'date the return reversal by the order instead of the approval',
+    PROFIT,
+    (s) => s.replace('and r.approved_at >= p_since', 'and r.created_at >= p_since'),
+  ],
+  [
+    'let a restock exceed what the order line actually took',
+    PROFIT,
+    (s) => s.replace('and a.restocked_quantity < a.quantity\n', ''),
+  ],
+  [
+    'fall back to another batch even when the line has already given everything back',
+    PROFIT,
+    (s) => s.replace('if v_alloc_rows > 0 then', 'if v_alloc_rows >= 0 then'),
+  ],
+  [
+    'stop restocking when an order is cancelled',
+    PROFIT,
+    (s) => s.replace("if p_new_status = 'CANCELLED' then", 'if false then'),
+  ],
+  [
+    'fire the return trigger on every save, so approving twice restocks twice',
+    PROFIT,
+    (s) => s.replace("new.status = 'APPROVED' and (old.status is distinct from 'APPROVED')", "new.status = 'APPROVED'"),
+  ],
+  // ── corner consistency ───────────────────────────────────────────────────────────
+  [
+    'hard-code a border radius again, so the UI starts drifting on corners',
+    'src/app/(customer)/(tabs)/index.tsx',
+    // The home screen specifically, because it is the first thing anyone looks at and its
+    // card radius was one of the 14 competing values.
+    (s) => s.replace('borderRadius: radius.lg', 'borderRadius: 16'),
+  ],
+  // ── one palette, and a shadow that actually casts one ────────────────────────────
+  //
+  // These four are the dark-mode defects, each of which was invisible in a screenshot: a
+  // black shadow on a near-black page casts nothing, a retuned background silently
+  // switches off a hex comparison, and a hex literal in a `StyleSheet` cannot change with
+  // the theme at all.
+  [
+    'go back to casting a black shadow, so dark mode loses its only elevation',
+    'src/constants/shadows.ts',
+    // The glow is what a near-black surface needs: there is no darker neighbour to cast
+    // onto, so a `rgba(0,0,0,0.0x)` shadow is invisible no matter how large it is.
+    (s) => s.replace('colors.glowStrong : colors.glow', 'colors.shadow'),
+  ],
+  [
+    'take the palette and ignore it again',
+    'src/constants/shadows.ts',
+    // The original signature. The parameter was present, named, and unused — the one bug
+    // in this list that announced itself in the source and shipped anyway.
+    (s) => s.replace('function buildShadows(colors: ReturnType<typeof useThemeColors>, dark: boolean)', 'function buildShadows(_colors: ReturnType<typeof useThemeColors>, dark: boolean)'),
+  ],
+  [
+    'hard-code a colour in a screen again',
+    'src/app/(customer)/delivery-cycle.tsx',
+    (s) => s.replace('itemPrice: {},', "itemPrice: { color: '#3D4A46' },"),
+  ],
+  [
+    'infer the theme by comparing a colour to a hex',
+    'src/app/(customer)/(tabs)/account.tsx',
+    // Exactly the expression that was there before, and exactly the failure mode: it is
+    // not an error, it is a comparison that quietly returns false for every value except
+    // the one it was written against.
+    (s) => s.replace('const isDark = resolvedTheme === "dark"', 'const isDark = colors.background === "#111A17"'),
+  ],
+  // ── one grid ───────────────────────────────────────────────────────────────────────
+  //
+  // "Two cards per row on a phone" had eight implementations. These four break the policy
+  // in the four ways it actually broke, one per guard.
+  [
+    'go back to one card per row on a phone',
+    'src/hooks/useResponsive.ts',
+    // The value the map had for its whole life, and the reason five screens each wrote
+    // their own `isMobile ? 1 :` in front of it.
+    (s) => s.replace(/const PRODUCT_COLUMNS = \{\n  xs: 2,\n  sm: 2,/, 'const PRODUCT_COLUMNS = {\n  xs: 1,\n  sm: 1,'),
+  ],
+  [
+    'let the grid lose a column as the screen gets wider',
+    'src/hooks/useResponsive.ts',
+    // A tablet showing more products than a desktop is the sort of thing nobody reports,
+    // because both pages still render and both look deliberate.
+    (s) => s.replace('  xl: 4,\n  xxl: 5,\n} as const;\n\n/**\n * Order, customer', '  xl: 2,\n  xxl: 5,\n} as const;\n\n/**\n * Order, customer'),
+  ],
+  [
+    'force an order row two-up on a phone to match the product grid',
+    'src/hooks/useResponsive.ts',
+    // What a single `columns` would have done. An order row at 170px — a status, a date, an
+    // item count and a total — is the version of this that looks like a bug in a screenshot.
+    (s) => s.replace('const LIST_COLUMNS = {\n  xs: 1,\n  sm: 1,', 'const LIST_COLUMNS = {\n  xs: 2,\n  sm: 2,'),
+  ],
+  [
+    'let one screen keep its own column count',
+    'src/app/(customer)/(tabs)/favorites.tsx',
+    // `numColumns={2}` is the policy in its shortest form, and the home screen's
+    // `(width - spacing.lg * 2 - spacing.md) / 2` is the same policy written out longhand.
+    (s) => s.replace('numColumns={columns}', 'numColumns={2}'),
+  ],
+  [
+    'reinvent the 20% margin on the client, where the database cannot catch it',
+    'src/services/products.ts',
+    // The line that survived the profit migration. The SQL was fixed, the dashboard check
+    // passed, and `createProduct` went on handing every unpriced product a cost of
+    // `price * 0.8` — which `profit_since` then faithfully reported as money earned. A
+    // check about the database is not a check about what the client sends to it.
+    (s) =>
+      s.replace(
+        'const costPrice = Number.isFinite(costInput) ? costInput : null',
+        'const costPrice = Number.isFinite(costInput) ? costInput : Math.round(price * 0.8 * 100) / 100',
+      ),
+  ],
+  [
+    'count order lines again and call them products',
+    PROFIT,
+    // One product sold three times in the window reported as "3 products have no cost
+    // price set", and the link on that line went to a catalog that held one of them. The
+    // word "products" and the number underneath it were two different quantities.
+    (s) => s.replace('count(distinct p.id) filter (where p.cost_price is null)', 'count(*) filter (where p.cost_price is null)'),
+  ],
+  [
+    'give the catalog half the page margin the rest of the app has',
+    'src/app/(customer)/(tabs)/products.tsx',
+    // The gutter was uniform at 8px and the *margin* was half of everyone else's, so the
+    // same card sat flush to the screen edge in the catalog and inset on the home page. A
+    // difference that is invisible on one screen and obvious with two side by side.
+    (s) => s.replace('content: { paddingHorizontal: spacing.md,', 'content: { paddingHorizontal: spacing.sm,'),
+  ],
+  [
+    'leave a product screen on the library default of one card per row',
+    'src/app/(customer)/products/category/[categoryId].tsx',
+    // Two `FlashList`s with no `numColumns`, which is 1. Those routes showed one full-width
+    // card per row while the catalog beside them showed two, and the check that existed at
+    // the time could not see it: it asked whether a screen with a column policy got it from
+    // the hook, and this screen had no policy to get wrong.
+    //
+    // Matched on the line rather than an exact indent: the first attempt hard-coded twelve
+    // spaces against a prop that sits at ten, the replacement silently did nothing, and the
+    // suite reported the case as broken rather than as passing — which is the outcome that
+    // is wanted, but only because a mutation that does not apply is never counted as a catch.
+    (s) => s.replace(/^[ \t]*numColumns=\{columns\}\n/m, ''),
+  ],
+  [
+    'put back the hint that promises an automatic cost price',
+    'src/components/admin/ProductForm.tsx',
+    // The string outlived the behaviour. The app stopped guessing a 20% margin in this very
+    // work, and the hint that told the shop to rely on the guess stayed in the form,
+    // describing a feature that no longer exists. No check on the arithmetic finds it.
+    (s) =>
+      s.replace(
+        '"Add what you pay for it and this product starts counting towards your earnings."',
+        '"Leave cost empty to auto-set price×0.8"',
+      ),
   ],
 ]
 

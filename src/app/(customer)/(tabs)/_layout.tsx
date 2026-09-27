@@ -8,7 +8,7 @@ export default function CustomerTabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: { display: "none" },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },

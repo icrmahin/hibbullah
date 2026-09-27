@@ -12,6 +12,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isValidEmail } from '../../../utils/validation';
 import spacing from '../../../constants/spacing';
 import typography from '../../../constants/typography';
+import { radius } from '../../../constants/sizes';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -208,7 +209,7 @@ function Section({
     <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
       <View style={styles.cardHeader}>
         <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
-          <Icon name={icon} size={16} color={colors.primary} />
+          <Icon name={icon} size={16} color={colors.accent} />
         </View>
         <View style={styles.cardHeaderText}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   card: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },

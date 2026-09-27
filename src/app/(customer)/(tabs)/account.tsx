@@ -65,10 +65,17 @@ export default function AccountScreen() {
   const { user, isAdmin, signOut } = useAuth();
   const colors = useThemeColors();
   const shadows = useShadows();
-  const { themeMode, setThemeMode } = useTheme();
+  const { resolvedTheme, setThemeMode } = useTheme();
   const { isDesktop } = useResponsive();
 
-  const isDark = themeMode === "dark" || (themeMode === "system" && colors.background === "#111A17");
+  // Was: `themeMode === "dark" || (themeMode === "system" && colors.background === "#111A17")`
+  //
+  // That inferred the resolved theme by comparing a *colour value* to a hard-coded hex,
+  // which is fragile in a way that hides itself: the check stays false for every value
+  // except the one it was written against, so changing the dark background silently turns
+  // it off with no error anywhere. `resolvedTheme` is what this was reimplementing, badly,
+  // and `useTheme` already computes it from the system scheme.
+  const isDark = resolvedTheme === "dark";
   const statusText = isAdmin ? "Admin • Verified" : "Member • Active";
   const displayPhone = formatBdPhone(user?.phone);
 
@@ -147,14 +154,14 @@ export default function AccountScreen() {
             accessibilityLabel="Open admin dashboard"
           >
             <View style={[styles.adminIconContainer, { backgroundColor: colors.primarySoft }]}>
-              <Icon name="dashboard" size={18} color={colors.primary} />
+              <Icon name="dashboard" size={18} color={colors.accent} />
             </View>
             <View style={styles.adminInfo}>
               <Text style={[styles.adminLabel, { color: colors.text }]}>Admin Dashboard</Text>
               <Text style={[styles.adminHint, { color: colors.textMuted }]}>Products • Orders • Inventory — main cockpit</Text>
             </View>
             <View style={[styles.adminArrow, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}>
-              <Icon name="arrow-forward" size={16} color={colors.primary} />
+              <Icon name="arrow-forward" size={16} color={colors.accent} />
             </View>
           </Pressable>
         ) : null}
@@ -180,7 +187,7 @@ export default function AccountScreen() {
                       accessibilityLabel={item.label}
                     >
                       <View style={[styles.rowIcon, { backgroundColor: item.destructive ? colors.redSoft : colors.primarySoft }]}>
-                        <Icon name={item.icon} size={18} color={item.destructive ? colors.danger : colors.primary} />
+                        <Icon name={item.icon} size={18} color={item.destructive ? colors.danger : colors.accent} />
                       </View>
                       <Text style={[styles.rowLabel, { color: item.destructive ? colors.danger : colors.text }]}>{item.label}</Text>
                       {item.toggle ? (
@@ -242,7 +249,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: radius.pill,
     borderWidth: 2,
   },
   avatarText: { fontSize: typography.body, fontWeight: "700" },
@@ -269,7 +276,7 @@ const styles = StyleSheet.create({
   adminIconContainer: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -279,7 +286,7 @@ const styles = StyleSheet.create({
   adminArrow: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

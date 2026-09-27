@@ -13,6 +13,7 @@ import spacing from '../../../constants/spacing';
 import typography from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
 import { fetchCustomerById, type CustomerRecord } from '../../../services/customers';
+import { radius } from '../../../constants/sizes';
 
 export default function AdminCustomerDetailScreen() {
   const colors = useThemeColors();
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   card: {
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
   },

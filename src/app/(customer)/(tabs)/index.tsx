@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useShadows } from "../../../constants/shadows";
@@ -23,8 +23,11 @@ export default function CustomerHomeScreen() {
   const colors = useThemeColors();
   const shadows = useShadows();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const { isMobile } = useResponsive();
+  // Two product cards per row on a phone, growing from there. `cardWidth` is measured from
+  // the screen rather than the content area because this grid spans the window — the
+  // version of this hook that subtracted the admin sidebar from the total would have given
+  // a 508px content area to a customer screen at 768px, which has no sidebar at all.
+  const { isMobile, cardWidth } = useResponsive();
   const { unreadCount } = useNotifications();
 
   const [query, setQuery] = useState("");
@@ -99,10 +102,10 @@ export default function CustomerHomeScreen() {
                 accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
                 style={[styles.cartButton, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}
               >
-                <Icon name="notifications" size={18} color={colors.primary} />
+                <Icon name="notifications" size={18} color={colors.accent} />
                 {unreadCount > 0 ? (
                   <View style={[styles.cartBadge, { backgroundColor: colors.danger }]}>
-                    <Text style={[styles.cartBadgeText, { color: colors.white }]}>
+                    <Text style={[styles.cartBadgeText, { color: colors.textInverse }]}>
                       {unreadCount > 99 ? "99+" : String(unreadCount)}
                     </Text>
                   </View>
@@ -159,13 +162,13 @@ export default function CustomerHomeScreen() {
               )}
               {searching && searchTotal > 0 ? (
                 <Pressable onPress={openSearchScreen} style={styles.searchSeeAll}>
-                  <Text style={[styles.searchCloseText, { color: colors.primary }]}>
+                  <Text style={[styles.searchCloseText, { color: colors.accent }]}>
                     See all {searchTotal} {searchTotal === 1 ? "result" : "results"}
                   </Text>
                 </Pressable>
               ) : null}
               <Pressable onPress={() => setSearchFocused(false)} style={styles.searchClose}>
-                <Text style={[styles.searchCloseText, { color: colors.primary }]}>Close</Text>
+                <Text style={[styles.searchCloseText, { color: colors.accent }]}>Close</Text>
               </Pressable>
             </View>
           ) : null}
@@ -178,7 +181,7 @@ export default function CustomerHomeScreen() {
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{discoveryLabel}</Text>
           <Pressable onPress={() => router.push("/(customer)/(tabs)/products")}>
-            <Text style={[styles.viewAll, { color: colors.primary }]}>View all</Text>
+            <Text style={[styles.viewAll, { color: colors.accent }]}>View all</Text>
           </Pressable>
         </View>
 
@@ -205,7 +208,7 @@ export default function CustomerHomeScreen() {
                     router.push({ pathname: "/(customer)/products/category/[categoryId]", params: { categoryId: category.id } });
                   }}
                 >
-                  <Icon name="category" size={16} color={colors.primary} />
+                  <Icon name="category" size={16} color={colors.accent} />
                   <Text style={[styles.categoryName, { color: colors.text }]}>{category.name}</Text>
                 </Pressable>
               ))}
@@ -218,7 +221,7 @@ export default function CustomerHomeScreen() {
           {activeProducts.length > 0 ? (
             <View style={[styles.grid, { gap: spacing.md }]}>
               {activeProducts.map((product) => (
-                <View key={product.id} style={[styles.gridItem, { width: (width - spacing.lg * 2 - spacing.md) / 2 }]}>
+                <View key={product.id} style={[styles.gridItem, { width: cardWidth }]}>
                   <ProductCard product={product} compact onPress={openProduct} />
                 </View>
               ))}
@@ -279,7 +282,7 @@ const styles = StyleSheet.create({
   cartButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -291,7 +294,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     paddingHorizontal: 3,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },

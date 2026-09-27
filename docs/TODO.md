@@ -103,7 +103,8 @@ that marks work done without saying how is worth nothing.
       `npm run verify:edge` and `npm run verify:avatar` exercise the live function.
 - [x] **Every migration is applied to the hosted project and the bootstrap is in sync** —
       `npm run verify:sql-sync` diffs `supabase/apply-to-hibbullah-hosted.sql` against all
-      of `supabase/migrations/` and reports `IN SYNC` across 36.
+      of `supabase/migrations/` and reports `IN SYNC` across 42 functions, 27 triggers and
+      60 policies.
 - [x] **Catalog content exists** — one category, one manufacturer, one product
       (`Napa 500 mg Tablet`).
 - [x] **An order was placed and driven to `DELIVERED` end to end** by
@@ -111,6 +112,162 @@ that marks work done without saying how is worth nothing.
       transitions → FIFO stock deduction → notifications). Proven by script, not by a
       person tapping the app — see the browser item below.
 - [x] `custom_access_token_hook` — deliberately not enabled; the app does not need it.
+
+### Earning is profit, and stock comes back
+
+Both of these shipped broken, and both were invisible: the dashboard's "Earning" card was
+answered by a JavaScript fallback rather than the database, and nothing restored inventory.
+Migration `20260930010000_real_profit_and_stock_restore.sql`, proven by
+`npm run verify:profit-restock` (66 checks).
+
+- [x] **Earning counts delivered profit, and nothing else.** `DELIVERED` orders only, minus
+      returns approved inside the window, and a product with no `cost_price` is **excluded
+      and reported** rather than given a made-up margin.
+- [x] **The guess had moved, not gone.** The JavaScript fallback was removed, the SQL was
+      corrected, the dashboard check went green — and `createProduct` went on sending
+      `cost_price: price * 0.8` for every product whose cost box was left empty. The
+      exclusion was being undone one RPC call earlier, and `profit_since` was faithfully
+      summing an invention as earnings. A check about the database is not a check about what
+      the client sends to it; both are now guarded.
+- [x] **The product form told the shop to rely on the guess.** Its hint read *"Leave cost
+      empty to auto-set price×0.8"* — accurate for the old behaviour, and left behind when
+      the behaviour changed. A form that describes a removed feature is its own kind of bug,
+      and no check on the arithmetic can see it, so the copy is checked as a promise.
+- [x] **"N products have no cost price set" was counting order lines.** `count(*)`, so one
+      product sold three times in the window read as three products — and the number's link
+      went to a catalog that could not hold three of them. Now `count(distinct p.id)`, and
+      the card says what the number is: *earnings exclude N products sold with no cost
+      price set · M units*. The migration's own comment claimed the card could "say which
+      products to price" while the function only ever returned a count, so that is corrected
+      too.
+- [x] **An unpriced product still saves.** Not knowing what you paid for something is an
+      ordinary state for a shop; refusing the save would be worse than the gap. What it costs
+      is that the product is listed for the owner to fill in, which is the whole reason the
+      report names the count at all.
+- [x] **The client-side fallback is gone.** It summed `order_items` with no join to `orders`
+      (so a cancelled order read as sales) and filled a missing cost price as
+      `unit_price * 0.8` (so it reported an invented 20% margin as money earned). It ran
+      whenever the RPC failed — and the RPC always failed, because its guard read
+      `auth.jwt() ->> 'role'`, a claim this project has no mechanism to produce. An RPC
+      error is now an error, not a licence to substitute a different number.
+- [x] **`get_admin_dashboard_sales` guards on `is_admin()`**, so a real administrator can
+      read it and a customer or a logged-out visitor cannot.
+- [x] **Cancelling an order returns the units to the batch they came from.** A new
+      `order_item_allocations` table records which batch each line drew from, so a cancel is
+      an exact undo rather than a guess — the previous behaviour removed the stock from the
+      shop for good.
+- [x] **Approving a return restocks it and reverses the profit**, dated by the approval.
+      Fires only on the crossing to `APPROVED`, so approving twice cannot restock twice.
+- [x] **An approval is never blocked and never silent.** A return that cannot be matched to
+      an order line, or that asks for more units than were sold, is still approved — the
+      quantity is capped and `restock_note` says in plain words what happened. The note is
+      shown on the returns screen, so stock cannot quietly drain away.
+- [x] **The app names the order line when filing a return.** It previously sent only a
+      product *name*, so the database had a string to match on and nowhere to restock from.
+- [x] **The inventory helpers are unreachable from outside the database.** Supabase's
+      default privileges grant `EXECUTE` to `anon` *and* `authenticated` on every new
+      function at `CREATE` time, so `revoke … from public` alone left every signed-in
+      customer able to call `restock_order_lines` — a way to add stock to any batch. Revoked
+      from `public, anon, authenticated` together, which is now a check.
+- [x] **A Postgres `raise` is a stated refusal, not a crash.** "Cart is empty" and "Delivery
+      address is required" were both reaching the shop as "An unexpected error occurred".
+
+### One palette, one corner, and a dark mode that has depth
+
+The complaint that started this was that dark mode used accent colours as backgrounds and
+did not feel like black. What was actually wrong was narrower and worse than the palette:
+`colors.primary` was doing two incompatible jobs, and a black shadow on a black page casts
+nothing. Every number below is a WCAG 2.1 ratio, and every one of them is checked by
+`npm run verify:contrast` (27 pairs, both themes).
+
+- [x] **The brand is split into a fill and an ink.** `primary` is a fill — dark in *both*
+      themes, so its label is `white` either way. `accent` is the ink: a link, an icon, a
+      focus ring, a selected border. In light mode `accent` equals the old `primary`, so
+      light mode did not move; dark mode gets readable links for the first time. 80 ink
+      call sites moved, 28 fill call sites deliberately stayed.
+- [x] **The dark surfaces are near-black, not teal.** `#111A17` and `#1A2420` were green-
+      tinted, so a screen full of them was dark *green*. Now `#0A0C0B` page, `#131615` card,
+      a 1.36:1 hairline edge, and 1–3 units of green on the blue channel — enough to feel
+      related to the sage, far too little to tint the UI.
+- [x] **A primary button is no longer a pale mint block with white text on it.** Dark mode's
+      `primary` was the light sage `#8FB8A8`, used as a background in 12 places. White on
+      it was **2.19:1** — less than half the 4.5:1 body text needs, and invisible as a label.
+      Now 15.5:1.
+- [x] **Dark mode has elevation, which it did not have at all.** `buildShadows` took the
+      palette and named the parameter `_colors`; every shadow was a hard-coded
+      `rgba(0,0,0,0.04..0.10)`, and a black shadow at 4% on a near-black page casts nothing
+      because there is no darker neighbour. So every card, sheet and header was held off the
+      page by its border alone. The ambient layer is now the **accent glow** in dark mode —
+      light where a shadow cannot go — and the bug is a check.
+- [x] **Two real contrast failures in light mode, not just dark.** `textMuted` was 3.37:1
+      on the page behind 275 usages, most of them 11–13px captions. The low-stock count on
+      the admin dashboard — the most safety-relevant number in the app — was gold at
+      **2.69:1**. Both now clear 4.5:1.
+- [x] **Six files had their own hex literals**, including `#1A2420` — a dark-mode surface —
+      as the placeholder behind a product photo in *both* themes, so light mode showed a
+      near-black rectangle behind every product with no picture. `auth-callback.tsx` used
+      `'red'` and `'#666'`, the one page in the app with no way to respect dark mode.
+- [x] **Dark mode is no longer inferred by comparing a colour to a hex.** `account.tsx` did
+      `colors.background === "#111A17"`, which fails *silently* the moment the background
+      is retuned — and retuning it is what this change did. It is now `resolvedTheme`.
+- [x] **The cart and notification badges carry a label that reads.** A status fill inverts
+      between the themes, so its label does too — `textInverse` rather than `white`. This is
+      the opposite of a `primary` fill, which is dark in both and takes white. Collapsing
+      the two roles is what put a 3.5:1 count on the cart.
+- [x] **Every corner comes from the scale.** 85 call sites had a hard-coded `borderRadius`
+      across 14 values, ten of them off-scale. Most of the damage was `width / 2` written
+      longhand — a 36×36 button at 18, a 28×28 tile at 14 — so a circle was a magic number
+      sitting next to a card that was also `16` meaning something else. The lint rule is
+      `hibbullah/radius-token`.
+- [x] **Three palette tokens that changed nothing are gone.** `onStatus` was byte-identical
+      to `textInverse` in both themes; `backgroundElevated` and `canvas` were identical to
+      `backgroundAlt` and read by nothing. A token that never differs from another token is
+      documentation of an intent nothing implements.
+
+### One grid, and a form a shopkeeper can read without a glossary
+
+"Two product cards per row on any phone, more as the screen grows" was stated once and
+implemented seven times. The copy had already drifted: two screens capped the result at
+three, three did not, the catalog and the search grid disagreed about tablets, and the
+admin's own product list was one-up on the handset the owner was holding.
+
+- [x] **The policy has one statement.** `useResponsive` held `COLUMNS = { xs: 1, sm: 1, ... }`
+      and five screens copied `isMobile ? 1 : isTablet ? 2 : columns` over the top of it —
+      the `xs: 1` is what made the catalog one-up on every phone, so the copies were working
+      around the very thing they were supposed to read. It is now `PRODUCT_COLUMNS`
+      (2 / 2 / 3 / 3 / 4 / 5) and `LIST_COLUMNS` (1 / 1 / 2 / 2 / 3 / 3), and all eight call
+      sites read one or the other.
+- [x] **Two intents, not one number, because two things are not the same shape.** A product
+      card is a thumbnail, a name and a price, and two of those fit a 375px screen. An order
+      row is a status, a date, an item count and a total, and at 170px it is the version of
+      this that looks like a bug in a screenshot. A single `columns` would have forced the
+      second to follow the first.
+- [x] **The home page and favourites had their own copy of the same division.** Both
+      computed `(width - spacing.lg * 2 - spacing.md) / 2` — the same expression, in two
+      files, hard-wired to 2, so neither ever grew. The gutter now lives in the hook too.
+- [x] **`contentWidth` and the old `cardWidth` were wrong, which is why nothing read them.**
+      They subtracted the admin sidebar from the total, so they reported a 508px content
+      area for a *customer* screen at 768px — one that has no sidebar at all. Two unused
+      numbers sat in a hook long enough to be mistaken for a source of truth.
+- [x] **The admin catalog's gutter was a percentage.** `flexBasis: "48%"` with no gap, so
+      the space between two cards was 4% of whatever the column happened to be — about 12px
+      at two columns and 8px at three. FlashList v2 has no `columnWrapperStyle`, so the
+      customer grids' paired half-padding is used instead, at the same size.
+- [x] **The catalog and search gave their cards 8px of screen edge where the home page
+      gave the same card 16px.** The half-gutter pairing was right and the container's own
+      share of it was one step too small: 4px on the container plus 4px on the cell, which
+      is a uniform 8px gutter and a page margin half the rest of the app's. The container
+      now carries `spacing.md`, so the two halves add up to `spacing.lg` and a search
+      result sits exactly where the product it points at sits.
+- [x] **The form no longer says "cost price", "original price" or "Batch · auto-handled".**
+      Three section headings, seven labels, and every hint and error message were rewritten
+      for the person entering the stock rather than the person reading the schema. The old
+      "Advanced · batch & expiry" was not a small thing to fold away: expiry is what drives
+      the expiry alerts, so it is named as a thing the shop fills in, not an implementation
+      detail.
+- [x] **A form that sells below cost says so, in the danger colour.** It rendered as a
+      negative percentage under the word "margin". It is the single most expensive mistake
+      this form allows, so it is now a sentence.
 
 ## 🔬 Verification still owed
 
@@ -128,8 +285,16 @@ that marks work done without saying how is worth nothing.
 
 - [ ] **Refine the dashboard's earning / sales / order / log cards** — the admin dashboard
       summary cards are the weakest part of the app.
-- [ ] **Fix the card layout** — card sizing and gutters are inconsistent between the admin
-      and customer surfaces.
+- [ ] **The inter-card gutter is 8px in the FlashList grids and 12px in the FlatList ones.**
+      Not an oversight: FlashList v2 has no `columnWrapperStyle`, so its grids can only
+      express a gutter as half-padding on every cell, which costs 2× the cell padding and
+      would need 6px to reach 12 — off the 4px rhythm the technique exists to keep. The page
+      *margin* is now a uniform `spacing.lg` everywhere; the gutter difference is a
+      property of the list library. Making it uniform means either a 4px rhythm that
+      includes 6, or dropping FlashList for FlatList on the three multi-column grids.
+- [ ] The admin catalog's page margin is `ResponsiveContainer`'s padding *plus* its own
+      `paddingHorizontal`, so it sits 4px inside the admin screens that do not stack two
+      containers. Only visible next to the other admin screens.
 - [ ] Dedicated admin Categories & Manufacturers management screens (creation is inline in ProductForm and in the searchable pickers).
 - [ ] First-run admin help banner for empty catalog
 - [ ] Give each suite its own residue assertion in `clean-test-data.mjs`, so an interrupted

@@ -79,7 +79,7 @@ export default function ImageUpload({
           disabled={uploading}
         >
           {uploading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={colors.accent} />
           ) : (
             <Icon name="add-a-photo" size={28} color={colors.textMuted} />
           )}
@@ -103,7 +103,7 @@ export default function ImageUpload({
             accessibilityLabel={`${label}: replace the image`}
             disabled={uploading}
           >
-            <Icon name="edit" size={14} color={colors.primary} />
+            <Icon name="edit" size={14} color={colors.accent} />
             <Text style={[styles.actionText, { color: colors.text }]}>Replace</Text>
           </Pressable>
         ) : null}
@@ -142,7 +142,7 @@ export default function ImageUpload({
             style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
             onPress={() => void choose("library")}
           >
-            <Icon name="photo-library" size={18} color={colors.primary} />
+            <Icon name="photo-library" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Choose from library</Text>
           </Pressable>
           <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
@@ -150,7 +150,7 @@ export default function ImageUpload({
             style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
             onPress={() => void choose("camera")}
           >
-            <Icon name="camera-alt" size={18} color={colors.primary} />
+            <Icon name="camera-alt" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Take photo</Text>
           </Pressable>
         </View>
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     borderWidth: 1,
   },
   actionText: {

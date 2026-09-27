@@ -14,6 +14,7 @@ import spacing from '../../../constants/spacing';
 import { useAddresses } from '../../../hooks/useAddresses';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { normalizeError } from '../../../utils/errorHandling';
+import { radius } from '../../../constants/sizes';
 
 export default function CustomerAddressesScreen() {
   const colors = useThemeColors();
@@ -91,11 +92,11 @@ export default function CustomerAddressesScreen() {
               <View style={styles.actions}>
                 {!address.isDefault ? (
                   <Pressable onPress={() => handleSetDefault(address.id)}>
-                    <Text style={[styles.link, { color: colors.primary }]}>Set default</Text>
+                    <Text style={[styles.link, { color: colors.accent }]}>Set default</Text>
                   </Pressable>
                 ) : null}
                 <Pressable onPress={() => router.push({ pathname: '/(customer)/address/edit', params: { addressId: address.id } })}>
-                  <Text style={[styles.link, { color: colors.primary }]}>Edit</Text>
+                  <Text style={[styles.link, { color: colors.accent }]}>Edit</Text>
                 </Pressable>
                 <Pressable onPress={() => handleDelete(address.id)}>
                   <Text style={[styles.link, { color: colors.danger }]}>Delete</Text>
@@ -114,7 +115,7 @@ export default function CustomerAddressesScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg },
+  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: { fontWeight: "700", marginBottom: spacing.xs },
   text: { fontSize: 12 },

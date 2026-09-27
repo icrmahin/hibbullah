@@ -154,7 +154,7 @@ export default function ResetPasswordScreen() {
               />
 
               <Pressable onPress={() => router.replace("/(auth)/login")} hitSlop={8} style={styles.secondaryLink}>
-                <Text style={[styles.secondaryText, { color: colors.primary }]}>Back to sign in</Text>
+                <Text style={[styles.secondaryText, { color: colors.accent }]}>Back to sign in</Text>
               </Pressable>
             </View>
           </View>

@@ -8,6 +8,7 @@ import { formatCurrency } from "../../utils/currency";
 import ProductImage from "../products/ProductImage";
 import QuantitySelector from "./QuantitySelector";
 import Icon from "../common/Icon";
+import { radius } from "../../constants/sizes";
 
 export default function CartItemRow({
   item,
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
   deleteBtn: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },

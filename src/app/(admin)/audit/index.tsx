@@ -14,6 +14,7 @@ import { fetchAuditEntries } from '../../../services/audit';
 import { AUDIT_LOG_LIMIT } from '../../../constants/limits';
 import type { AuditEntry } from '../../../types/audit';
 import { diffAuditValues } from '../../../utils/auditDiff';
+import { radius } from '../../../constants/sizes';
 
 /**
  * What actually changed, for one audit entry.
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
   note: { fontSize: typography.bodySmall, lineHeight: 16 },
   card: {
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
   },

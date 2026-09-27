@@ -22,7 +22,7 @@ export default function FilterChip({ label, selected = false, onPress }: FilterC
         styles.chip,
         {
           backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt,
-          borderColor: selected ? colors.primary : colors.borderLight,
+          borderColor: selected ? colors.accent : colors.borderLight,
           ...shadows.xs,
           opacity: pressed ? 0.85 : 1,
         },
@@ -31,7 +31,7 @@ export default function FilterChip({ label, selected = false, onPress }: FilterC
       accessibilityState={{ selected }}
       accessibilityLabel={`Filter by ${label}`}
     >
-      <Text style={[styles.text, { color: selected ? colors.primary : colors.textMuted }]}>
+      <Text style={[styles.text, { color: selected ? colors.accent : colors.textMuted }]}>
         {label}
       </Text>
     </Pressable>

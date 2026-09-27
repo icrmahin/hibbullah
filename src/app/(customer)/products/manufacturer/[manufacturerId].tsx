@@ -15,11 +15,15 @@ import spacing from "../../../../constants/spacing";
 import typography from "../../../../constants/typography";
 import { useProducts } from "../../../../hooks/useProducts";
 import { isSearchableTerm } from "../../../../services/searchQuery";
+import { useResponsive } from "../../../../hooks/useResponsive";
 
 const DRAW_DISTANCE = 1200
 
 export default function ManufacturerProductsScreen() {
   const colors = useThemeColors();
+  // Two product cards per row on a phone, growing from there — the same grid the catalog
+  // and the search screen use, so a product looks the same wherever you reach it from.
+  const { columns } = useResponsive();
   const params = useLocalSearchParams<{ manufacturerId: string }>();
   const manufacturerId = params.manufacturerId as string;
   const [query, setQuery] = useState("");
@@ -53,20 +57,26 @@ export default function ManufacturerProductsScreen() {
         <FlashList
           data={products}
           keyExtractor={(item) => item.id}
+          numColumns={columns}
+          // FlashList recycles cells laid out for the current width, so the key has to move
+          // with the column count or a resize leaves every card the wrong size.
+          key={`cols-${columns}`}
           drawDistance={DRAW_DISTANCE}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.container}
           renderItem={({ item }) => (
-            <ProductCard
-              product={item}
-              onPress={(product) =>
-                router.push({
-                  pathname: "/(customer)/products/[productId]",
-                  params: { productId: product.id },
-                })
-              }
-            />
+            <View style={styles.gridItem}>
+              <ProductCard
+                product={item}
+                onPress={(product) =>
+                  router.push({
+                    pathname: "/(customer)/products/[productId]",
+                    params: { productId: product.id },
+                  })
+                }
+              />
+            </View>
           )}
           onEndReached={hasMore ? loadMore : undefined}
           onEndReachedThreshold={0.4}
@@ -117,7 +127,11 @@ export default function ManufacturerProductsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  container: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  // FlashList v2 has no `columnWrapperStyle`, so the gutter is half-padding on the container
+  // and half on every cell — the pairing the catalog uses. 12 + 4 is the same `spacing.lg`
+  // page margin, so these cards sit exactly where the catalog's do.
+  container: { paddingVertical: spacing.lg, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl },
+  gridItem: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   header: { gap: spacing.md, paddingBottom: spacing.md },
   resultText: {
     fontSize: typography.caption,

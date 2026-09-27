@@ -14,6 +14,7 @@ import { useDeliveryCycle } from '../../hooks/useDeliveryCycle';
 import { useOrders } from '../../hooks/useOrders';
 import { formatCurrency } from '../../utils/currency';
 import { formatDateTime } from '../../utils/date';
+import { radius } from '../../constants/sizes';
 
 export default function DeliveryCycleScreen() {
   const colors = useThemeColors();
@@ -117,13 +118,15 @@ export default function DeliveryCycleScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg },
+  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
   title: { fontSize: 20, fontWeight: '700', marginBottom: spacing.md },
   meta: { fontSize: 12, marginTop: spacing.sm },
   total: { marginTop: spacing.md, fontWeight: '700' },
   sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: spacing.md },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   itemName: { flex: 1 },
-  itemPrice: { color: '#3D4A46' },
+  // Colour comes from the palette at the call site. Was `color: '#3D4A46'`, a copy of
+  // light mode's secondary text that stayed dark in dark mode — grey-on-near-black.
+  itemPrice: {},
   error: { fontSize: 12, textAlign: 'center' },
 });

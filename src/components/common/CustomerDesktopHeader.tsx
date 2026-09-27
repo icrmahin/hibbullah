@@ -62,8 +62,8 @@ export default function CustomerDesktopHeader() {
                 accessibilityLabel={item.label}
                 accessibilityState={{ selected: active }}
               >
-                <Icon name={item.icon} size={16} color={active ? colors.primary : colors.textMuted} />
-                <Text style={[styles.navLabel, { color: active ? colors.primary : colors.textMuted }]}>{item.label}</Text>
+                <Icon name={item.icon} size={16} color={active ? colors.accent : colors.textMuted} />
+                <Text style={[styles.navLabel, { color: active ? colors.accent : colors.textMuted }]}>{item.label}</Text>
               </Pressable>
             );
           })}
@@ -76,10 +76,10 @@ export default function CustomerDesktopHeader() {
             accessibilityRole="button"
             accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
           >
-            <Icon name="notifications" size={18} color={colors.primary} />
+            <Icon name="notifications" size={18} color={colors.accent} />
             {unreadCount > 0 ? (
               <View style={[styles.badge, { backgroundColor: colors.danger }]}>
-                <Text style={[styles.badgeText, { color: colors.white }]}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+                <Text style={[styles.badgeText, { color: colors.textInverse }]}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
               </View>
             ) : null}
           </Pressable>
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   navItem: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, minHeight: 32 },
   navLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.caption, lineHeight: fontSize.caption * 1.3 },
   rightSection: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  notificationButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative" },
-  badge: { position: "absolute", top: -2, right: -4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  notificationButton: { width: 36, height: 36, borderRadius: radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative" },
+  badge: { position: "absolute", top: -2, right: -4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   badgeText: { fontSize: 9, fontWeight: "700" },
 });

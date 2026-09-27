@@ -17,6 +17,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { createReturnRequests } from '../../../services/returns';
 import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
+import { radius } from '../../../constants/sizes';
 
 export default function CustomerOrderDetailScreen() {
   const colors = useThemeColors();
@@ -90,7 +91,10 @@ export default function CustomerOrderDetailScreen() {
         customerId: user.id,
         customerName: user.name || user.email || 'Customer',
         reason: returnReason.trim(),
-        items: toReturn.map((it) => ({ productName: it.productName, quantity: it.quantity })),
+        // `it.id` is the order line, and naming it is what lets the shop put the units back
+        // on approval. Sending only the product name left the database with a string to
+        // match on and nowhere to restock from.
+        items: toReturn.map((it) => ({ productName: it.productName, quantity: it.quantity, orderItemId: it.id, productId: it.productId })),
       });
       setReturnSuccess(true);
       setShowReturn(false);
@@ -117,7 +121,7 @@ export default function CustomerOrderDetailScreen() {
             <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Subtotal</Text><Text style={[styles.value, { color: colors.text }]}>{formatCurrency(order.subtotal)}</Text></View>
             <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Discount</Text><Text style={[styles.value, { color: colors.text }]}>-{formatCurrency(order.discount)}</Text></View>
             <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Delivery</Text><Text style={[styles.value, { color: colors.text }]}>{formatCurrency(order.deliveryFee)}</Text></View>
-            <View style={[styles.row, styles.totalRow]}><Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text><Text style={[styles.totalValue, { color: colors.text }]}>{formatCurrency(order.total)}</Text></View>
+            <View style={[styles.row, styles.totalRow, { borderTopColor: colors.border }]}><Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text><Text style={[styles.totalValue, { color: colors.text }]}>{formatCurrency(order.total)}</Text></View>
           </View>
         </View>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
@@ -158,7 +162,7 @@ export default function CustomerOrderDetailScreen() {
                 {order.items.map((it) => {
                   const selected = selectedReturnIds.size === 0 ? true : selectedReturnIds.has(it.id);
                   return (
-                    <View key={it.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: selected ? colors.primary : colors.borderLight, backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt, borderRadius: 12, padding: spacing.sm }}>
+                    <View key={it.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: selected ? colors.primary : colors.borderLight, backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt, borderRadius: radius.md, padding: spacing.sm }}>
                       <Text style={[styles.itemName, { color: colors.text, flex: 1 }]}>{it.productName} — {it.quantity} pcs</Text>
                       <Button title={selected ? 'Selected' : 'Select'} variant={selected ? 'primary' : 'secondary'} onPress={() => toggleReturnItem(it.id)} />
                     </View>
@@ -185,7 +189,7 @@ export default function CustomerOrderDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
-  card: { borderRadius: 16, borderWidth: 1, padding: spacing.lg },
+  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
   title: { fontSize: 20, fontWeight: '700', marginBottom: spacing.md },
   meta: { fontSize: 12, marginTop: spacing.sm },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: spacing.md },
@@ -201,7 +205,10 @@ const styles = StyleSheet.create({
   totals: { marginTop: spacing.md, borderTopWidth: 1, paddingTop: spacing.md, gap: spacing.xs },
   label: { fontSize: 12 },
   value: { fontSize: 12, fontWeight: '600' },
-  totalRow: { marginTop: spacing.sm, borderTopWidth: 1, paddingTop: spacing.sm, borderTopColor: '#eee' },
+  // `borderTopColor` was `'#eee'` — a hard-coded light grey, so in dark mode the rule above
+  // the order total was one of the brightest lines on a near-black screen. Applied from the
+  // palette at the call site instead, since a `StyleSheet` cannot reach `useThemeColors()`.
+  totalRow: { marginTop: spacing.sm, borderTopWidth: 1, paddingTop: spacing.sm },
   totalLabel: { fontWeight: '700' },
   totalValue: { fontWeight: '800', fontSize: 14 },
 });

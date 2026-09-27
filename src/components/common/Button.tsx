@@ -34,12 +34,17 @@ export default function Button({
   const isDisabled = disabled || loading;
   const reducedMotion = useReducedMotion();
 
+  // `fg` on a filled variant is `textInverse`, not `white`, and that is the fix for the
+  // worst contrast failure in the app: dark mode's `primary` used to be a light sage, so a
+  // primary button was a pale mint block with white text on it at 2.19:1. Dark mode's fills
+  // are now light and its `textInverse` is near-black, so the same line is 8.96:1 — and in
+  // light mode nothing changed, because there `textInverse` was already white.
   const palette: Record<ButtonVariant, { bg: string; fg: string; border?: string; ripple: string }> = {
-    primary: { bg: colors.primary, fg: colors.white, ripple: "rgba(255,255,255,0.22)" },
-    secondary: { bg: colors.backgroundAlt, fg: colors.primary, border: colors.border, ripple: colors.ripple.primary },
+    primary: { bg: colors.primary, fg: colors.textInverse, ripple: colors.ripple.primary },
+    secondary: { bg: colors.backgroundAlt, fg: colors.accent, border: colors.border, ripple: colors.ripple.primary },
     danger: { bg: colors.dangerSoft, fg: colors.danger, border: colors.dangerBorder, ripple: colors.ripple.danger },
-    ghost: { bg: colors.primarySoft, fg: colors.primary, ripple: colors.ripple.primary },
-    link: { bg: "transparent", fg: colors.primary, ripple: colors.ripple.primary },
+    ghost: { bg: colors.primarySoft, fg: colors.accent, ripple: colors.ripple.primary },
+    link: { bg: "transparent", fg: colors.accent, ripple: colors.ripple.primary },
   };
 
   const p = palette[variant];

@@ -95,14 +95,14 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
   },
-  dot: { width: 3, height: 3, borderRadius: 1.5 },
+  dot: { width: 3, height: 3, borderRadius: radius.pill },
   timelinePreview: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
     marginTop: spacing.xs,
   },
-  tlDot: { width: 6, height: 6, borderRadius: 3 },
+  tlDot: { width: 6, height: 6, borderRadius: radius.pill },
   tlLine: { flex: 1, height: 1, maxWidth: 24 },
   footer: {
     flexDirection: "row",
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   chevronPill: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

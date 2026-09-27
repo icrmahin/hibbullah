@@ -99,7 +99,7 @@ export default function ForgotPasswordScreen() {
 
               {sent ? (
                 <View style={[styles.message, { backgroundColor: colors.primarySoft, borderColor: colors.borderLight }]}>
-                  <Text style={[styles.messageText, { color: colors.primary }]}>
+                  <Text style={[styles.messageText, { color: colors.accent }]}>
                     Reset link sent. Check your email — including spam.
                   </Text>
                 </View>
@@ -119,7 +119,7 @@ export default function ForgotPasswordScreen() {
                 hitSlop={8}
                 style={styles.secondaryLink}
               >
-                <Text style={[styles.secondaryText, { color: colors.primary }]}>Back to sign in</Text>
+                <Text style={[styles.secondaryText, { color: colors.accent }]}>Back to sign in</Text>
               </Pressable>
             </View>
           </View>

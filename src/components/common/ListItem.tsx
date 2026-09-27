@@ -9,6 +9,7 @@ import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { springConfigs } from "../../lib/motion";
 import Icon from "./Icon";
 import type { IconName } from "./Icon";
+import { radius } from "../../constants/sizes";
 
 type ListItemProps = {
   title: string;
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     minHeight: layout.touch,
-    borderRadius: 10,
+    borderRadius: radius.md,
   },
   left: { flexShrink: 0 },
   content: { flex: 1, gap: 2 },

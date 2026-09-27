@@ -17,6 +17,7 @@ import typography from "../../constants/typography";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useProducts } from "../../hooks/useProducts";
 import { isSearchableTerm } from "../../services/searchQuery";
+import { radius } from "../../constants/sizes";
 
 const DRAW_DISTANCE = 1200
 
@@ -38,7 +39,9 @@ export default function CustomerSearchScreen() {
   // query already shows those results instead of an empty screen.
   const params = useLocalSearchParams<{ query?: string }>();
   const [query, setQuery] = useState(params.query ?? "");
-  const { isMobile, isTablet, columns } = useResponsive();
+  // Two product cards per row on a phone, growing from there — the same grid the catalog
+  // and the home page use, so a search result sits where the product it points at sits.
+  const { columns } = useResponsive();
 
   useEffect(() => {
     const seeded = params.query;
@@ -59,7 +62,6 @@ export default function CustomerSearchScreen() {
     loadMore,
   } = useProducts({ query });
 
-  const gridColumns = isMobile ? 1 : isTablet ? 2 : columns;
   const searching = isSearchableTerm(query);
   const trimmed = query.trim();
 
@@ -77,8 +79,8 @@ export default function CustomerSearchScreen() {
         <FlashList
           data={results}
           keyExtractor={(item) => item.id}
-          numColumns={gridColumns}
-          key={gridColumns === 1 ? "one" : `cols-${gridColumns}`}
+          numColumns={columns}
+          key={`cols-${columns}`}
           drawDistance={DRAW_DISTANCE}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -131,7 +133,7 @@ export default function CustomerSearchScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={`Search for ${term}`}
                       >
-                        <Text style={[styles.suggestionText, { color: colors.primary }]}>
+                        <Text style={[styles.suggestionText, { color: colors.accent }]}>
                           {term}
                         </Text>
                       </Pressable>
@@ -169,7 +171,11 @@ export default function CustomerSearchScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  content: { paddingHorizontal: spacing.sm, paddingBottom: spacing.xxl },
+  // Half the gutter here, half on every cell — the same pairing the catalog uses,
+  // because FlashList v2 has no `columnWrapperStyle`. The two halves add up to
+  // `spacing.lg`, which is the page margin every other screen uses, so a search
+  // result sits exactly where the product it points at sits.
+  content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xxl },
   header: { gap: spacing.md, paddingVertical: spacing.md },
   resultText: {
     fontSize: typography.caption,
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
   suggestionRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   suggestion: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },

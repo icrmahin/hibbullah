@@ -337,7 +337,7 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
                     accessibilityRole="button"
                     accessibilityLabel="Forgot password"
                   >
-                    <Text style={[styles.forgotText, { color: colors.primary }]}>Forgot password?</Text>
+                    <Text style={[styles.forgotText, { color: colors.accent }]}>Forgot password?</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -350,7 +350,7 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
 
               {info ? (
                 <View style={[styles.message, styles.infoBox, { backgroundColor: colors.primarySoft, borderColor: colors.borderLight }]}>
-                  <Text style={[styles.messageText, { color: colors.primary }]}>{info}</Text>
+                  <Text style={[styles.messageText, { color: colors.accent }]}>{info}</Text>
                 </View>
               ) : null}
 

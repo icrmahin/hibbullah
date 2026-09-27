@@ -54,8 +54,10 @@ const DRAW_DISTANCE = 1200
 export default function AdminProductsScreen() {
   const colors = useThemeColors();
   const shadows = useShadows();
-  const { isDesktop } = useResponsive();
-  const twoColumns = isDesktop;
+  // Two products per row on a phone, growing from there. This was `isDesktop`, so the
+  // catalog a shop owner reaches for on their own handset was one-up while the customer
+  // catalog was not — the same product, laid out differently, depending on who was looking.
+  const { columns } = useResponsive();
 
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -181,8 +183,8 @@ export default function AdminProductsScreen() {
               { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
             ]}
           >
-            <Icon name="add" size={16} color="#fff" />
-            <Text style={styles.addButtonText}>Add</Text>
+            <Icon name="add" size={16} color={colors.white} />
+            <Text style={[styles.addButtonText, { color: colors.white }]}>Add</Text>
           </Pressable>
         }
       />
@@ -195,7 +197,7 @@ export default function AdminProductsScreen() {
             // is what keeps only a window of product images mounted.
             keyExtractor={(item: Product) => item.id}
             renderItem={({ item }) => (
-              <View style={twoColumns ? styles.listItem : undefined}>
+              <View style={styles.listItem}>
                 <AdminProductCard
                   product={item}
                   onPress={(product) =>
@@ -221,10 +223,10 @@ export default function AdminProductsScreen() {
                 onAction={() => router.push("/(admin)/products/add")}
               />
             }
-            numColumns={twoColumns ? 2 : 1}
-            // FlashList requires an explicit, stable height for multi-column
-            // layouts, and a measured one for the rest.
-            key={twoColumns ? "two" : "one"}
+            numColumns={columns}
+            // FlashList requires a stable key that changes with the column count, or it
+            // recycles cells laid out for the wrong width.
+            key={`cols-${columns}`}
             onEndReached={hasMore ? loadMore : undefined}
             onEndReachedThreshold={0.4}
             drawDistance={DRAW_DISTANCE}
@@ -251,9 +253,11 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radius.pill,
   },
-  addButtonText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  // The colour comes from the palette at the call site — this is a `StyleSheet`, outside
+  // React, so it cannot reach `useThemeColors()`. Was `color: "#fff"`.
+  addButtonText: { fontSize: 12, fontWeight: "700" },
   listHeader: { gap: spacing.md, paddingBottom: spacing.sm },
   filtersIsland: {
     borderRadius: radius.xl,
@@ -282,6 +286,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textTransform: "uppercase",
   },
-  listItem: { flexGrow: 1, flexBasis: "48%", minWidth: 0 },
+  /**
+   * The gutter between catalog cards.
+   *
+   * This was `flexBasis: "48%"` with no gap, so the space between two cards was 4% of
+   * whatever the column happened to be — about 12px at two columns and 8px at three, and
+   * a percentage that quietly means something different at every column count. FlashList
+   * v2 has no `columnWrapperStyle`, so the customer grids pair half-gutter padding on the
+   * container with half-gutter padding on every cell instead, and the cells then sit on the
+   * same 4px rhythm at one column or five. This is that technique, at the same size.
+   */
+  listItem: { flexGrow: 1, paddingHorizontal: spacing.sm, minWidth: 0 },
   footer: { paddingVertical: spacing.lg },
 });

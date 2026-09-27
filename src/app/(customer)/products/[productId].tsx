@@ -18,6 +18,7 @@ import { useCart } from "../../../hooks/useCart";
 import { useProduct } from "../../../hooks/useProducts";
 import { formatCurrency } from "../../../utils/currency";
 import { normalizeError } from "../../../utils/errorHandling";
+import { radius } from "../../../constants/sizes";
 
 export default function ProductDetailScreen() {
   const colors = useThemeColors();
@@ -90,11 +91,11 @@ export default function ProductDetailScreen() {
       <Text style={[styles.qtyLabel, { color: colors.text }]}>Quantity</Text>
       <View style={[styles.qtySelector, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
         <Pressable style={styles.qtyBtn} onPress={() => setQuantity((v) => Math.max(1, v - 1))} hitSlop={8}>
-          <Text style={[styles.qtyAction, { color: colors.primary }]}>−</Text>
+          <Text style={[styles.qtyAction, { color: colors.accent }]}>−</Text>
         </Pressable>
         <Text style={[styles.qtyValue, { color: colors.text }]}>{quantity}</Text>
         <Pressable style={styles.qtyBtn} onPress={() => setQuantity((v) => Math.min(product.stock || 99, v + 1))} hitSlop={8}>
-          <Text style={[styles.qtyAction, { color: colors.primary }]}>+</Text>
+          <Text style={[styles.qtyAction, { color: colors.accent }]}>+</Text>
         </Pressable>
       </View>
     </View>
@@ -193,15 +194,17 @@ const styles = StyleSheet.create({
   desktopLayout: { flexDirection: "row", gap: spacing.xxxl },
   imageColumn: { flex: 1 },
   detailsColumn: { flex: 1, gap: spacing.md },
-  image: { width: "100%", height: 280, backgroundColor: "#1A2420", borderRadius: 18 },
-  imageDesktop: { width: "100%", height: 380, backgroundColor: "#1A2420", borderRadius: 18 },
+  // The placeholder behind a product photo. `imageSlot` rather than a hex literal, which
+  // was `#1A2420` — a dark *dark-mode* surface baked into a style that both themes use, so
+  // light mode showed a near-black rectangle behind every product with no photo.
+  image: { width: "100%", height: 280, borderRadius: radius.xl },
+  imageDesktop: { width: "100%", height: 380, borderRadius: radius.xl },
   /** The second picture stacks under the first rather than in a carousel. */
   imageSecondary: {
     width: "100%",
     height: 220,
     marginTop: spacing.md,
-    backgroundColor: "#1A2420",
-    borderRadius: 18,
+    borderRadius: radius.xl,
   },
   name: { fontSize: 22, fontWeight: "800", lineHeight: 26 },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
@@ -211,7 +214,7 @@ const styles = StyleSheet.create({
   stockText: { fontSize: 12 },
   quantityRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.sm },
   qtyLabel: { fontSize: 14, fontWeight: "700" },
-  qtySelector: { flexDirection: "row", alignItems: "center", gap: spacing.sm, borderRadius: 12, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  qtySelector: { flexDirection: "row", alignItems: "center", gap: spacing.sm, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   qtyBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   qtyAction: { fontSize: 22, fontWeight: "700" },
   qtyValue: { fontSize: 18, fontWeight: "700", minWidth: 24, textAlign: "center" },
@@ -222,11 +225,11 @@ const styles = StyleSheet.create({
     left: 16,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     boxShadow: "0px 2px 4px rgba(0,0,0,0.1)",
   },
-  floatingBackPress: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18 },
+  floatingBackPress: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
 });

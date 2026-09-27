@@ -35,7 +35,7 @@ export default function Input({
         style={[
           styles.inputRow,
           {
-            borderColor: focused ? colors.primary : error ? colors.danger : colors.border,
+            borderColor: focused ? colors.accent : error ? colors.danger : colors.border,
             backgroundColor: colors.backgroundAlt,
             ...shadows.xs,
           },

@@ -241,7 +241,7 @@ export function mapDeliveryCycle(db: DbRecord | null | undefined): DeliveryCycle
 
 export function mapReturnRequest(db: DbRecord | null | undefined): ReturnRequest | null | undefined {
   if (!db) return db as unknown as ReturnRequest | null | undefined
-  const row = db as DbRecord & { id: string; order_id?: string; orderId?: string; customer_id?: string; customerId?: string; customer_name?: string; customerName?: string; product_name?: string; productName?: string; quantity: number; reason: string; status: string; created_at?: string; createdAt?: string }
+  const row = db as DbRecord & { id: string; order_id?: string; orderId?: string; customer_id?: string; customerId?: string; customer_name?: string; customerName?: string; product_name?: string; productName?: string; quantity: number; reason: string; status: string; created_at?: string; createdAt?: string; order_item_id?: string | null; orderItemId?: string | null; product_id?: string | null; productId?: string | null; approved_at?: string | null; approvedAt?: string | null; restock_note?: string | null; restockNote?: string | null }
   return {
     id: String(row.id),
     orderId: String(row.order_id ?? row.orderId ?? ''),
@@ -252,6 +252,13 @@ export function mapReturnRequest(db: DbRecord | null | undefined): ReturnRequest
     reason: String(row.reason),
     status: row.status as ReturnRequest['status'],
     createdAt: String(row.created_at ?? row.createdAt ?? ''),
+    // Optional fields are left undefined rather than set to '' when the column is null, so
+    // a caller can ask "was this ever restocked?" with a truthiness check instead of
+    // comparing against an empty string.
+    orderItemId: row.order_item_id ?? row.orderItemId ?? undefined,
+    productId: row.product_id ?? row.productId ?? undefined,
+    approvedAt: row.approved_at ?? row.approvedAt ?? undefined,
+    restockNote: row.restock_note ?? row.restockNote ?? undefined,
   }
 }
 

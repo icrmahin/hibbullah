@@ -19,17 +19,45 @@ type ProductCardProps = {
   onPress?: (product: Product) => void;
 };
 
+/**
+ * The product card, drawn for a 167px column.
+ *
+ * Two cards to a phone screen, which is the smallest width this has to look deliberate at,
+ * and that number is what every decision below is measured against. The card used to run
+ * about 315px tall there — nearly half the viewport for a single product — because a square
+ * image sat under a name, a generic line, a price row that wrapped, a full sentence about
+ * stock, and a 36px full-width button whose "Add to cart" label had roughly 150px to sit
+ * in. It now runs about 255px, and the height came off the redundant rows rather than off
+ * the photograph, which is the one part that was earning its space.
+ *
+ * Three things moved onto the image, where there was already room:
+ *
+ *   * the stock line was a sentence ("24 in stock") on its own row, which at 167px is the
+ *     widest line on the card and its least useful. It is a pill on the photo now.
+ *   * the add button was full width, so the label had to shrink until it was barely the
+ *     label. It is a floating button, and the accessibility label still says what it is.
+ *   * the out-of-stock state was a centred uppercase word *and* the stock line saying the
+ *     same thing. One of the two had to go; the scrim stayed, because a greyed-out
+ *     photograph is a thing people understand without reading.
+ *
+ * The soft-UI part is the recessed well the photo sits in, the two floating controls that
+ * cast their own soft shadow above it, and a press that flattens the card's shadow rather
+ * than fading it — pressing something should look like pushing it, which is the one cue
+ * that separates soft UI from a flat rectangle with a border.
+ */
 function ProductCard({ product, compact, onPress }: ProductCardProps) {
   const colors = useThemeColors();
   const shadows = useShadows();
   const { addItem } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [adding, setAdding] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const fav = isFavorite(product.id);
 
   const outOfStock = product.stock === 0;
   const lowStock = product.stock > 0 && product.stock <= config.lowStockThreshold;
   const discount = product.discountPercent ?? 0;
+  const showsOriginal = !outOfStock && product.originalPrice != null && product.originalPrice > product.price;
 
   const handleAdd = async () => {
     if (outOfStock || adding) return;
@@ -49,6 +77,8 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
     } catch {}
   };
 
+  const stockTint = outOfStock ? colors.danger : lowStock ? colors.warning : colors.success;
+
   return (
     <View
       style={[
@@ -57,46 +87,97 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
         {
           backgroundColor: colors.backgroundAlt,
           borderColor: colors.borderSoft,
-          ...shadows.sm,
+          // Pressing flattens the lift rather than fading the card. It is the one cue that
+          // makes a soft surface read as pressable, and it costs one style swap.
+          ...(pressed ? shadows.none : shadows.sm),
         },
       ]}
     >
-      {/* One solid background — image and details share same card backgroundAlt, nested compact */}
-      <View style={[styles.imageWrap, { backgroundColor: colors.backgroundAlt }]}>
-        <ProductImage uri={product.image || product.primaryImage} recyclingKey={product.id} style={styles.image} contentFit="contain" />
-        {/* Overlay Pressable for navigation — sibling to fav pill, not parent, avoids <button><button> */}
+      <View style={[styles.imageWrap, { backgroundColor: colors.background }]}>
+        <ProductImage
+          uri={product.image || product.primaryImage}
+          recyclingKey={product.id}
+          style={styles.image}
+          contentFit="contain"
+        />
+
+        {/*
+          Navigation overlay — a sibling of the two controls below, never their parent, so
+          the card never renders a button inside a button.
+        */}
         <Pressable
           onPress={() => onPress?.(product)}
           style={StyleSheet.absoluteFill}
           accessibilityRole="button"
           accessibilityLabel={`View ${product.name} details`}
         />
-        {/* Favorite pill — absolute top-right, above overlay */}
+
+        {/* Out of stock: a scrim, not a caption. The stock pill below says the same words. */}
+        {outOfStock ? (
+          <View
+            style={[styles.outScrim, { backgroundColor: colors.backgroundAlt, opacity: 0.86 }]}
+            pointerEvents="none"
+          />
+        ) : null}
+
+        {!outOfStock ? (
+          <View style={[styles.stockPill, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
+            <View style={[styles.dot, { backgroundColor: stockTint }]} />
+            <Text style={[styles.stockText, { color: lowStock ? colors.warning : colors.textMuted }]} numberOfLines={1}>
+              {lowStock ? `Only ${product.stock} left` : `${product.stock} in stock`}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Add to cart, floating on the photo. A 32px target with a 6px hitSlop is 44px. */}
         <Pressable
-          onPress={handleFav}
-          hitSlop={8}
+          onPress={handleAdd}
+          disabled={outOfStock}
+          hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={fav ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
-          style={({ pressed }) => [
-            styles.favPill,
+          accessibilityLabel={outOfStock ? `${product.name} is out of stock` : `Add ${product.name} to cart`}
+          style={({ pressed: down }) => [
+            styles.addFab,
             {
-              backgroundColor: fav ? colors.danger : colors.backgroundAlt,
-              borderColor: fav ? colors.danger : colors.borderLight,
-              opacity: pressed ? 0.85 : 1,
+              backgroundColor: outOfStock ? colors.borderSoft : colors.primary,
+              borderColor: outOfStock ? colors.borderLight : colors.borderSoft,
+              opacity: outOfStock ? 0.7 : down ? 0.85 : 1,
+              transform: [{ scale: down && !outOfStock ? 0.94 : 1 }],
+              ...shadows.md,
             },
           ]}
         >
-          <Icon name={fav ? "favorite" : "favorite-border"} size={14} color={fav ? colors.white : colors.textMuted} />
+          <Icon
+            name={outOfStock || adding ? "block" : "add-shopping-cart"}
+            size={15}
+            color={outOfStock ? colors.textMuted : colors.white}
+          />
         </Pressable>
-        {outOfStock ? (
-          <View style={[styles.outOverlay, { backgroundColor: colors.backgroundAlt + "CC" }]} pointerEvents="none">
-            <Text style={[styles.outText, { color: colors.text }]}>Out of stock</Text>
-          </View>
-        ) : null}
+
+        {/* Favourite, above the add button in the same corner stack. */}
+        <Pressable
+          onPress={handleFav}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={fav ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
+          style={({ pressed: down }) => [
+            styles.favPill,
+            {
+              backgroundColor: fav ? colors.danger : colors.backgroundAlt,
+              borderColor: fav ? colors.danger : colors.borderSoft,
+              opacity: down ? 0.85 : 1,
+              ...shadows.md,
+            },
+          ]}
+        >
+          <Icon name={fav ? "favorite" : "favorite-border"} size={13} color={fav ? colors.white : colors.textMuted} />
+        </Pressable>
       </View>
 
       <Pressable
         onPress={() => onPress?.(product)}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
         style={styles.contentPressable}
         accessibilityRole="button"
         accessibilityLabel={`View ${product.name} details`}
@@ -112,65 +193,29 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
             </Text>
           ) : null}
 
+          {/*
+            One line, always. It was `flexWrap: "wrap"`, which at 167px means a price, a
+            strikethrough original and a discount badge do not fit side by side and the row
+            becomes two — so the cards in a row came out different heights and the grid looked
+            broken rather than ragged. Truncating is the lesser cost.
+          */}
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: colors.text }]} numberOfLines={1}>
               {formatCurrency(product.price)}
             </Text>
-            {product.originalPrice && product.originalPrice > product.price ? (
+            {showsOriginal ? (
               <Text style={[styles.original, { color: colors.textMuted }]} numberOfLines={1}>
-                {formatCurrency(product.originalPrice)}
+                {formatCurrency(product.originalPrice as number)}
               </Text>
             ) : null}
-            {discount > 0 ? (
-              <View style={[styles.discountBadge, { backgroundColor: colors.primarySoft, borderColor: colors.primary + "22" }]}>
-                <Text style={[styles.discountText, { color: colors.primary }]}>-{discount}%</Text>
+            {discount > 0 && !outOfStock ? (
+              <View style={[styles.discountBadge, { backgroundColor: colors.primarySoft }]}>
+                <Text style={[styles.discountText, { color: colors.accent }]}>-{discount}%</Text>
               </View>
             ) : null}
           </View>
-
-          {/* Stock indicator dot + text */}
-          <View style={styles.stockRow}>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: outOfStock ? colors.danger : lowStock ? colors.warning : colors.success },
-              ]}
-            />
-            <Text
-              style={[
-                styles.stockText,
-                { color: outOfStock ? colors.danger : lowStock ? colors.warning : colors.textMuted },
-              ]}
-              numberOfLines={1}
-            >
-              {outOfStock ? "Out of stock" : lowStock ? `Only ${product.stock} left` : `${product.stock} in stock`}
-            </Text>
-          </View>
         </View>
       </Pressable>
-
-      {/* Full-width pill Add to cart — not icon */}
-      <View style={styles.addWrap}>
-        <Pressable
-          onPress={handleAdd}
-          disabled={outOfStock || adding}
-          accessibilityRole="button"
-          accessibilityLabel={`Add ${product.name} to cart`}
-          style={({ pressed }) => [
-            styles.addButton,
-            {
-              backgroundColor: outOfStock ? colors.borderLight : colors.primary,
-              borderColor: outOfStock ? colors.borderLight : colors.primary,
-              opacity: outOfStock ? 0.6 : pressed ? 0.88 : 1,
-            },
-          ]}
-        >
-          <Icon name={outOfStock ? "block" : "add-shopping-cart"} size={14} color={outOfStock ? colors.textMuted : colors.white} />
-          <Text style={[styles.addText, { color: outOfStock ? colors.textMuted : colors.white }]}>
-            {adding ? "Adding..." : outOfStock ? "Out of stock" : "Add to cart"}
-          </Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -184,112 +229,116 @@ const styles = StyleSheet.create({
   },
   compact: { marginBottom: 0 },
   contentPressable: { flex: 1 },
-  // One solid nested card — image and details share same background, compact padding
+  /**
+   * The photo sits in a well one step back from the card — `background` under
+   * `backgroundAlt` — instead of in a second rounded rectangle 4px inside the first. The old
+   * inset was `padding: 4` with `radius.lg` on the image inside a `radius.xl` card, and two
+   * rounded rectangles that close together read as a mistake rather than as depth. The well
+   * gets the depth for free and hands back 8px.
+   */
   imageWrap: {
     aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.xs,
-    backgroundColor: "transparent",
   },
   image: {
     width: "100%",
     height: "100%",
-    borderRadius: radius.lg,
   },
   favPill: {
     position: "absolute",
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    top: spacing.xs + 2,
+    right: spacing.xs + 2,
+    width: 26,
+    height: 26,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
-    boxShadow: "0px 2px 4px rgba(0,0,0,0.08)",
   },
-  outOverlay: {
+  outScrim: {
     ...StyleSheet.absoluteFill,
+  },
+  /**
+   * The two floating controls share a corner, so they get a corner stack rather than two
+   * independent `top`/`right` pairs that drift apart the moment either size changes.
+   */
+  addFab: {
+    position: "absolute",
+    right: spacing.xs + 2,
+    bottom: spacing.xs + 2,
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.lg,
+    zIndex: 2,
   },
-  outText: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.caption,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+  stockPill: {
+    position: "absolute",
+    left: spacing.xs + 2,
+    bottom: spacing.xs + 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingLeft: 6,
+    paddingRight: spacing.sm,
+    height: 22,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    zIndex: 1,
+  },
+  dot: { width: 5, height: 5, borderRadius: radius.pill },
+  stockText: {
+    fontFamily: fontFamily.pjsMedium,
+    fontSize: fontSize.tiny,
   },
   content: {
     paddingHorizontal: spacing.sm,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-    gap: spacing.xs,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    gap: 2,
   },
   name: {
     fontFamily: fontFamily.pjsMedium,
     fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * 1.35,
-    minHeight: 36,
+    lineHeight: fontSize.footnote * 1.3,
+    // Reserved rather than grown, so two cards in a row stay the same height whatever their
+    // names are.
+    minHeight: 34,
   },
   generic: {
     fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.micro,
-    lineHeight: fontSize.micro * 1.3,
+    fontSize: fontSize.tiny,
+    lineHeight: fontSize.tiny * 1.3,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    marginTop: spacing.xs,
-    flexWrap: "wrap",
+    marginTop: spacing.xxs,
   },
   price: {
     fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.callout,
-    lineHeight: fontSize.callout * 1.2,
+    fontSize: fontSize.bodySmall,
+    lineHeight: fontSize.bodySmall * 1.2,
   },
   original: {
     fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.micro,
+    fontSize: fontSize.tiny,
     textDecorationLine: "line-through",
+    flexShrink: 1,
   },
   discountBadge: {
-    borderWidth: 1,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: 1,
   },
   discountText: {
     fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.micro,
-  },
-  stockRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  stockText: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.micro,
-  },
-  addWrap: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm, paddingTop: spacing.xs },
-  addButton: {
-    height: 36,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-  },
-  addText: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.footnote,
+    fontSize: fontSize.tiny,
   },
 });
 

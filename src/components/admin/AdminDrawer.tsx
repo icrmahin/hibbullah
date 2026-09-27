@@ -32,7 +32,7 @@ export default function AdminDrawer({ visible, onClose }: { visible: boolean; on
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.container}>
-        <Pressable style={[styles.backdrop, { backgroundColor: "rgba(17,26,23,0.22)" }]} onPress={onClose} />
+        <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} />
         <View
           style={[
             styles.sheet,
@@ -69,7 +69,7 @@ export default function AdminDrawer({ visible, onClose }: { visible: boolean; on
                 accessibilityLabel={`Open ${item.label}`}
               >
                 <View style={[styles.iconTile, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}>
-                  <Icon name={item.icon} size={16} color={colors.primary} />
+                  <Icon name={item.icon} size={16} color={colors.accent} />
                 </View>
                 <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
                 <Icon name="chevron-right" size={16} color={colors.textMuted} />
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   iconTile: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
