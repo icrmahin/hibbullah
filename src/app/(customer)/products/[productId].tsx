@@ -28,7 +28,7 @@ export default function ProductDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const { isDesktop } = useResponsive();
 
   if (loading) {
@@ -85,6 +85,15 @@ export default function ProductDetailScreen() {
 
   const handleCancel = () => goBack();
 
+  // "You have 3 in the cart" — only when this product is already in the cart, so a returning
+  // customer sees their un-ordered quantity before tapping Add again.
+  const cartItem = items.find((i) => i.productId === productId || i.product?.id === productId);
+  const cartHint = cartItem && cartItem.quantity > 0 ? (
+    <View style={[styles.cartHint, { backgroundColor: colors.successSoft, borderColor: colors.successBorder }]}>
+      <Text style={[styles.cartHintText, { color: colors.success }]}>You have {cartItem.quantity} in the cart</Text>
+    </View>
+  ) : null;
+
   const qtySelector = (
     <View style={styles.quantityRow}>
       <Text style={[styles.qtyLabel, { color: colors.text }]}>Quantity</Text>
@@ -136,6 +145,7 @@ export default function ProductDetailScreen() {
                 */}
                 {qtySelector}
                 {feedback ? <Text style={[styles.feedback, { color: feedback.includes("added") ? colors.success : colors.danger }]}>{feedback}</Text> : null}
+                {cartHint}
                 <View style={styles.actionsRow}>
                   <View style={{ flex: 1 }}>
                     <Button title="Cancel" variant="secondary" onPress={handleCancel} fullWidth />
@@ -164,6 +174,7 @@ export default function ProductDetailScreen() {
               {/* No stock readout — see the note on the wide layout above. */}
               {qtySelector}
               {feedback ? <Text style={[styles.feedback, { color: feedback.includes("added") ? colors.success : colors.danger }]}>{feedback}</Text> : null}
+              {cartHint}
               <View style={styles.actionsRow}>
                 <View style={{ flex: 1 }}>
                   <Button title="Cancel" variant="secondary" onPress={handleCancel} fullWidth />
@@ -218,6 +229,17 @@ const styles = StyleSheet.create({
   qtyAction: { fontSize: 22, fontWeight: "700" },
   qtyValue: { fontSize: 18, fontWeight: "700", minWidth: 24, textAlign: "center" },
   feedback: { fontSize: 12, textAlign: "center" },
+  cartHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  cartHintText: { fontSize: 13, fontWeight: "700" },
   actionsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
   floatingBack: {
     position: "absolute",

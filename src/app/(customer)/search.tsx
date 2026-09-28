@@ -21,10 +21,23 @@ import { radius } from "../../constants/sizes";
 
 const DRAW_DISTANCE = 1200
 
-/** Shown before anything is typed, so the screen is never a blank box. */
+/**
+ * Shown before anything is typed, so the screen is never a blank box.
+ *
+ * These are also the only place the app teaches what search understands, so the list has to
+ * cover what the function can actually match: a generic ("Paracetamol"), a brand ("Napa"),
+ * a company ("Square"), and a medicine name. "Square" is here because company search is the
+ * thing a customer reaches for in this market — "Square" *is* how the brand is known, and it
+ * lives in `manufacturers.name` rather than in `products.brand`. Listing only product-shaped
+ * terms would have left the company path discoverable by nobody.
+ *
+ * "Square" is also real data in this project, so tapping it returns rows; the rest are
+ * generic examples a customer might not have.
+ */
 const SUGGESTIONS = [
   "Paracetamol",
   "Napa",
+  "Square",
   "Seclo",
   "Azithromycin",
   "Cefixime",

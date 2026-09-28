@@ -268,7 +268,15 @@ try {
     `search_products returns the exact total for the count label (${found?.[0]?.total_count})`,
   )
 
-  // 9. Search by a unique fragment, to prove trigram ranking is not just prefix luck.
+  // 9. Search by a unique fragment that is not at the start of the name, to prove a
+  // mid-string match ranks the product first rather than only prefix matches surviving.
+  //
+  // The comment here used to say "trigram". It is no longer true, and the distinction is
+  // worth keeping: `500mg <stamp>` is a literal substring of `E2E Paracetamol 500mg <stamp>`,
+  // so this is now an exact contains match (rung 7) and does not depend on the similarity
+  // threshold at all. Which is the better test — it is deterministic. The fuzzy tier has its
+  // own coverage in verify-search-matches.mjs, where the ranking *between* two real products
+  // is what is under test.
   const unique = await api('/rest/v1/rpc/search_products', {
     method: 'POST',
     body: { p_query: `500mg ${stamp}`, p_limit: 10 },

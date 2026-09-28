@@ -3287,6 +3287,30 @@ create index if not exists idx_manufacturers_name_trgm
 
 
 -- ═══════════════════════════════════════════════════════════════════════
+-- 20260930020000_search_by_brand_and_manufacturer.sql
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- The two prefix rungs `search_products` gained a use for. `lower(brand) like 'x%'` and
+-- `lower(generic_name) like 'x%'` have no index behind them; `20260926120000` built one for
+-- the name column only, and the categories/manufacturers lookups, so brand and generic
+-- prefix search was a sequential scan of the product table on every keystroke.
+--
+-- `text_pattern_ops` is what makes a `LIKE 'x%'` a btree range scan rather than a full
+-- index walk; the column has to be `lower(...)` because that is the shape the query takes.
+--
+-- The `ilike '%x%'` rungs need no new index: the trigram GIN indexes built in the initial
+-- schema (`idx_products_brand`, `idx_products_generic`) already serve a wildcard `ILIKE`,
+-- and `idx_manufacturers_name_trgm` serves it on the company name. That is the whole reason
+-- contains-matching is cheap here -- it is the query the existing indexes were built for,
+-- which the function simply was not asking.
+create index if not exists idx_products_brand_prefix
+  on public.products (lower(brand) text_pattern_ops);
+
+create index if not exists idx_products_generic_prefix
+  on public.products (lower(generic_name) text_pattern_ops);
+
+
+-- ═══════════════════════════════════════════════════════════════════════
 -- 20260926130000_product_browse_search_rpc.sql
 -- ═══════════════════════════════════════════════════════════════════════
 -- Server-side product browse + search.
@@ -3404,11 +3428,24 @@ $$;
 -- ---------------------------------------------------------------------------
 -- search_products: ranked, total included in the same round trip.
 --
--- Ranking ladder, cheapest and most predictable first:
---   0 exact name  1 name prefix  2 brand prefix  3 generic prefix
---   4-6 trigram similarity (typo tolerance)  7 everything else
--- Exact/prefix hits always outrank a fuzzy match, so a short or misspelled term
--- degrades to "close enough" instead of noise.
+-- Matches all four things a customer types: the medicine name, the brand, the generic,
+-- and the company. The company is the one this rewrite added -- the function returned
+-- `manufacturer_name` and never matched it, so typing "square" returned nothing even
+-- though Square Pharmaceuticals PLC is the company behind the range.
+--
+--   medicine name -> products.name          "Napa 500 mg Tablet"
+--   brand         -> products.brand         "Napa"
+--   company       -> manufacturers.name     "Square Pharmaceuticals PLC"
+--   generic       -> products.generic_name  "Paracetamol (Acetaminophen)"
+--
+-- Ranking ladder, cheapest and most predictable first. Exact and prefix beats contains
+-- beats fuzzy, always, so a misspelling degrades to "close enough" rather than displacing
+-- an exact hit:
+--   0 exact name   1 name prefix   2 brand prefix   3 manufacturer prefix
+--   4 generic prefix
+--   5 brand contains   6 manufacturer contains   7 name contains   8 generic contains
+--   9-12 trigram similarity, for typos
+--   13 description only -- the weakest match, and the only one that is not a name
 -- ---------------------------------------------------------------------------
 create or replace function public.search_products(
   p_query text,
@@ -3451,7 +3488,26 @@ security invoker
 set search_path = public
 as $$
   with term as (
-    select lower(btrim(coalesce(p_query, ''))) as v
+    select
+      lower(btrim(coalesce(p_query, ''))) as v,
+      -- A second copy of the term, escaped for `like`.
+      --
+      -- LIKE's default escape character is a backslash, so a term carrying `%`, `_` or `\`
+      -- has to be neutralised before it is interpolated into a pattern. The app already
+      -- strips these (`sanitizeSearchTerm`, src/services/searchQuery.ts) because they are
+      -- PostgREST syntax, so this changes nothing for app traffic. What it removes is the
+      -- case where the RPC is called directly — by a verifier, or by anyone holding the
+      -- publishable key, which is in the bundle and is therefore public — with `p_query`
+      -- set to `%`, and a search silently becomes "return the whole catalogue".
+      --
+      -- Backslash first, or it would escape the backslashes added by the next two.
+      replace(
+        replace(
+          replace(lower(btrim(coalesce(p_query, ''))), '\', '\\'),
+          '%', '\%'
+        ),
+        '_', '\_'
+      ) as pat
   ),
   matched as (
     select
@@ -3462,13 +3518,19 @@ as $$
       case
         when btrim(coalesce(p_query, '')) = '' then 0
         when lower(p.name) = (select v from term) then 0
-        when lower(p.name) like (select v from term) || '%' then 1
-        when lower(p.brand) like (select v from term) || '%' then 2
-        when lower(p.generic_name) like (select v from term) || '%' then 3
-        when p.name % (select v from term) then 4
-        when p.generic_name % (select v from term) then 5
-        when p.brand % (select v from term) then 6
-        else 7
+        when lower(p.name) like (select pat from term) || '%' then 1
+        when lower(p.brand) like (select pat from term) || '%' then 2
+        when lower(m.name) like (select pat from term) || '%' then 3
+        when lower(p.generic_name) like (select pat from term) || '%' then 4
+        when p.brand ilike '%' || (select pat from term) || '%' then 5
+        when m.name ilike '%' || (select pat from term) || '%' then 6
+        when p.name ilike '%' || (select pat from term) || '%' then 7
+        when p.generic_name ilike '%' || (select pat from term) || '%' then 8
+        when p.name % (select v from term) then 9
+        when p.generic_name % (select v from term) then 10
+        when p.brand % (select v from term) then 11
+        when m.name % (select v from term) then 12
+        else 13
       end as rank
     from public.products p
     join public.categories c on c.id = p.category_id
@@ -3492,11 +3554,19 @@ as $$
       )
       and (
         btrim(coalesce(p_query, '')) = ''
-        or lower(p.name) like (select v from term) || '%'
+        or lower(p.name) like (select pat from term) || '%'
+        or lower(p.brand) like (select pat from term) || '%'
+        or lower(m.name) like (select pat from term) || '%'
+        or lower(p.generic_name) like (select pat from term) || '%'
+        or p.name ilike '%' || (select pat from term) || '%'
+        or p.brand ilike '%' || (select pat from term) || '%'
+        or m.name ilike '%' || (select pat from term) || '%'
+        or p.generic_name ilike '%' || (select pat from term) || '%'
+        or p.description ilike '%' || (select pat from term) || '%'
         or p.name % (select v from term)
         or p.generic_name % (select v from term)
         or p.brand % (select v from term)
-        or p.description % (select v from term)
+        or m.name % (select v from term)
       )
   )
   select

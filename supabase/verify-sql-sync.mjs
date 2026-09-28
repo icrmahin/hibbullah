@@ -176,6 +176,146 @@ const differingPo = [...mPo.keys()].filter((n) => hPo.has(n) && hPo.get(n) !== m
 for (const n of differingPo) report(false, `policy "${n}" DIFFERS between the bootstrap and the migrations`)
 report(missingPo.length === 0, `all ${mPo.size} migrated policies are in the bootstrap${missingPo.length ? ` (missing: ${missingPo.join(', ')})` : ''}`)
 
+// ── search_products must be able to search everything it shows ──────────────────────
+// The bug this exists for: `search_products` returned a `manufacturer_name` column, and
+// never used it in the predicate. `search_products('square')` answered with zero rows on a
+// catalogue with a real Square-branded product, and nothing about the function looked
+// wrong -- it was `stable`, granted to `anon`, indexed, ranked, and paginated.
+//
+// The gap is invisible to every check above because they ask "is this function present and
+// do the two files agree?", and it answered both. The property that was actually false is
+// narrower and checkable: *every field the function returns is a field the user can search
+// on*. A function may return a column without matching it -- a label, a joined name for
+// display -- but then the column is promising a search that does not exist.
+//
+// So: each source the function exposes must appear in the *predicate*, not merely in the
+// rank expression. Rank only orders rows the predicate already returned, so a field that
+// appears in the CASE and not in the WHERE is decoration -- which is precisely how
+// `brand` was already half-wired: present in the ladder, reachable only by fuzzy trigram.
+const searchBody = mFn.get('public.search_products') ?? ''
+const searchCte = searchBody.slice(searchBody.indexOf('matched as ('), searchBody.indexOf('select mt.id'))
+const searchRank = searchCte.slice(0, searchCte.indexOf('end as rank'))
+const searchWhere = searchCte.slice(searchCte.lastIndexOf('and ('))
+
+// The column a customer would type, the expression the function must match it on, and the
+// modes it must be matchable in. `manufacturer_name` is the one that needs translating: the
+// search is against `manufacturers.name`, surfaced to the caller as `manufacturer_name`.
+//
+// Requiring *both* modes, and not merely "the field appears", is the part that matters.
+// Prefix-only is a real bug and it shipped once: a brand is only a prefix of its own column,
+// so as soon as the product name leads with something else -- "500 mg Zylora" rather than
+// "Zylora 500 mg" -- the term stops matching the name and the brand is only reachable by
+// trigram, whose 0.3 threshold silently decides whether it is findable.
+const SEARCH_SOURCES = [
+  ['name', 'p.name', 'the medicine name', ['prefix', 'contains']],
+  ['brand', 'p.brand', 'the brand', ['prefix', 'contains']],
+  ['generic_name', 'p.generic_name', 'the generic', ['prefix', 'contains']],
+  ['manufacturer_name', 'm.name', 'the company', ['prefix', 'contains']],
+  // A description is a paragraph. "The start of it" is not a meaning anyone types, so
+  // contains-only is the whole specification here rather than an omission.
+  ['description', 'p.description', 'the description', ['contains']],
+]
+
+/** Escape an expression for use inside a RegExp — `m.name` must not match `mXname`. */
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * The two shapes a matchable field can take in the predicate.
+ *
+ * Written as patterns rather than `includes` so that reformatting the function — a new line
+ * break, a space after a comma — does not silently turn a check into a decoration. It has
+ * happened: the check that watches `p.brand` was satisfied by a string match that any
+ * whitespace change would have stopped matching while still reading as a pass.
+ */
+const MATCH_MODE = {
+  prefix: (expr) =>
+    new RegExp(`lower\\(\\s*${reEsc(expr)}\\s*\\)\\s+like\\s+\\(select\\s+pat\\s+from\\s+term\\)\\s*\\|\\|\\s*'%'`),
+  contains: (expr) =>
+    new RegExp(`${reEsc(expr)}\\s+ilike\\s+'%'\\s*\\|\\|\\s*\\(select\\s+pat\\s+from\\s+term\\)\\s*\\|\\|\\s*'%'`),
+}
+
+const neverMatched = []
+for (const [col, expr, why, modes] of SEARCH_SOURCES) {
+  for (const mode of modes) {
+    if (!MATCH_MODE[mode](expr).test(searchWhere)) neverMatched.push(`${col} ${mode} (${why})`)
+  }
+}
+report(
+  neverMatched.length === 0,
+  'search_products matches every field it returns, by prefix and by contains — medicine, brand, generic, company, description',
+  neverMatched.length
+    ? `not matched: ${neverMatched.join(', ')}`
+    : SEARCH_SOURCES.map(([col, , , modes]) => `${col} (${modes.join('+')})`).join(', '),
+)
+
+// And the same fields, in the same two modes, in the ladder. A field that is matched but has
+// no rung is ordered as "everything else", which ties a real brand hit with a coincidental
+// description hit and leaves `order by rank, name` to break the tie alphabetically.
+//
+// Per mode, not per field. The first version of this check asked only whether the field
+// appeared in the CASE at all, and the mutation suite proved it decorative: `m.name` has
+// three rungs — prefix, contains and trigram — so deleting the prefix one left the field
+// "ranked" and the check passed while the ladder it was watching had a hole in it.
+//
+// `description` is the one deliberate exception: it is matched, and it *is* the `else`. It
+// gets no rung of its own because a word from a paragraph is the weakest possible signal
+// about what someone meant, and giving it a rung above the fuzzy tier would let it outrank
+// a brand the customer actually typed. That intent is asserted on the `else` below rather
+// than left to the reader's judgement.
+const rungs = [...searchRank.matchAll(/when\s+(.*?)\s+then\s+(\d+)/g)].map(([, test, n]) => ({ test, n: Number(n) }))
+
+const missingRungs = SEARCH_SOURCES.filter(([col]) => col !== 'description').flatMap(([col, expr, , modes]) =>
+  modes
+    .filter((mode) => !rungs.some((r) => MATCH_MODE[mode](expr).test(r.test)))
+    .map((mode) => `${col} ${mode}`),
+)
+report(
+  missingRungs.length === 0,
+  'search_products ranks every field it matches, by prefix and by contains, so a brand hit outranks a description hit',
+  missingRungs.length ? `no rung of their own: ${missingRungs.join(', ')}` : `${rungs.length} rungs, all matched fields covered`,
+)
+
+// The ladder has to be monotone in the order it is written. This is the whole ranking
+// contract in one property: SQL evaluates the CASE top to bottom and takes the first match,
+// so "exact and prefix beats contains beats fuzzy" is not a statement about intent, it is a
+// statement about the numbers not going backwards down the list. A rung inserted in the
+// wrong place reads perfectly well in a diff and silently inverts the order.
+//
+// Non-decreasing, not strictly increasing. Ranks 0 and 0 are a deliberate tie: an empty
+// query and an exact name match are the same kind of certainty, and there is no reason to
+// order one above the other.
+const isMonotonic = rungs.every((r, i) => i === 0 || r.n >= rungs[i - 1].n)
+report(
+  isMonotonic,
+  'the ranking ladder never goes backwards, so a more precise match cannot rank below a vaguer one',
+  isMonotonic ? rungs.map((r) => r.n).join(' <= ') : `rungs as written: ${rungs.map((r) => r.n).join(', ')}`,
+)
+
+// The floor has to be a real rung, and the highest one, or a description match and a fuzzy
+// name match would tie and fall through to alphabetical order.
+const elseRank = Number(searchRank.match(/else\s+(\d+)/)?.[1])
+report(
+  Number.isFinite(elseRank) && rungs.every((r) => r.n < elseRank),
+  'the description fallback is the weakest rung, so it can never outrank a real name match',
+  `rungs 0-${elseRank}, description at ${elseRank}`,
+)
+
+// The term is interpolated into a `like` pattern, and the RPC is reachable with the
+// publishable key that ships in the bundle. So every `like` must interpolate the *escaped*
+// copy of the term, and the raw copy is only ever handed to the trigram operator, which
+// takes a literal string and has no metacharacters. Asserted as "no `like` reads the raw
+// term" because that is the shape a regression takes: someone adds a new rung and reaches
+// for the shorter name.
+const rawLike = /like\s+\(select\s+v\s+from\s+term\)/.test(searchWhere)
+const escapedLike = /like\s+\(select\s+pat\s+from\s+term\)/.test(searchWhere)
+report(
+  !rawLike && escapedLike,
+  'search_products interpolates only the LIKE-escaped term into its patterns',
+  rawLike
+    ? 'a `like` reads the raw term, so a caller-supplied % or _ would act as a wildcard'
+    : `${(searchWhere.match(/like \(select pat from term\)/g) ?? []).length} escaped pattern(s), raw term reserved for the trigram operator`,
+)
+
 // ── the allowlist must exist in exactly one place, in both files ────────────────────
 // A single-source refactor that only half-landed is the exact drift this file exists to
 // catch, so the invariant is asserted on the file text rather than trusted.

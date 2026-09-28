@@ -18,7 +18,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.hibbullah.app",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "output": "static",

@@ -12,7 +12,17 @@ import { execFileSync } from 'node:child_process'
 const LOCK = 'supabase/migrations/20260928010000_secdef_grants_and_guards.sql'
 const REPORTS = 'supabase/migrations/20260928020000_reports_and_customer_spend.sql'
 const PROFIT = 'supabase/migrations/20260930010000_real_profit_and_stock_restore.sql'
+const SEARCH = 'supabase/migrations/20260930020000_search_by_brand_and_manufacturer.sql'
 const HOSTED = 'supabase/apply-to-hibbullah-hosted.sql'
+/**
+ * The two SQL files a `search_products` change has to be mirrored into.
+ *
+ * Both, always. `verify-sql-sync` also asserts the hosted bootstrap and the migrations
+ * agree, so changing one without the other trips the drift check — and the mutation harness
+ * would then report the case as caught, by a guard that has nothing to do with the property
+ * under test. A suite that depends on the reader noticing which guard fired is not a suite.
+ */
+const SEARCH_SQL = [SEARCH, HOSTED]
 const REPORTS_TS = 'src/services/reports.ts'
 const EXPIRY_TS = 'src/app/(admin)/inventory/expiry.tsx'
 const DIFF_TS = 'src/utils/auditDiff.ts'
@@ -350,27 +360,109 @@ const cases = [
         '"Leave cost empty to auto-set price×0.8"',
       ),
   ],
+  // ── search must be able to search what it shows ────────────────────────────────────
+  //
+  // `search_products` returned a `manufacturer_name` column and never used it in the
+  // predicate, so `search_products('square')` answered with zero rows on a catalogue with a
+  // real Square-branded product. Every existing check passed: the function was present, the
+  // two SQL files agreed, it was `stable`, granted to `anon`, indexed, ranked, paginated.
+  //
+  // The six cases below each undo one specific piece of that fix. They are applied to the
+  // migration *and* the hosted bootstrap together, because mutating one alone trips the
+  // drift check instead — see SEARCH_SQL.
+  //
+  // The original bug, verbatim.
+  [
+    'unmatch the company name again, so "square" finds nothing',
+    SEARCH_SQL,
+    (s) =>
+      s
+        .replace(/\n\s*or lower\(m\.name\) like \(select pat from term\) \|\| '%'/g, '')
+        .replace(/\n\s*or m\.name ilike '%' \|\| \(select pat from term\) \|\| '%'/g, '')
+        .replace(/\n\s*or m\.name % \(select v from term\)/g, ''),
+  ],
+  [
+    'keep the company searchable but prefix-only, so a company mid-name is a lucky miss',
+    SEARCH_SQL,
+    (s) => s.replace(/\n\s*or m\.name ilike '%' \|\| \(select pat from term\) \|\| '%'/, ''),
+  ],
+  [
+    'make a brand prefix-only again, so a name like "500 mg Zylora" stops matching "Zylora"',
+    SEARCH_SQL,
+    // Only the contains rung goes. The prefix rung stays, so the field is still matched, and
+    // a check that asked nothing more than "is p.brand in the WHERE" would still pass.
+    (s) => s.replace(/\n\s*or p\.brand ilike '%' \|\| \(select pat from term\) \|\| '%'/, ''),
+  ],
+  [
+    'drop the company from the ranking ladder, so a company hit ties with a description hit',
+    SEARCH_SQL,
+    (s) => s.replace(/\n\s*when lower\(m\.name\) like \(select pat from term\) \|\| '%' then \d+/, ''),
+  ],
+  [
+    'interpolate the raw term into the LIKE patterns, so a caller-supplied % becomes a wildcard',
+    SEARCH_SQL,
+    // `(select pat from term)` -> `(select v from term)` everywhere. `pat` is the escaped
+    // copy; `v` is the raw term, and a raw term in a pattern turns a search into
+    // "return the whole catalogue" for anyone holding the publishable key.
+    (s) => s.replace(/\(select pat from term\)/g, '(select v from term)'),
+  ],
+  [
+    'rank the description fallback above the fuzzy rungs, so a word in a paragraph outranks a brand',
+    SEARCH_SQL,
+    (s) => s.replace(/(\n\s*else )\d+(\n\s*end as rank)/, '$14$2'),
+  ],
+  [
+    'put the fuzzy rungs above the prefix rungs, so a typo outranks a brand the customer typed',
+    SEARCH_SQL,
+    // A rank number that goes backwards, with every expression untouched. This is the shape
+    // a reordering takes in a diff: the CASE still reads as a list of sensible predicates, and
+    // the only thing wrong is the arithmetic, so nothing that looks at the SQL semantics
+    // notices. It has to be asserted on the numbers.
+    (s) =>
+      s
+        .replace("when p.name % (select v from term) then 9", 'when p.name % (select v from term) then 2')
+        .replace("when p.brand % (select v from term) then 11", 'when p.brand % (select v from term) then 3'),
+  ],
+  // Every case above is a property that can be read out of the SQL text. The ranking *order*
+  // between two real products cannot, and has its own suite against rows it creates and
+  // deletes: `verify-search-matches.mjs`.
 ]
 
 let notCaught = 0
 let broken = 0
 
-for (const [label, file, mutate] of cases) {
-  const original = readFileSync(file, 'utf8')
-  const mutated = mutate(original)
-  if (mutated === original) {
-    console.log(`  BROKEN   ${label}\n           the mutation did not apply, so it would pass for the wrong reason`)
+// A case may name more than one file, and when the change has to be mirrored the mutation is
+// applied to all of them together.
+//
+// This is not a convenience. `verify-sql-sync` also checks that the hosted bootstrap and the
+// migrations agree, so a SQL change made in only one of the two trips the *drift* check and
+// the harness reports the mutation as caught — by a guard that has nothing to do with the
+// property under test. Every SQL mutation below would have "passed" for that reason, while
+// proving nothing at all. The `caught` list names the first two FAILs, so the wrong one is
+// visible in the output, but a suite that depends on someone reading it carefully is not a
+// suite.
+for (const [label, target, mutate] of cases) {
+  const files = Array.isArray(target) ? target : [target]
+  const originals = files.map((f) => readFileSync(f, 'utf8'))
+  const mutations = originals.map((src) => mutate(src))
+
+  const unapplied = files.filter((f, i) => mutations[i] === originals[i])
+  if (unapplied.length > 0) {
+    console.log(
+      `  BROKEN   ${label}\n           the mutation did not apply to ${unapplied.join(', ')}, so it would pass for the wrong reason`,
+    )
     broken += 1
     continue
   }
-  writeFileSync(file, mutated)
+
+  files.forEach((f, i) => writeFileSync(f, mutations[i]))
   let out = ''
   try {
     execFileSync('node', ['supabase/verify-sql-sync.mjs'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   } catch (e) {
     out = `${e.stdout ?? ''}${e.stderr ?? ''}`
   }
-  writeFileSync(file, original)
+  files.forEach((f, i) => writeFileSync(f, originals[i]))
 
   if (/FAIL/.test(out)) {
     const which = out.split('\n').filter((l) => l.includes('FAIL')).map((l) => l.trim().replace(/^FAIL\s+/, ''))

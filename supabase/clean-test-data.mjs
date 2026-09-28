@@ -76,6 +76,18 @@ const PREFIXES = [
   'LC Maker %', // verify-lifecycle.mjs (manufacturers)
   'Notif Maker %', // verify-notifications.mjs
   'aa-%', // verify-admin-areas.mjs (products, categories, manufacturers, orders)
+  // verify-search-matches.mjs. Three invented product names, one category, one company.
+  //
+  // The three products are separate prefixes rather than one because they only share the
+  // word "Zylora", and a single `Zylora%` would have covered the other two by accident —
+  // which is the same kind of near-miss coverage that left residue behind before, and worse,
+  // because it would look correct right up until the one probe it does not cover started
+  // leaving rows.
+  '500 mg Zylora %',
+  'Zylora %',
+  'Quadrum %',
+  'Search Probe %', // (categories)
+  'Zephyr Health Ltd %', // (manufacturers)
 ]
 
 /**
