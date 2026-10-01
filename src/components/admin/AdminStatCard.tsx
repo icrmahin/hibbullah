@@ -1,10 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 import Icon from "../common/Icon";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import type { IconName } from "../common/Icon";
 import { radius } from "../../constants/sizes";
 
@@ -24,7 +23,6 @@ export default function AdminStatCard({
   icon,
 }: AdminStatCardProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
 
   // Ink, not a fill: this is the colour of a glyph and a sparkline stroke.
   const accentColor =
@@ -41,7 +39,6 @@ export default function AdminStatCard({
         {
           backgroundColor: colors.backgroundAlt,
           borderColor: colors.borderLight,
-          ...shadows.sm,
         },
       ]}
     >
@@ -92,14 +89,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   label: {
+    fontFamily: fontFamily.pjsBold,
     fontSize: typography.caption2,
-    fontWeight: "700",
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   value: {
+    fontFamily: fontFamily.soraBold,
     fontSize: typography.title2,
-    fontWeight: "700",
     marginTop: spacing.xs,
     letterSpacing: typography.letterSpacing.tight,
   },

@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { goBack } from '@/utils/navigation';
 import { useThemeColors } from '../../../providers/ThemeProvider';
-import SoftHeader from '../../../components/common/SoftHeader';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import Input from '../../../components/common/Input';
 import PhoneInput from '../../../components/common/PhoneInput';
 import AvatarPicker from '../../../components/common/AvatarPicker';
@@ -12,11 +12,14 @@ import Button from '../../../components/common/Button';
 import LoadingState from '../../../components/common/LoadingState';
 import { useAuth } from '../../../hooks/useAuth';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import ConfirmDialog from '../../../components/common/ConfirmDialog';
 import { setAvatarUrl, updateProfile } from '../../../services/profile';
 import { deleteCloudinaryAsset, publicIdFromUrl, uploadAvatarImage } from '../../../services/storage';
 import { formatBdPhone, normalizeBdPhone } from '../../../utils/phone';
 import spacing from '../../../constants/spacing';
+import { radius } from '../../../constants/sizes';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 
 /**
  * The single place a profile is edited.
@@ -28,6 +31,7 @@ import spacing from '../../../constants/spacing';
  */
 export default function ProfileScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const { user, loading, refreshUser } = useAuth();
   const { confirm, confirmDialogProps } = useConfirm();
   const [name, setName] = useState('');
@@ -46,7 +50,11 @@ export default function ProfileScreen() {
   }, [user]);
 
   if (loading && !user) {
-    return <LoadingState label="Loading profile..." />;
+    return (
+      <Screen header={<ScreenHeader title="Profile" onBack={goBack} />}>
+        <LoadingState label="Loading profile..." />
+      </Screen>
+    );
   }
 
   /**
@@ -86,7 +94,7 @@ export default function ProfileScreen() {
 
     // Was `Alert.alert(..., [{ onPress: () => void (async () => { ... })() }])`, which on
     // web does nothing: react-native-web's Alert is `static alert() {}`, so the onPress
-    // that removes the picture never ran. It also wrapped the work in `void (async …)()`
+    // that removes the picture never ran. It also wrapped the work in a `void (async …)()`
     // inside a callback, so a failure had nowhere to surface except a setState that the
     // early return could preempt. Awaiting the confirmation instead puts the work in the
     // handler's own try/catch, where the existing `avatarError` is already wired up.
@@ -150,10 +158,13 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title="Profile" onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
+    <Screen header={<ScreenHeader title="Profile" onBack={goBack} />}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <AvatarPicker
             uri={user?.avatar}
             name={user?.name}
@@ -188,15 +199,25 @@ export default function ProfileScreen() {
         />
       </ScrollView>
       <ConfirmDialog {...confirmDialogProps} />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  card: { gap: spacing.md },
+  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.lg },
+  // The form is one white card on the off-white page — the lightness step is the border.
+  card: { borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
   separator: { height: 1, marginVertical: spacing.xs },
-  error: { fontSize: 12, textAlign: 'center' },
-  success: { fontSize: 12, textAlign: 'center' },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
+  success: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
 });

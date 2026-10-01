@@ -3,21 +3,22 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { goBack } from "@/utils/navigation";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import SoftHeader from "../../components/common/SoftHeader";
+import Screen from "../../components/common/Screen";
+import ScreenHeader from "../../components/common/ScreenHeader";
 import SearchBar from "../../components/common/SearchBar";
 import ProductCard from "../../components/products/ProductCard";
 import LoadingState from "../../components/common/LoadingState";
 import EmptyState from "../../components/common/EmptyState";
 import ErrorState from "../../components/common/ErrorState";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
+import { radius } from "../../constants/sizes";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useProducts } from "../../hooks/useProducts";
+import { useBottomInset } from "../../hooks/useBottomInset";
 import { isSearchableTerm } from "../../services/searchQuery";
-import { radius } from "../../constants/sizes";
 
 const DRAW_DISTANCE = 1200
 
@@ -48,6 +49,7 @@ const SUGGESTIONS = [
 
 export default function CustomerSearchScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   // Seeded from the home screen's "See all N results", so arriving here with a
   // query already shows those results instead of an empty screen.
   const params = useLocalSearchParams<{ query?: string }>();
@@ -86,133 +88,137 @@ export default function CustomerSearchScreen() {
   }, [searching, loading, total, trimmed]);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title="Search" onBack={() => goBack()} />
-      <View style={styles.flex}>
-        <FlashList
-          data={results}
-          keyExtractor={(item) => item.id}
-          numColumns={columns}
-          key={`cols-${columns}`}
-          drawDistance={DRAW_DISTANCE}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.content}
-          renderItem={({ item }) => (
-            <View style={styles.gridItem}>
-              <ProductCard
-                product={item}
-                onPress={(product) =>
-                  router.push({
-                    pathname: "/(customer)/products/[productId]",
-                    params: { productId: product.id },
-                  })
-                }
-              />
-            </View>
-          )}
-          onEndReached={hasMore ? loadMore : undefined}
-          onEndReachedThreshold={0.4}
-          ListHeaderComponent={
-            <View style={styles.header}>
-              <SearchBar
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Search by medicine, brand or generic"
-                autoFocus
-              />
-              {resultText ? (
-                <Text style={[styles.resultText, { color: colors.textMuted }]}>{resultText}</Text>
-              ) : null}
-              {error ? <ErrorState message={error} onRetry={reload} /> : null}
-              {!searching && !trimmed ? (
-                <View style={styles.suggestions}>
-                  <Text style={[styles.suggestionsLabel, { color: colors.textMuted }]}>
-                    Try one of these
-                  </Text>
-                  <View style={styles.suggestionRow}>
-                    {SUGGESTIONS.map((term) => (
-                      <Pressable
-                        key={term}
-                        onPress={() => setQuery(term)}
-                        style={({ pressed }) => [
-                          styles.suggestion,
-                          {
-                            backgroundColor: colors.primarySoft,
-                            borderColor: colors.borderSoft,
-                          },
-                          pressed && styles.pressed,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Search for ${term}`}
-                      >
-                        <Text style={[styles.suggestionText, { color: colors.accent }]}>
-                          {term}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
+    <Screen header={<ScreenHeader title="Search" onBack={() => goBack()} />}>
+      <FlashList
+        data={results}
+        keyExtractor={(item) => item.id}
+        numColumns={columns}
+        key={`cols-${columns}`}
+        drawDistance={DRAW_DISTANCE}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
+        renderItem={({ item }) => (
+          <View style={styles.gridItem}>
+            <ProductCard
+              product={item}
+              onPress={(product) =>
+                router.push({
+                  pathname: "/(customer)/products/[productId]",
+                  params: { productId: product.id },
+                })
+              }
+            />
+          </View>
+        )}
+        onEndReached={hasMore ? loadMore : undefined}
+        onEndReachedThreshold={0.4}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <SearchBar
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search by medicine, brand or generic"
+              autoFocus
+            />
+            {resultText ? (
+              <Text style={[styles.resultText, { color: colors.textMuted }]}>{resultText}</Text>
+            ) : null}
+            {!searching && !trimmed ? (
+              <View style={styles.suggestions}>
+                <Text style={[styles.suggestionsLabel, { color: colors.textMuted }]}>
+                  Try one of these
+                </Text>
+                <View style={styles.suggestionRow}>
+                  {SUGGESTIONS.map((term) => (
+                    <Pressable
+                      key={term}
+                      onPress={() => setQuery(term)}
+                      style={({ pressed }) => [
+                        styles.suggestion,
+                        {
+                          backgroundColor: colors.primarySoft,
+                          borderColor: colors.borderLight,
+                        },
+                        pressed && styles.pressed,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Search for ${term}`}
+                    >
+                      <Text style={[styles.suggestionText, { color: colors.accent }]}>
+                        {term}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
-              ) : null}
-            </View>
-          }
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footer}>
-                <LoadingState label="Loading more" />
               </View>
-            ) : null
-          }
-          ListEmptyComponent={
-            loading ? (
-              <LoadingState label="Searching" />
-            ) : error ? null : searching ? (
-              <EmptyState
-                title="No matches"
-                message={`Nothing matches "${trimmed}". Search by medicine name, brand, or generic name — and check the spelling.`}
-                actionLabel="Clear search"
-                onAction={() => setQuery("")}
-              />
-            ) : null
-          }
-        />
-      </View>
-    </SafeAreaView>
+            ) : null}
+          </View>
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footer}>
+              <LoadingState label="Loading more" />
+            </View>
+          ) : null
+        }
+        // The error lives here rather than in `ListHeaderComponent`: the state
+        // components carry `flex: 1`, which collapses to nothing above a list and
+        // leaves the failure invisible. As the empty component it is the whole
+        // content area, the same place loading and "no matches" render.
+        ListEmptyComponent={
+          loading ? (
+            <LoadingState label="Searching" />
+          ) : error ? (
+            <ErrorState message={error} onRetry={reload} />
+          ) : searching ? (
+            <EmptyState
+              title="No matches"
+              message={`Nothing matches "${trimmed}". Search by medicine name, brand, or generic name — and check the spelling.`}
+              actionLabel="Clear search"
+              onAction={() => setQuery("")}
+            />
+          ) : null
+        }
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  flex: { flex: 1 },
   // Half the gutter here, half on every cell — the same pairing the catalog uses,
   // because FlashList v2 has no `columnWrapperStyle`. The two halves add up to
   // `spacing.lg`, which is the page margin every other screen uses, so a search
   // result sits exactly where the product it points at sits.
-  content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xxl },
-  header: { gap: spacing.md, paddingVertical: spacing.md },
+  content: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  header: { gap: spacing.md, paddingBottom: spacing.md, paddingHorizontal: spacing.xs },
   resultText: {
-    fontSize: typography.caption,
-    fontWeight: "600",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-    paddingHorizontal: spacing.xs,
+    fontFamily: fontFamily.pjsMedium,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
   },
   gridItem: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
-  suggestions: { gap: spacing.sm, paddingHorizontal: spacing.xs },
+  suggestions: { gap: spacing.sm },
   suggestionsLabel: {
-    fontSize: typography.caption,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
   },
   suggestionRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   suggestion: {
     borderWidth: 1,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
+    minHeight: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  suggestionText: { fontSize: typography.caption, fontWeight: "600" },
-  footer: { paddingVertical: spacing.lg },
+  suggestionText: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  footer: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xs },
   pressed: { opacity: 0.6 },
 });

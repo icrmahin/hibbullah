@@ -1,17 +1,18 @@
 /* eslint-disable react-hooks/set-state-in-effect -- form state syncing requires setState inside effects */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { goBack } from '@/utils/navigation';
 import { useThemeColors } from '../../../providers/ThemeProvider';
-import SoftHeader from '../../../components/common/SoftHeader';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import Input from '../../../components/common/Input';
 import Button from '../../../components/common/Button';
 import Icon from '../../../components/common/Icon';
 import { useAuth } from '../../../hooks/useAuth';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import { isValidEmail } from '../../../utils/validation';
 import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
+import { fontFamily, fontSize, lineHeight, letterSpacing } from '../../../constants/typography';
 import { radius } from '../../../constants/sizes';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -26,6 +27,7 @@ const MIN_PASSWORD_LENGTH = 8;
  */
 export default function SecurityScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const { user, changePassword, sendPasswordResetEmail } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -109,9 +111,12 @@ export default function SecurityScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title="Password & Security" onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <Screen header={<ScreenHeader title="Password & Security" onBack={goBack} />}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Section
           icon="lock"
           title="Change password"
@@ -189,10 +194,11 @@ export default function SecurityScreen() {
           />
         </Section>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
+/** One white card: Sora SemiBold heading over PJS body, then the form. Same shape as terms.tsx. */
 function Section({
   icon,
   title,
@@ -206,7 +212,7 @@ function Section({
 }) {
   const colors = useThemeColors();
   return (
-    <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
+    <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
       <View style={styles.cardHeader}>
         <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
           <Icon name={icon} size={16} color={colors.accent} />
@@ -222,16 +228,15 @@ function Section({
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
+  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.xl },
+  // White card on the off-white page — the lightness step is the separation, so no border.
   card: {
-    borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.md,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  cardHeaderText: { flex: 1, gap: 2 },
+  cardHeaderText: { flex: 1, gap: spacing.xs },
   iconWrap: {
     width: 32,
     height: 32,
@@ -239,9 +244,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardTitle: { fontSize: typography.bodySmall, fontWeight: '700' },
-  cardDescription: { fontSize: typography.caption },
+  cardTitle: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
+  },
+  cardDescription: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   cardBody: { gap: spacing.md },
-  error: { fontSize: typography.caption },
-  success: { fontSize: typography.caption },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  success: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
 });

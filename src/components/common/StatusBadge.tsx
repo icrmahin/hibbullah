@@ -13,18 +13,18 @@ export default function StatusBadge({ label, tone = "neutral" }: StatusBadgeProp
   const colors = useThemeColors();
 
   const palette = {
-    success: { bg: colors.successSoft, fg: colors.success, border: colors.successBorder, dot: colors.success },
-    warning: { bg: colors.warningSoft, fg: colors.warning, border: colors.warningBorder, dot: colors.warning },
-    danger: { bg: colors.dangerSoft, fg: colors.danger, border: colors.dangerBorder, dot: colors.danger },
-    info: { bg: colors.primarySoft, fg: colors.accent, border: colors.primaryMuted, dot: colors.accent },
-    neutral: { bg: colors.background, fg: colors.textMuted, border: colors.border, dot: colors.textMuted },
+    success: { bg: colors.successSoft, fg: colors.success, dot: colors.success },
+    warning: { bg: colors.warningSoft, fg: colors.warning, dot: colors.warning },
+    danger: { bg: colors.dangerSoft, fg: colors.danger, dot: colors.danger },
+    info: { bg: colors.primarySoft, fg: colors.accent, dot: colors.accent },
+    neutral: { bg: colors.background, fg: colors.textMuted, dot: colors.textMuted },
   } as const;
 
   const p = palette[tone];
 
   return (
     <View
-      style={[styles.badge, { backgroundColor: p.bg, borderColor: p.border }]}
+      style={[styles.badge, { backgroundColor: p.bg }]}
       accessibilityLabel={label}
       accessibilityRole="text"
     >
@@ -45,7 +45,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: radius.sm,
-    borderWidth: 1,
   },
   dot: { width: 6, height: 6, borderRadius: radius.pill },
   text: {

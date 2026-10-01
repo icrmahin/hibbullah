@@ -1,7 +1,6 @@
 import { router, usePathname } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize } from "../../constants/typography";
@@ -29,7 +28,6 @@ function getActivePath(pathname: string) {
 export default function CustomerDesktopHeader() {
   const pathname = usePathname();
   const colors = useThemeColors();
-  const shadows = useShadows();
   const { unreadCount } = useNotifications();
   const activePath = getActivePath(pathname);
 
@@ -41,7 +39,6 @@ export default function CustomerDesktopHeader() {
           {
             backgroundColor: colors.backgroundAlt,
             borderColor: colors.borderSoft,
-            ...shadows.sm,
           },
         ]}
       >
@@ -107,5 +104,5 @@ const styles = StyleSheet.create({
   rightSection: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   notificationButton: { width: 36, height: 36, borderRadius: radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative" },
   badge: { position: "absolute", top: -2, right: -4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
-  badgeText: { fontSize: 9, fontWeight: "700" },
+  badgeText: { fontFamily: fontFamily.pjsBold, fontSize: fontSize.tiny },
 });

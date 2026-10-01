@@ -1,20 +1,20 @@
 import { useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { goBack } from "@/utils/navigation";
 import { useThemeColors } from "../../../providers/ThemeProvider";
-import { useShadows } from "../../../constants/shadows";
-import SoftHeader from "../../../components/common/SoftHeader";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import Input from "../../../components/common/Input";
 import Button from "../../../components/common/Button";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
-import { radius } from "../../../constants/sizes";
+import { fontFamily, fontSize, lineHeight, letterSpacing } from "../../../constants/typography";
+import { opacity, radius } from "../../../constants/sizes";
 import config from "../../../constants/config";
 
 export default function ContactUsScreen() {
   const colors = useThemeColors();
-  const shadows = useShadows();
+  const bottomInset = useBottomInset();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
@@ -28,18 +28,33 @@ export default function ContactUsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title="Contact Us" onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm }]}>
+    <Screen header={<ScreenHeader title="Contact Us" onBack={goBack} />}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.title, { color: colors.text }]}>We’re here to help</Text>
           <Text style={[styles.sub, { color: colors.textMuted }]}>Hibbullah, Dhaka · Support {config.supportEmail} · Reply within 24h. For order issues include Order Number.</Text>
-          <Pressable onPress={() => Linking.openURL(`mailto:${config.supportEmail}`)}><Text style={[styles.link, { color: colors.accent }]}>{config.supportEmail}</Text></Pressable>
-          <Pressable onPress={() => Linking.openURL("tel:+8809612345678")}><Text style={[styles.link, { color: colors.accent }]}>+880 96 1234 5678 (9am–9pm)</Text></Pressable>
+          <Pressable
+            onPress={() => Linking.openURL(`mailto:${config.supportEmail}`)}
+            style={({ pressed }) => pressed && styles.pressed}
+            accessibilityRole="link"
+          >
+            <Text style={[styles.link, { color: colors.accent }]}>{config.supportEmail}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => Linking.openURL("tel:+8809612345678")}
+            style={({ pressed }) => pressed && styles.pressed}
+            accessibilityRole="link"
+          >
+            <Text style={[styles.link, { color: colors.accent }]}>+880 96 1234 5678 (9am–9pm)</Text>
+          </Pressable>
           <Text style={[styles.addr, { color: colors.textMuted }]}>House 12, Road 7, Dhanmondi, Dhaka 1209, Bangladesh</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.section, { color: colors.text }]}>Send a message</Text>
           <Input label="Your name" value={name} onChangeText={setName} placeholder="Full name" />
           <Input label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
@@ -49,19 +64,52 @@ export default function ContactUsScreen() {
           <Text style={[styles.hint, { color: colors.textMuted }]}>This opens your mail app. No data leaves device except via email.</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  card: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg, gap: spacing.sm },
-  title: { fontSize: typography.h3, fontWeight: "700" },
-  sub: { fontSize: typography.caption, lineHeight: 16 },
-  link: { fontSize: typography.bodySmall, fontWeight: "700" },
-  addr: { fontSize: typography.caption },
-  section: { fontSize: typography.bodySmall, fontWeight: "700" },
-  sent: { fontSize: typography.caption, textAlign: "center" },
-  hint: { fontSize: typography.caption, textAlign: "center" },
+  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
+  // White cards on the off-white page — no border, no shadow; the lightness step separates them.
+  card: { borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
+  title: {
+    fontFamily: fontFamily.soraBold,
+    fontSize: fontSize.title2,
+    lineHeight: fontSize.title2 * lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
+  },
+  sub: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  link: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  addr: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  section: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
+  },
+  sent: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: "center",
+  },
+  hint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: "center",
+  },
+  pressed: { opacity: opacity.pressed },
 });

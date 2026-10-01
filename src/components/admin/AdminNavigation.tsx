@@ -5,10 +5,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AdminDrawer from "./AdminDrawer";
 import Icon from "../common/Icon";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import { fontFamily, fontSize } from "../../constants/typography";
 import type { IconName } from "../common/Icon";
 
 const MAIN_TABS: { label: string; path: string; icon: IconName }[] = [
@@ -27,7 +26,6 @@ export default function AdminNavigation() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const shadows = useShadows();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const activePath = getActivePath(pathname);
   const isMenuActive = !["/(admin)", "/(admin)/orders", "/(admin)/products"].some(
@@ -43,7 +41,6 @@ export default function AdminNavigation() {
             {
               backgroundColor: colors.backgroundAlt,
               borderColor: colors.borderSoft,
-              ...shadows.sm,
             },
           ]}
         >
@@ -135,8 +132,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   label: {
-    fontSize: 9,
-    fontWeight: "600",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.tiny,
     letterSpacing: 0.1,
     lineHeight: 11,
   },

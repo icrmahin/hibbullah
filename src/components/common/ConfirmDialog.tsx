@@ -13,7 +13,6 @@
  */
 import { Modal as RNModal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import typography from "../../constants/typography";
@@ -46,7 +45,6 @@ export default function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   // Ink for the dialog's title and its icon glyph. The circle behind the icon is the
   // palette's solid `dangerSoft`/`infoSoft`, both of which are contrast-checked against the
   // status colour they carry — which is what replaced the `accent + "22"` alpha wash this
@@ -80,7 +78,7 @@ export default function ConfirmDialog({
           onStartShouldSetResponder={() => true}
           accessibilityRole="alert"
           accessibilityLabel={title}
-          style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }, shadows.lg]}
+          style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}
         >
           <View style={styles.header}>
             <View style={[styles.iconCircle, { backgroundColor: destructive ? colors.dangerSoft : colors.infoSoft }]}>

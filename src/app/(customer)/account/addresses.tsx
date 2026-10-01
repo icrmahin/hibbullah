@@ -1,44 +1,45 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { goBack } from '@/utils/navigation';
 import { useThemeColors } from '../../../providers/ThemeProvider';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import Button from '../../../components/common/Button';
-import SoftHeader from '../../../components/common/SoftHeader';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import EmptyState from '../../../components/common/EmptyState';
 import ConfirmDialog from '../../../components/common/ConfirmDialog';
 import spacing from '../../../constants/spacing';
 import { useAddresses } from '../../../hooks/useAddresses';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { normalizeError } from '../../../utils/errorHandling';
 import { radius } from '../../../constants/sizes';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 
 export default function CustomerAddressesScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const { data: addresses, loading, error, reload, setDefault, remove } = useAddresses();
   const { confirm, confirmDialogProps } = useConfirm();
   const [actionError, setActionError] = React.useState<string | null>(null);
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Addresses" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Addresses" onBack={goBack} />}>
         <LoadingState label="Loading addresses" />
         <ConfirmDialog {...confirmDialogProps} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Addresses" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Addresses" onBack={goBack} />}>
         <ErrorState message={error} onRetry={reload} />
         <ConfirmDialog {...confirmDialogProps} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -75,15 +76,21 @@ export default function CustomerAddressesScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title="Addresses" onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title="Addresses" onBack={goBack} />}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        showsVerticalScrollIndicator={false}
+      >
         {actionError ? <Text style={[styles.error, { color: colors.danger }]}>{actionError}</Text> : null}
         {addresses.length === 0 ? (
-          <EmptyState title="No addresses" message="Add your delivery address to place orders." />
+          <EmptyState
+            title="No addresses"
+            message="Add your delivery address to place orders."
+            icon="place"
+          />
         ) : (
           addresses.map((address) => (
-            <View key={address.id} style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+            <View key={address.id} style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
               <View style={styles.row}>
                 <Text style={[styles.label, { color: colors.text }]}>{address.label}{address.isDefault ? ' · Default' : ''}</Text>
               </View>
@@ -91,14 +98,29 @@ export default function CustomerAddressesScreen() {
               <Text style={[styles.text, { color: colors.textMuted }]}>{address.city}{address.county ? `, ${address.county}` : ''}{address.postalCode ? ` ${address.postalCode}` : ''}</Text>
               <View style={styles.actions}>
                 {!address.isDefault ? (
-                  <Pressable onPress={() => handleSetDefault(address.id)}>
+                  <Pressable
+                    onPress={() => handleSetDefault(address.id)}
+                    style={({ pressed }) => pressed && styles.pressed}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Make ${address.label} the default address`}
+                  >
                     <Text style={[styles.link, { color: colors.accent }]}>Set default</Text>
                   </Pressable>
                 ) : null}
-                <Pressable onPress={() => router.push({ pathname: '/(customer)/address/edit', params: { addressId: address.id } })}>
+                <Pressable
+                  onPress={() => router.push({ pathname: '/(customer)/address/edit', params: { addressId: address.id } })}
+                  style={({ pressed }) => pressed && styles.pressed}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${address.label}`}
+                >
                   <Text style={[styles.link, { color: colors.accent }]}>Edit</Text>
                 </Pressable>
-                <Pressable onPress={() => handleDelete(address.id)}>
+                <Pressable
+                  onPress={() => handleDelete(address.id)}
+                  style={({ pressed }) => pressed && styles.pressed}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${address.label}`}
+                >
                   <Text style={[styles.link, { color: colors.danger }]}>Delete</Text>
                 </Pressable>
               </View>
@@ -108,18 +130,37 @@ export default function CustomerAddressesScreen() {
         <Button title="Add address" onPress={() => router.push('/(customer)/address/edit')} fullWidth />
       </ScrollView>
       <ConfirmDialog {...confirmDialogProps} />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
+  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
+  // White card on the off-white page — no border, no shadow; the lightness step separates it.
+  card: { borderRadius: radius.lg, padding: spacing.lg },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontWeight: "700", marginBottom: spacing.xs },
-  text: { fontSize: 12 },
+  label: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+    marginBottom: spacing.xs,
+  },
+  text: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
   actions: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.md },
-  link: { fontWeight: '700', fontSize: 12 },
-  error: { fontSize: 12, textAlign: 'center' },
+  link: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
+  pressed: { opacity: 0.6 },
 });

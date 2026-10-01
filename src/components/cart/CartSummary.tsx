@@ -1,21 +1,27 @@
 import { StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import sizes from "../../constants/sizes";
+import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
-// FIX: aliased the CartSummary type import — it collided with the default-export component
-// named CartSummary below, which caused an ESLint no-redeclare error and shadowed the type.
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import type { CartSummary as CartSummaryData } from "../../types/cart";
 import { formatCurrency } from "../../utils/currency";
 
+/**
+ * The money block: subtotal, discount, delivery, total.
+ *
+ * One card, hairline above the total, PJS throughout. Cart and checkout both render this
+ * rather than each writing their own copy of the four rows — the rows are the same
+ * arithmetic wearing different surroundings, and they drifted apart when they were
+ * hand-written twice in one file.
+ */
 export default function CartSummary({ summary }: { summary: CartSummaryData }) {
   const colors = useThemeColors();
   return (
-    <View style={[styles.box, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
-      <Row label="Subtotal" value={formatCurrency(summary.subtotal)} colors={colors} />
-      <Row label="Discount" value={`-${formatCurrency(summary.discount)}`} colors={colors} />
-      <Row label="Delivery" value={formatCurrency(summary.deliveryFee)} colors={colors} />
-      <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
+    <View style={[styles.box, { backgroundColor: colors.backgroundAlt }]}>
+      <Row label="Subtotal" value={formatCurrency(summary.subtotal)} muted />
+      <Row label="Discount" value={`-${formatCurrency(summary.discount)}`} muted />
+      <Row label="Delivery" value={formatCurrency(summary.deliveryFee)} muted />
+      <View style={[styles.totalRow, { borderTopColor: colors.borderSoft }]}>
         <Text style={[styles.total, { color: colors.text }]}>Total</Text>
         <Text style={[styles.total, { color: colors.text }]}>{formatCurrency(summary.total)}</Text>
       </View>
@@ -23,10 +29,11 @@ export default function CartSummary({ summary }: { summary: CartSummaryData }) {
   );
 }
 
-function Row({ label, value, colors }: { label: string; value: string; colors: { textMuted: string; text: string } }) {
+function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  const colors = useThemeColors();
   return (
     <View style={styles.row}>
-      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.label, { color: muted ? colors.textMuted : colors.text }]}>{label}</Text>
       <Text style={[styles.value, { color: colors.text }]}>{value}</Text>
     </View>
   );
@@ -34,19 +41,37 @@ function Row({ label, value, colors }: { label: string; value: string; colors: {
 
 const styles = StyleSheet.create({
   box: {
-    borderRadius: sizes.cardRadius,
-    borderWidth: 1,
+    borderRadius: radius.lg,
     padding: spacing.lg,
+    gap: spacing.sm,
   },
-  row: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
-  label: { fontSize: typography.caption },
-  value: { fontSize: typography.caption },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  label: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  value: {
+    fontFamily: fontFamily.pjsMedium,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: spacing.md,
+    alignItems: "center",
+    marginTop: spacing.sm,
     paddingTop: spacing.md,
     borderTopWidth: 1,
   },
-  total: { fontWeight: "700" },
+  total: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: -0.2,
+  },
 });

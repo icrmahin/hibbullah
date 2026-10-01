@@ -1,19 +1,21 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
+import Icon from "./Icon";
+import type { IconName } from "./Icon";
 
 type FilterChipProps = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  /** Optional leading glyph — a filter icon, a category marker. */
+  icon?: IconName;
 };
 
-export default function FilterChip({ label, selected = false, onPress }: FilterChipProps) {
+export default function FilterChip({ label, selected = false, onPress, icon }: FilterChipProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
 
   return (
     <Pressable
@@ -23,14 +25,14 @@ export default function FilterChip({ label, selected = false, onPress }: FilterC
         {
           backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt,
           borderColor: selected ? colors.accent : colors.borderLight,
-          ...shadows.xs,
           opacity: pressed ? 0.85 : 1,
         },
       ]}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={`Filter by ${label}`}
+      accessibilityLabel={label}
     >
+      {icon ? <Icon name={icon} size={14} color={selected ? colors.accent : colors.textMuted} /> : null}
       <Text style={[styles.text, { color: selected ? colors.accent : colors.textMuted }]}>
         {label}
       </Text>
@@ -40,6 +42,8 @@ export default function FilterChip({ label, selected = false, onPress }: FilterC
 
 const styles = StyleSheet.create({
   chip: {
+    flexDirection: "row",
+    gap: spacing.xs,
     borderWidth: 1,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
@@ -49,7 +53,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   text: {
-    fontFamily: fontFamily.semiBold,
+    fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.footnote,
     lineHeight: fontSize.footnote * lineHeight.normal,
   },

@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius, layout, opacity as opacityToken } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
@@ -85,7 +84,6 @@ export default function SearchableSelect({
   style,
 }: SearchableSelectProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
 
@@ -151,7 +149,7 @@ export default function SearchableSelect({
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={close}>
           {/* Tapping inside must not close the sheet. */}
           <Pressable
-            style={[styles.sheet, { backgroundColor: colors.backgroundAlt, ...shadows.lg }]}
+            style={[styles.sheet, { backgroundColor: colors.backgroundAlt }]}
             onPress={() => {}}
           >
             <View style={styles.sheetHeader}>

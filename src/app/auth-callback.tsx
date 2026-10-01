@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking'
 import { supabase } from '../lib/supabase'
 import { useThemeColors } from '../providers/ThemeProvider'
 import spacing from '../constants/spacing'
+import { fontFamily, fontSize, lineHeight } from '../constants/typography'
 
 export default function AuthCallback() {
   const [status, setStatus] = useState('Processing link...')
@@ -92,11 +93,39 @@ export default function AuthCallback() {
       }}
     >
       <ActivityIndicator color={colors.accent} />
-      <Text style={{ fontSize: 12, textAlign: 'center', color: colors.text }}>{status}</Text>
+      <Text
+        style={{
+          fontFamily: fontFamily.pjsRegular,
+          fontSize: fontSize.caption,
+          lineHeight: fontSize.caption * lineHeight.normal,
+          textAlign: 'center',
+          color: colors.text,
+        }}
+      >
+        {status}
+      </Text>
       {error ? (
-        <Text style={{ fontSize: 12, color: colors.danger, textAlign: 'center' }}>{error}</Text>
+        <Text
+          style={{
+            fontFamily: fontFamily.pjsRegular,
+            fontSize: fontSize.caption,
+            lineHeight: fontSize.caption * lineHeight.normal,
+            color: colors.danger,
+            textAlign: 'center',
+          }}
+        >
+          {error}
+        </Text>
       ) : null}
-      <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center' }}>
+      <Text
+        style={{
+          fontFamily: fontFamily.pjsRegular,
+          fontSize: fontSize.micro,
+          lineHeight: fontSize.micro * lineHeight.normal,
+          color: colors.textMuted,
+          textAlign: 'center',
+        }}
+      >
         hibbullah://auth-callback — used for email confirmation and password recovery on
         Android standalone.
       </Text>

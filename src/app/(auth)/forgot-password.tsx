@@ -1,13 +1,14 @@
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
-import { Mail, ArrowLeft } from "lucide-react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
+import Alert from "../../components/common/Alert";
+import Icon from "../../components/common/Icon";
 import AppLogo from "../../components/common/AppLogo";
+import AuthShell from "../../components/auth/AuthShell";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { radius } from "../../constants/sizes";
@@ -49,110 +50,81 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.outer}>
-          <View style={styles.content}>
-            <Pressable
-              onPress={() => router.replace("/(auth)/login")}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Back to sign in"
-              style={styles.backRow}
-            >
-              <ArrowLeft size={18} color={colors.textMuted} strokeWidth={2} />
-              <Text style={[styles.backText, { color: colors.textMuted }]}>Back to sign in</Text>
-            </Pressable>
+    <AuthShell>
+      <Pressable
+        onPress={() => router.replace("/(auth)/login")}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Back to sign in"
+        style={styles.back}
+      >
+        <Icon name="arrow-back" size={20} color={colors.text} />
+      </Pressable>
 
-            <View style={styles.brand}>
-              <AppLogo size={44} />
-              <Text style={[styles.brandName, { color: colors.text }]}>Hibbullah</Text>
-            </View>
+      <View style={styles.brand}>
+        <AppLogo size={44} />
+        <Text style={[styles.brandName, { color: colors.text }]}>Hibbullah</Text>
+      </View>
 
-            <View style={styles.header}>
-              <Text style={[styles.heading, { color: colors.text }]}>Forgot password?</Text>
-              <Text style={[styles.subheading, { color: colors.textMuted }]}>
-                Enter your email and we&apos;ll send a reset link.
-              </Text>
-            </View>
+      <View style={styles.header}>
+        <Text style={[styles.heading, { color: colors.text }]}>Forgot password?</Text>
+        <Text style={[styles.subheading, { color: colors.textMuted }]}>
+          Enter your email and we&apos;ll send a reset link.
+        </Text>
+      </View>
 
-            <View style={styles.form}>
-              <Input
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                editable={!loading}
-                prefix={<Mail size={18} color={colors.textMuted} strokeWidth={1.8} />}
-              />
+      <View style={styles.form}>
+        <Input
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          editable={!loading}
+          prefix={<Icon name="mail" size={18} color={colors.textMuted} />}
+        />
 
-              {error ? (
-                <View style={[styles.message, { backgroundColor: colors.redSoft, borderColor: colors.dangerBorder }]}>
-                  <Text style={[styles.messageText, { color: colors.danger }]}>{error}</Text>
-                </View>
-              ) : null}
+        {error ? <Alert variant="danger" message={error} /> : null}
 
-              {sent ? (
-                <View style={[styles.message, { backgroundColor: colors.primarySoft, borderColor: colors.borderLight }]}>
-                  <Text style={[styles.messageText, { color: colors.accent }]}>
-                    Reset link sent. Check your email — including spam.
-                  </Text>
-                </View>
-              ) : null}
+        {sent ? <Alert variant="info" message="Reset link sent. Check your email — including spam." /> : null}
 
-              <Button
-                title={loading ? "Please wait..." : sent ? "Resend link" : "Send reset link"}
-                onPress={handleSend}
-                loading={loading}
-                disabled={loading}
-                fullWidth
-                style={styles.primaryButton}
-              />
+        <Button
+          title={loading ? "Please wait..." : sent ? "Resend link" : "Send reset link"}
+          onPress={handleSend}
+          loading={loading}
+          disabled={loading}
+          fullWidth
+          style={styles.submitButton}
+        />
 
-              <Pressable
-                onPress={() => router.replace("/(auth)/login")}
-                hitSlop={8}
-                style={styles.secondaryLink}
-              >
-                <Text style={[styles.secondaryText, { color: colors.accent }]}>Back to sign in</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <Pressable
+          onPress={() => router.replace("/(auth)/login")}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back to sign in"
+          style={styles.secondaryLink}
+        >
+          <Text style={[styles.secondaryText, { color: colors.accent }]}>Back to sign in</Text>
+        </Pressable>
+      </View>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  flex: { flex: 1 },
-  outer: {
-    flex: 1,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    alignItems: "center",
-  },
-  content: {
-    flex: 1,
-    width: "100%",
-    maxWidth: 440,
-  },
-  backRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
+  // The header's back control: 36×36, borderless, `arrow-back` at 20 in the text colour.
+  back: {
+    width: 36,
+    height: 36,
+    marginLeft: -6,
     marginBottom: spacing.lg,
-  },
-  backText: {
-    fontFamily: fontFamily.pjsMedium,
-    fontSize: fontSize.footnote,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.lg,
   },
   brand: {
     alignItems: "center",
@@ -186,20 +158,7 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
   },
-  message: {
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  messageText: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-    textAlign: "center",
-  },
-  primaryButton: {
-    borderRadius: radius.xl,
+  submitButton: {
     marginTop: spacing.sm,
   },
   secondaryLink: {
@@ -209,5 +168,6 @@ const styles = StyleSheet.create({
   secondaryText: {
     fontFamily: fontFamily.pjsMedium,
     fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
   },
 });

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius, layout, opacity as opacityToken } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
@@ -34,7 +33,6 @@ export default function Select({
   style,
 }: SelectProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
 
@@ -67,7 +65,7 @@ export default function Select({
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setOpen(false)}>
-          <View style={[styles.sheet, { backgroundColor: colors.backgroundAlt, ...shadows.lg }]}>
+          <View style={[styles.sheet, { backgroundColor: colors.backgroundAlt }]}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>{label || placeholder}</Text>
             {options.map((opt) => (
               <Pressable

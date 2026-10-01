@@ -116,8 +116,8 @@ const cases = [
     CUSTOMER_CART,
     (s) =>
       s.replace(
-        '{/* No stock readout — see the note on the wide layout above. */}',
-        '<Text>{product.stock} available</Text>',
+        '{/*\n        No stock readout here.',
+        '<Text>{product.stock} available</Text>\n      {/*\n        No stock readout here.',
       ),
   ],
   [
@@ -125,8 +125,8 @@ const cases = [
     CUSTOMER_CART,
     (s) =>
       s.replace(
-        '{/* No stock readout — see the note on the wide layout above. */}',
-        '<Text>Only a few left</Text>',
+        '{/*\n        No stock readout here.',
+        '<Text>Only a few left</Text>\n      {/*\n        No stock readout here.',
       ),
   ],
   [
@@ -188,8 +188,8 @@ const cases = [
     SEARCH_BAR,
     (s) =>
       s.replace(
-        '          styles.wrapper,\n          {\n            backgroundColor: colors.backgroundAlt,\n            borderColor: colors.borderLight,\n            ...shadows.sm,\n          },\n          pressed && styles.pressed,',
-        '          { flex: 1 },\n          pressed && styles.pressed,',
+        'styles.wrapper,\n          {\n            backgroundColor: colors.backgroundAlt,\n            borderColor: colors.borderLight,\n          },\n          pressed && styles.pressed,',
+        '{ flex: 1 },\n          pressed && styles.pressed,',
       ),
   ],
   [

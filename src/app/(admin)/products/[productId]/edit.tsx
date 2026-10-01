@@ -1,20 +1,20 @@
 import { useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { goBack } from "@/utils/navigation";
-import { StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AdminHeader from "../../../../components/admin/AdminHeader";
+import Screen from "../../../../components/common/Screen";
+import ScreenHeader from "../../../../components/common/ScreenHeader";
 import ProductForm from "../../../../components/admin/ProductForm";
 import EmptyState from "../../../../components/common/EmptyState";
 import LoadingState from "../../../../components/common/LoadingState";
 import ErrorState from "../../../../components/common/ErrorState";
-import { useThemeColors } from "../../../../providers/ThemeProvider";
 import { useCategories, useManufacturers, useProduct } from "../../../../hooks/useProducts";
 import { createCategory, createManufacturer, updateProduct } from "../../../../services/products";
 import { uploadProductImage, reclaimSupersededProductImages } from "../../../../services/storage";
 
+/** One level deep: fall back to the admin dashboard when there is nothing to pop. */
+const onBack = () => goBack("/(admin)");
+
 export default function AdminEditProductScreen() {
-  const colors = useThemeColors();
   const params = useLocalSearchParams<{ productId: string }>();
   const productId = params.productId as string;
 
@@ -26,39 +26,35 @@ export default function AdminEditProductScreen() {
 
   if (loading || catLoading || manLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Edit product" subtitle="Update catalog item" />
+      <Screen header={<ScreenHeader title="Edit product" subtitle="Update catalog item" onBack={onBack} />}>
         <LoadingState label="Loading product" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Edit product" subtitle="Update catalog item" />
+      <Screen header={<ScreenHeader title="Edit product" subtitle="Update catalog item" onBack={onBack} />}>
         <ErrorState message={error} onRetry={reload} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!product) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Edit product" subtitle="Update catalog item" />
+      <Screen header={<ScreenHeader title="Edit product" subtitle="Update catalog item" onBack={onBack} />}>
         <EmptyState
           title="Product not found"
           message="This product may have been removed."
           actionLabel="Back to products"
           onAction={() => goBack()}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Edit product" subtitle="Update catalog item" />
+    <Screen header={<ScreenHeader title="Edit product" subtitle="Update catalog item" onBack={onBack} />}>
       <ProductForm
         key={product.id}
         product={product}
@@ -93,10 +89,6 @@ export default function AdminEditProductScreen() {
           goBack();
         }}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-});

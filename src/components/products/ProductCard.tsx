@@ -1,9 +1,8 @@
 import { memo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import spacing from "../../constants/spacing";
-import { fontFamily, fontSize } from "../../constants/typography";
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { radius } from "../../constants/sizes";
 import type { Product } from "../../types/product";
 import ProductImage from "./ProductImage";
@@ -19,40 +18,30 @@ type ProductCardProps = {
 };
 
 /**
- * The product card, drawn for a 167px column.
+ * The product card, drawn for a ~167px column.
  *
  * Two cards to a phone screen, which is the smallest width this has to look deliberate at,
  * and that number is what every decision below is measured against. The card used to run
  * about 315px tall there — nearly half the viewport for a single product — because a square
  * image sat under a name, a generic line, a price row that wrapped, a full sentence about
  * stock, and a 36px full-width button whose "Add to cart" label had roughly 150px to sit
- * in. It now runs about 255px, and the height came off the redundant rows rather than off
- * the photograph, which is the one part that was earning its space.
+ * in. The height came off the redundant rows rather than off the photograph, which is the
+ * one part that was earning its space.
  *
- * Three things moved onto the image, where there was already room:
+ * What is *not* on the card is policy rather than omission: the pharmacy does not publish
+ * stock levels to customers, so there is no count, no "In stock", no "Only a few left" and
+ * no out-of-stock scrim. An unavailable product is one whose add button is disabled, and
+ * that disabled state has to carry the meaning on its own.
  *
- *   * the stock line was a sentence ("24 in stock") on its own row, which at 167px is the
- *     widest line on the card and its least useful. It was a pill on the photo for a while.
- *     It is gone now: the pharmacy does not publish its stock levels to customers, so the
- *     card carries no stock indicator of any kind — no count, no "In stock", no "Only a few
- *     left", and no out-of-stock scrim. An unavailable product is simply one whose add
- *     button is disabled. Exact numbers were the first thing to go, because they tell a
- *     customer how much to buy before a restock and how much a competitor has sold; the
- *     availability wording went next, on the same grounds.
- *   * the add button was full width, so the label had to shrink until it was barely the
- *     label. It is a floating button, and the accessibility label still says what it is.
- *   * the out-of-stock state was a centred uppercase word *and* the stock line saying the
- *     same thing. Both are gone; the disabled add button is the only signal, which is why
- *     its disabled styling has to read as disabled rather than merely look different.
- *
- * The soft-UI part is the recessed well the photo sits in, the two floating controls that
- * cast their own soft shadow above it, and a press that flattens the card's shadow rather
- * than fading it — pressing something should look like pushing it, which is the one cue
- * that separates soft UI from a flat rectangle with a border.
+ * Visually it is the app's card rule: white on the off-white page, no border, no shadow —
+ * the lightness step is the separation, and a hairline around every card in a two-column
+ * grid is edge noise at this density. The photograph sits in a well one step back from the
+ * card (`background` under `backgroundAlt`) so the image has a stage without a second
+ * rounded rectangle inside the first. Press feedback is a small opacity dip on the card
+ * plus the scale on the floating controls.
  */
 function ProductCard({ product, compact, onPress }: ProductCardProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const { addItem } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [adding, setAdding] = useState(false);
@@ -88,10 +77,7 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
         compact && styles.compact,
         {
           backgroundColor: colors.backgroundAlt,
-          borderColor: colors.borderSoft,
-          // Pressing flattens the lift rather than fading the card. It is the one cue that
-          // makes a soft surface read as pressable, and it costs one style swap.
-          ...(pressed ? shadows.none : shadows.sm),
+          opacity: pressed ? 0.92 : 1,
         },
       ]}
     >
@@ -133,18 +119,19 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
           style={({ pressed: down }) => [
             styles.addFab,
             {
-              backgroundColor: outOfStock ? colors.borderSoft : colors.primary,
+              backgroundColor: outOfStock ? colors.backgroundAlt : colors.primary,
               borderColor: outOfStock ? colors.borderLight : colors.borderSoft,
               opacity: outOfStock ? 0.7 : down ? 0.85 : 1,
               transform: [{ scale: down && !outOfStock ? 0.94 : 1 }],
-              ...shadows.md,
             },
           ]}
         >
           <Icon
             name={outOfStock || adding ? "block" : "add-shopping-cart"}
             size={15}
-            color={outOfStock ? colors.textMuted : colors.white}
+            // `textInverse`, not `white`: the primary fill is deep teal in light mode and
+            // light sage in dark, so its glyph has to invert with it.
+            color={outOfStock ? colors.textMuted : colors.textInverse}
           />
         </Pressable>
 
@@ -158,13 +145,16 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
             styles.favPill,
             {
               backgroundColor: fav ? colors.danger : colors.backgroundAlt,
-              borderColor: fav ? colors.danger : colors.borderSoft,
+              borderColor: fav ? colors.danger : colors.borderLight,
               opacity: down ? 0.85 : 1,
-              ...shadows.md,
             },
           ]}
         >
-          <Icon name={fav ? "favorite" : "favorite-border"} size={13} color={fav ? colors.white : colors.textMuted} />
+          <Icon
+            name={fav ? "favorite" : "favorite-border"}
+            size={13}
+            color={fav ? colors.textInverse : colors.textMuted}
+          />
         </Pressable>
       </View>
 
@@ -217,7 +207,6 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.xl,
-    borderWidth: 1,
     overflow: "hidden",
     marginBottom: spacing.md,
   },
@@ -270,21 +259,21 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    gap: 2,
+    paddingBottom: spacing.md,
+    gap: spacing.xxs,
   },
   name: {
-    fontFamily: fontFamily.pjsMedium,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * 1.3,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
     // Reserved rather than grown, so two cards in a row stay the same height whatever their
     // names are.
-    minHeight: 34,
+    minHeight: 38,
   },
   generic: {
     fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.tiny,
-    lineHeight: fontSize.tiny * 1.3,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.normal,
   },
   priceRow: {
     flexDirection: "row",
@@ -295,7 +284,7 @@ const styles = StyleSheet.create({
   price: {
     fontFamily: fontFamily.pjsBold,
     fontSize: fontSize.bodySmall,
-    lineHeight: fontSize.bodySmall * 1.2,
+    lineHeight: fontSize.bodySmall * lineHeight.tight,
   },
   original: {
     fontFamily: fontFamily.pjsRegular,

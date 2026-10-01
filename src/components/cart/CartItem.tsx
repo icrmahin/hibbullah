@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import type { CartItem } from "../../types/cart";
 import { formatCurrency } from "../../utils/currency";
 import ProductImage from "../products/ProductImage";
@@ -57,10 +57,10 @@ const styles = StyleSheet.create({
   },
   image: { width: sizes.thumbnail, height: sizes.thumbnail, borderRadius: sizes.borderRadius.md },
   info: { flex: 1, gap: spacing.xs },
-  name: { fontSize: typography.subhead, fontWeight: "600" },
+  name: { fontFamily: fontFamily.soraSemiBold, fontSize: typography.subhead },
   meta: { fontSize: typography.caption1 },
   aside: { alignItems: "flex-end", justifyContent: "space-between", gap: spacing.md, alignSelf: "stretch" },
-  price: { fontSize: typography.subhead, fontWeight: "700" },
+  price: { fontFamily: fontFamily.pjsBold, fontSize: typography.subhead },
   deleteBtn: {
     width: 30,
     height: 30,

@@ -1,22 +1,24 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import AdminHeader from '../../../components/admin/AdminHeader';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import StatusBadge from '../../../components/common/StatusBadge';
 import { useThemeColors } from '../../../providers/ThemeProvider';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchReturns } from '../../../services/returns';
 import { formatDateTime } from '../../../utils/date';
 import { radius } from '../../../constants/sizes';
 
 export default function AdminReturnsScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const [returns, setReturns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,40 +46,28 @@ export default function AdminReturnsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Returns" subtitle="Customer return requests" />
+      <Screen header={<ScreenHeader title="Returns" subtitle="Customer return requests" />}>
         <LoadingState label="Loading returns" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Returns" subtitle="Customer return requests" />
+      <Screen header={<ScreenHeader title="Returns" subtitle="Customer return requests" />}>
         <ErrorState message={error} onRetry={load} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Returns" subtitle="Customer return requests" />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title="Returns" subtitle="Customer return requests" />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         {returns.length === 0 ? (
           <EmptyState title="No returns" message="Return requests will appear here." />
         ) : (
           returns.map((item) => (
-            <View
-              key={item.id}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.backgroundAlt,
-                  borderColor: colors.borderLight,
-                },
-              ]}
-            >
+            <View key={item.id} style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
               <Text style={[styles.order, { color: colors.text }]}>{item.productName} · {item.customerName}</Text>
               {/* Quantity and age are what an admin triages on: two returns for one tablet
                   and two hundred are different problems, and the card showed neither. The
@@ -122,24 +112,48 @@ export default function AdminReturnsScreen() {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  container: { padding: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
   },
-  order: { fontSize: typography.body, fontWeight: '700' },
-  meta: { fontSize: typography.bodySmall, marginTop: spacing.xs },
-  reason: { fontSize: typography.bodySmall, marginTop: spacing.xs, marginBottom: spacing.sm },
+  order: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    marginTop: spacing.xs,
+  },
+  reason: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
   // The outcome of the approval, in the database's own words. Kept at the same size as the
   // reason above it: it is bookkeeping detail the admin needs, not a headline.
-  restockNote: { fontSize: typography.caption, marginTop: -spacing.xs, marginBottom: spacing.sm, fontStyle: 'italic' },
+  restockNote: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+    fontStyle: 'italic',
+  },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  link: { fontWeight: '700' },
+  link: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
 });

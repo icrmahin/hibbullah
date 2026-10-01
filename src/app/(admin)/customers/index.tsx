@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import AdminHeader from '../../../components/admin/AdminHeader';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -11,8 +11,9 @@ import SearchBar from '../../../components/common/SearchBar';
 import Button from '../../../components/common/Button';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
 import { config } from '../../../constants/config';
 import { fetchCustomers, type CustomerRecord } from '../../../services/customers';
@@ -22,7 +23,7 @@ import { radius } from '../../../constants/sizes';
 function CustomerRow({ customer }: { customer: CustomerRecord }) {
   const colors = useThemeColors();
   return (
-    <View style={[styles.row, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
+    <View style={[styles.row, { backgroundColor: colors.backgroundAlt }]}>
       <View style={styles.rowContent}>
         <Text style={[styles.name, { color: colors.text }]}>{customer.name}</Text>
         <Text style={[styles.info, { color: colors.textMuted }]}>
@@ -55,6 +56,7 @@ function CustomerRow({ customer }: { customer: CustomerRecord }) {
 
 export default function AdminCustomersScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   // One-up on a phone, growing to three on a desktop. The reason this is not the product
   // grid's `columns` is in `useResponsive`. It is a hook and not a plain expression, so it
   // has to sit with the others rather than below the loading and error returns.
@@ -117,28 +119,25 @@ export default function AdminCustomersScreen() {
 
   if (loading && customers.length === 0) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Customers" subtitle="Manage customer records" />
+      <Screen header={<ScreenHeader title="Customers" subtitle="Manage customer records" />}>
         <LoadingState label="Loading customers" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error && customers.length === 0) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Customers" subtitle="Manage customer records" />
+      <Screen header={<ScreenHeader title="Customers" subtitle="Manage customer records" />}>
         <ErrorState message={error} onRetry={load} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   const filtered = customers;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Customers" subtitle="Manage customer records" />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title="Customers" subtitle="Manage customer records" />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <ResponsiveContainer sidebarAware>
           <SearchBar value={query} onChangeText={setQuery} placeholder="Search customer" />
           {filtered.length === 0 ? (
@@ -181,13 +180,13 @@ export default function AdminCustomersScreen() {
           ) : null}
         </ResponsiveContainer>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  // ResponsiveContainer owns the 16px gutter, so the screen keeps only the top padding.
+  container: { paddingTop: spacing.lg, gap: spacing.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   gridItem: { marginBottom: spacing.md },
   row: {
@@ -195,15 +194,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.md,
     gap: spacing.sm,
   },
   rowContent: { flex: 1, gap: spacing.xxs },
-  name: { fontSize: typography.body, fontWeight: '700' },
-  info: { fontSize: typography.caption },
-  spent: { fontSize: typography.caption, fontWeight: '700' },
-  link: { fontWeight: '700' },
+  name: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  info: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  spent: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  link: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
   more: { marginTop: spacing.sm },
-  count: { fontSize: typography.caption, textAlign: 'center' },
+  count: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
 });

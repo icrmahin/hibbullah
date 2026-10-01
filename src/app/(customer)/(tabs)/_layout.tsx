@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import Icon from "../../../components/common/Icon";
+import { fontFamily, fontSize } from "../../../constants/typography";
 
 export default function CustomerTabsLayout() {
   const colors = useThemeColors();
@@ -11,7 +12,7 @@ export default function CustomerTabsLayout() {
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: { display: "none" },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: { fontFamily: fontFamily.pjsSemiBold, fontSize: fontSize.tiny },
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: ({ color }) => <Icon name="home" size={22} color={color} /> }} />

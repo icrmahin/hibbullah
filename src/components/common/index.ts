@@ -39,8 +39,6 @@ export { default as FadeIn } from "./FadeIn";
 // Navigation
 export { default as Tabs } from "./Tabs";
 export { default as ListItem } from "./ListItem";
-export { default as Header } from "./Header";
-export { default as SoftHeader } from "./SoftHeader";
 
 // Overlay
 export { default as Modal } from "./Modal";

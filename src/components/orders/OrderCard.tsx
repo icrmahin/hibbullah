@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize } from "../../constants/typography";
@@ -17,7 +16,6 @@ type OrderCardProps = {
 
 export default function OrderCard({ order, onPress }: OrderCardProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const isPending = order.status === "PENDING";
   return (
     <Pressable
@@ -26,7 +24,6 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
         {
           backgroundColor: colors.backgroundAlt,
           borderColor: colors.borderSoft,
-          ...shadows.xs,
           opacity: pressed ? 0.88 : 1,
         },
       ]}

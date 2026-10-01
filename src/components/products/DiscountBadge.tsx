@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 
 export default function DiscountBadge({ percent }: { percent: number }) {
   const colors = useThemeColors();
@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxs,
   },
   text: {
+    fontFamily: fontFamily.pjsSemiBold,
     fontSize: typography.caption2,
-    fontWeight: "600",
   },
 });

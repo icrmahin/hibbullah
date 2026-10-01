@@ -3,7 +3,7 @@ import { memo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { layout } from "../../constants/sizes";
-import { fontSize } from "../../constants/typography";
+import { fontFamily, fontSize } from "../../constants/typography";
 
 type AvatarProps = {
   uri?: string | null;
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   initials: {
-    fontWeight: "700",
+    fontFamily: fontFamily.soraBold,
   },
 });
 

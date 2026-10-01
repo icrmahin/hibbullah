@@ -1,20 +1,21 @@
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AdminHeader from "../../../components/admin/AdminHeader";
-import Button from "../../../components/common/Button";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useAdminInventory } from "../../../hooks/useAdmin";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
 import EmptyState from "../../../components/common/EmptyState";
 import InventoryStatus from "../../../components/admin/InventoryStatus";
 import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
+import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 import { radius } from "../../../constants/sizes";
 
 export default function AdminInventoryScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const { data, loading, error, reload } = useAdminInventory();
   const items = (data || []).map((row: any) => ({
     id: row.id,
@@ -26,36 +27,41 @@ export default function AdminInventoryScreen() {
     expiryDate: row.expiry_date ?? row.expiryDate,
   }));
 
+  // The compact header pill every admin screen shares — not a full-height Button, which
+  // sat proud of the 44px header row.
+  const headerAction = (
+    <Pressable
+      onPress={() => router.push("/(admin)/inventory/adjustment")}
+      style={({ pressed }) => [
+        styles.headerAction,
+        { backgroundColor: colors.primarySoft },
+        pressed && styles.pressed,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Adjust stock"
+    >
+      <Text style={[styles.headerActionText, { color: colors.accent }]}>Adjust</Text>
+    </Pressable>
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Inventory" subtitle="Stock overview" />
+      <Screen header={<ScreenHeader title="Inventory" subtitle="Stock overview" />}>
         <LoadingState label="Loading inventory" />
-      </SafeAreaView>
+      </Screen>
     );
   }
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Inventory" subtitle="Stock overview" />
+      <Screen header={<ScreenHeader title="Inventory" subtitle="Stock overview" />}>
         <ErrorState message={error} onRetry={reload} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader
-        title="Inventory"
-        subtitle="Stock overview"
-        action={
-          <Button
-            title="Adjust"
-            onPress={() => router.push("/(admin)/inventory/adjustment")}
-          />
-        }
-      />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title="Inventory" subtitle="Stock overview" action={headerAction} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         {items.length === 0 ? (
           <EmptyState title="No inventory" message="No stock batches found." />
         ) : (
@@ -72,19 +78,13 @@ export default function AdminInventoryScreen() {
                   params: { productId: String(item.productId) },
                 });
               }}
-              style={[
-                styles.row,
-                {
-                  backgroundColor: colors.backgroundAlt,
-                  borderColor: colors.borderLight,
-                },
-              ]}
+              style={[styles.row, { backgroundColor: colors.backgroundAlt }]}
             >
-              <View style={{ flex: 1 }}>
+              <View style={styles.rowMain}>
                 <Text style={[styles.name, { color: colors.text }]}>{item.productName}</Text>
                 <Text style={[styles.meta, { color: colors.textMuted }]}>{item.batchNumber} {item.expiryDate ? `· Exp ${item.expiryDate}` : ''}{item.productId ? ' · tap to manage' : ''}</Text>
               </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              <View style={styles.rowStats}>
                 <Text style={[styles.qty, { color: colors.accent }]}>{item.quantity}</Text>
                 <InventoryStatus status={item.status} />
               </View>
@@ -92,26 +92,51 @@ export default function AdminInventoryScreen() {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
   container: {
     padding: spacing.lg,
     gap: spacing.md,
-    paddingBottom: spacing.xxl,
   },
+  headerAction: {
+    height: 34,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+  },
+  headerActionText: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  pressed: { opacity: 0.7 },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.md,
+    gap: spacing.sm,
   },
-  name: { fontWeight: "700" },
-  meta: { fontSize: typography.caption },
-  qty: { fontWeight: "700" },
+  rowMain: { flex: 1, gap: spacing.xxs },
+  rowStats: { alignItems: 'flex-end', gap: spacing.xs },
+  name: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  qty: {
+    fontFamily: fontFamily.pjsBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
 });

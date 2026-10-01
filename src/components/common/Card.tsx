@@ -2,7 +2,6 @@
 import { Pressable, StyleSheet, type ViewProps } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, useReducedMotion } from "react-native-reanimated";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { springConfigs, compression as compressionValues } from "../../lib/motion";
@@ -22,8 +21,6 @@ export default function Card({
   ...props
 }: CardProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
-  const shadowStyle = shadows[elevation];
   const reducedMotion = useReducedMotion();
 
   const scale = useSharedValue(1);
@@ -52,7 +49,6 @@ export default function Card({
       backgroundColor: colors.backgroundAlt,
       borderColor: colors.borderLight,
     },
-    shadowStyle,
     pressed && styles.pressed,
     style,
   ];

@@ -2,15 +2,18 @@
 import { goBack } from '@/utils/navigation';
 import { useState, useEffect, useMemo } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { ScrollView, StyleSheet, Text, View, Switch } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../../providers/ThemeProvider";
-import SoftHeader from "../../../components/common/SoftHeader";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import Input from "../../../components/common/Input";
 import Button from "../../../components/common/Button";
+import Toggle from "../../../components/common/Toggle";
 import LoadingState from "../../../components/common/LoadingState";
 import InlineAlert from "../../../components/common/Alert";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import spacing from "../../../constants/spacing";
+import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 import { resolveDistrict } from "../../../constants/districts";
 import { deliveryFeeForDistrict } from "../../../utils/deliveryFee";
 import { formatCurrency } from "../../../utils/currency";
@@ -20,6 +23,7 @@ import { useAddresses } from "../../../hooks/useAddresses";
 
 export default function EditAddressScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const params = useLocalSearchParams<{ addressId?: string }>();
   const addressId = typeof params.addressId === 'string' ? params.addressId : undefined;
   const { data: addresses, loading, create, update } = useAddresses();
@@ -99,17 +103,19 @@ export default function EditAddressScreen() {
 
   if (loading && isEditing) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Edit Address" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Edit Address" onBack={goBack} />}>
         <LoadingState label="Loading address" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title={isEditing ? "Edit Address" : "Add Address"} onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title={isEditing ? "Edit Address" : "Add Address"} onBack={goBack} />}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Input label="Street Address" value={street} onChangeText={setStreet} placeholder="House, road, area" />
         <Input label="City / area" value={city} onChangeText={setCity} placeholder="e.g. Mirpur DOHS" />
         <Input
@@ -136,20 +142,33 @@ export default function EditAddressScreen() {
         <Input label="Label" value={label} onChangeText={setLabel} placeholder="e.g. Home, Office" />
         <View style={[styles.switchRow, { gap: spacing.sm }]}>
           <Text style={[styles.switchLabel, { color: colors.text }]}>Set as default</Text>
-          <Switch value={isDefault} onValueChange={setIsDefault} />
+          <Toggle value={isDefault} onValueChange={setIsDefault} accessibilityLabel="Set as default address" />
         </View>
         {formError ? <InlineAlert variant="danger" title="Cannot save" message={formError} /> : null}
         <Button title={saving ? "Saving..." : "Save Address"} onPress={handleSave} fullWidth disabled={saving} loading={saving} />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
   switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  switchLabel: { fontSize: 14, fontWeight: "500" },
-  feeHint: { fontSize: 12, marginTop: -spacing.xs },
-  feeHintWarn: { fontSize: 12, marginTop: -spacing.xs },
+  switchLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  feeHint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: -spacing.xs,
+  },
+  feeHintWarn: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: -spacing.xs,
+  },
 });

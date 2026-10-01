@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import { formatCurrency } from "../../utils/currency";
 
 export default function ProductPrice({
@@ -24,7 +24,7 @@ export default function ProductPrice({
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
-  price: { fontSize: typography.headline, fontWeight: "600" },
+  price: { fontFamily: fontFamily.pjsBold, fontSize: typography.headline },
   original: {
     fontSize: typography.caption1,
     textDecorationLine: "line-through",

@@ -2,14 +2,15 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../../hooks/useAuth";
 import { useTheme, useThemeColors } from "../../../providers/ThemeProvider";
-import { useShadows } from "../../../constants/shadows";
 import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
+import { fontFamily, fontSize, letterSpacing, lineHeight } from "../../../constants/typography";
 import { radius } from "../../../constants/sizes";
 import Icon from "../../../components/common/Icon";
 import Avatar from "../../../components/common/Avatar";
-import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import { useResponsive } from "../../../hooks/useResponsive";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import type { IconName } from "../../../components/common/Icon";
 import Toggle from "../../../components/common/Toggle";
 import { formatBdPhone } from "../../../utils/phone";
@@ -59,12 +60,15 @@ const SECTIONS: SettingsSection[] = [
 
 const ROW_ICON_SIZE = 28;
 const ROW_CONTENT_INSET = spacing.md * 2 + ROW_ICON_SIZE;
+/** Circles in the admin block: radius is derived from these sizes, not the 2/6/8 scale. */
+const ADMIN_ICON_SIZE = 36;
+const ADMIN_ARROW_SIZE = 28;
 
 export default function AccountScreen() {
   const router = useRouter();
   const { user, isAdmin, signOut } = useAuth();
   const colors = useThemeColors();
-  const shadows = useShadows();
+  const bottomInset = useBottomInset();
   const { resolvedTheme, setThemeMode } = useTheme();
   const { isDesktop } = useResponsive();
 
@@ -94,22 +98,17 @@ export default function AccountScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      <ResponsiveContainer
-        maxWidth={isDesktop ? 800 : 1320}
-        style={styles.responsiveContainer}
+    <Screen header={<ScreenHeader title="Settings" />}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>Soft • feather-light • {isAdmin ? "admin" : "customer"}</Text>
-
         {/* The single profile entry: tap the card to open the editor. */}
         <Pressable
           style={({ pressed }) => [
             styles.profileCard,
-            { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm },
+            { backgroundColor: colors.backgroundAlt },
             pressed && styles.pressed,
           ]}
           onPress={() => router.push("/(customer)/account/profile")}
@@ -146,7 +145,7 @@ export default function AccountScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.adminCard,
-              { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm },
+              { backgroundColor: colors.backgroundAlt },
               pressed && styles.pressed,
             ]}
             onPress={() => router.push("/(admin)")}
@@ -160,7 +159,7 @@ export default function AccountScreen() {
               <Text style={[styles.adminLabel, { color: colors.text }]}>Admin Dashboard</Text>
               <Text style={[styles.adminHint, { color: colors.textMuted }]}>Products • Orders • Inventory — main cockpit</Text>
             </View>
-            <View style={[styles.adminArrow, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}>
+            <View style={[styles.adminArrow, { backgroundColor: colors.background, borderColor: colors.borderLight }]}>
               <Icon name="arrow-forward" size={16} color={colors.accent} />
             </View>
           </Pressable>
@@ -171,7 +170,7 @@ export default function AccountScreen() {
           {SECTIONS.map((section) => (
             <View key={section.title} style={[styles.section, isDesktop && styles.sectionDesktop]}>
               <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{section.title}</Text>
-              <View style={[styles.sectionGroup, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>
+              <View style={[styles.sectionGroup, { backgroundColor: colors.backgroundAlt }]}>
                 {section.items.map((item, index) => (
                   <View key={item.label}>
                     <Pressable
@@ -205,8 +204,8 @@ export default function AccountScreen() {
             </View>
           ))}
         </View>
-      </ResponsiveContainer>
-    </ScrollView>
+      </ScrollView>
+    </Screen>
   );
 }
 
@@ -215,28 +214,13 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxxl,
     gap: spacing.xs,
-  },
-  responsiveContainer: {
-    alignItems: "center",
-  },
-  title: {
-    fontSize: typography.title2,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: typography.caption,
-    textAlign: "center",
-    marginBottom: spacing.lg,
   },
   profileCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
@@ -252,41 +236,61 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 2,
   },
-  avatarText: { fontSize: typography.body, fontWeight: "700" },
   profileInfo: { flex: 1, gap: 2 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
-  profileName: { fontSize: typography.bodySmall, fontWeight: "700" },
+  profileName: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
   statusChip: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
     borderRadius: radius.pill,
     borderWidth: 1,
   },
-  statusChipText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
-  profileEmail: { fontSize: typography.caption },
+  statusChipText: {
+    fontFamily: fontFamily.pjsBold,
+    fontSize: fontSize.tiny,
+    lineHeight: fontSize.tiny * lineHeight.tight,
+    letterSpacing: 0.3,
+  },
+  profileEmail: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
   adminCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
   },
   adminIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
+    width: ADMIN_ICON_SIZE,
+    height: ADMIN_ICON_SIZE,
+    borderRadius: ADMIN_ICON_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
   },
   adminInfo: { flex: 1 },
-  adminLabel: { fontSize: typography.bodySmall, fontWeight: "700" },
-  adminHint: { fontSize: typography.caption, marginTop: 2 },
+  adminLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  adminHint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: 2,
+  },
   adminArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
+    width: ADMIN_ARROW_SIZE,
+    height: ADMIN_ARROW_SIZE,
+    borderRadius: ADMIN_ARROW_SIZE / 2,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -304,17 +308,18 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     marginBottom: 0,
   },
+  // Section eyebrow, not a title: small, quiet, letterspaced — and never uppercased,
+  // which is reserved for status badges.
   sectionTitle: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.normal,
+    letterSpacing: letterSpacing.wide,
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
   },
   sectionGroup: {
-    borderWidth: 1,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     overflow: "hidden",
   },
   row: {
@@ -332,7 +337,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  rowLabel: { flex: 1, fontSize: typography.bodySmall, fontWeight: "600" },
+  rowLabel: {
+    flex: 1,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   divider: { height: 1 },
   pressed: { opacity: 0.6, transform: [{ scale: 0.99 }] },
 });

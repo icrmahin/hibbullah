@@ -2,9 +2,8 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import { radius } from "../../constants/sizes";
 import Icon from "./Icon";
 import { useImagePicker } from "../../hooks/useImagePicker";
@@ -29,7 +28,6 @@ export default function ImageUpload({
   error,
 }: ImageUploadProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const [menuOpen, setMenuOpen] = useState(false);
   const { pick, error: pickerError } = useImagePicker({ aspect: [1, 1] });
 
@@ -47,7 +45,7 @@ export default function ImageUpload({
         <View
           style={[
             styles.previewContainer,
-            { borderColor: colors.borderLight, backgroundColor: colors.background, ...shadows.sm },
+            { borderColor: colors.borderLight, backgroundColor: colors.background },
           ]}
         >
           <Image
@@ -69,7 +67,6 @@ export default function ImageUpload({
             {
               borderColor: error ? colors.danger : colors.borderLight,
               backgroundColor: colors.background,
-              ...shadows.xs,
             },
             pressed && styles.pressed,
           ]}
@@ -135,7 +132,7 @@ export default function ImageUpload({
         <View
           style={[
             styles.menu,
-            { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight, ...shadows.sm },
+            { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
           ]}
         >
           <Pressable
@@ -166,8 +163,8 @@ export default function ImageUpload({
 const styles = StyleSheet.create({
   wrapper: { gap: spacing.xs },
   label: {
+    fontFamily: fontFamily.pjsSemiBold,
     fontSize: typography.bodySmall,
-    fontWeight: "600",
   },
   previewContainer: {
     borderRadius: radius.md,
@@ -204,8 +201,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   actionText: {
+    fontFamily: fontFamily.pjsSemiBold,
     fontSize: typography.label,
-    fontWeight: "600",
   },
   emptyState: {
     aspectRatio: 1,
@@ -217,8 +214,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   emptyText: {
+    fontFamily: fontFamily.pjsSemiBold,
     fontSize: typography.bodySmall,
-    fontWeight: "600",
   },
   emptyHint: {
     fontSize: typography.caption,
@@ -236,8 +233,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   menuText: {
+    fontFamily: fontFamily.pjsSemiBold,
     fontSize: typography.bodySmall,
-    fontWeight: "600",
   },
   pressed: { opacity: 0.6 },
   hairline: { height: 1 },

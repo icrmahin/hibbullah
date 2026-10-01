@@ -1,22 +1,38 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AdminHeader from "../../../components/admin/AdminHeader";
+import { goBack } from '@/utils/navigation';
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import Button from "../../../components/common/Button";
 import Input from "../../../components/common/Input";
 import LoadingState from "../../../components/common/LoadingState";
+import ErrorState from "../../../components/common/ErrorState";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useAuth } from "../../../hooks/useAuth";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import { useAdminInventory } from "../../../hooks/useAdmin";
 import { useProducts } from "../../../hooks/useProducts";
 import { createStockAdjustment } from "../../../services/admin";
 import spacing from "../../../constants/spacing";
+import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
+
+/** One level deep: fall back to the admin dashboard when there is nothing to pop. */
+const onBack = () => goBack('/(admin)');
 
 export default function InventoryAdjustmentScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const { user } = useAuth();
-  const { data: inventory } = useAdminInventory();
-  const { data: products } = useProducts({ limit: 100 });
+  const {
+    loading: inventoryLoading,
+    error: inventoryError,
+    reload: reloadInventory,
+  } = useAdminInventory();
+  const {
+    loading: productsLoading,
+    error: productsError,
+    reload: reloadProducts,
+  } = useProducts({ limit: 100 });
 
   const [productId, setProductId] = useState("");
   const [batchNumber, setBatchNumber] = useState("");
@@ -71,13 +87,35 @@ export default function InventoryAdjustmentScreen() {
     }
   };
 
+  // Both hooks were already fetching; their loading and error states just were not shown,
+  // so a failed inventory fetch left the form sitting there with no signal at all.
+  if (inventoryLoading || productsLoading) {
+    return (
+      <Screen header={<ScreenHeader title="Stock adjustment" subtitle="Record stock changes" onBack={onBack} />}>
+        <LoadingState label="Loading stock adjustment" />
+      </Screen>
+    );
+  }
+  if (inventoryError || productsError) {
+    return (
+      <Screen header={<ScreenHeader title="Stock adjustment" subtitle="Record stock changes" onBack={onBack} />}>
+        <ErrorState
+          message={inventoryError ?? productsError ?? ''}
+          onRetry={() => {
+            reloadInventory();
+            reloadProducts();
+          }}
+        />
+      </Screen>
+    );
+  }
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Stock adjustment" subtitle="Record stock changes" />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title="Stock adjustment" subtitle="Record stock changes" onBack={onBack} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <View style={styles.form}>
           <Text style={[styles.hint, { color: colors.textMuted }]}>
-            Find Product ID in Products → open product → copy ID. Batches: {(inventory || []).length} loaded, Products: {(products || []).length} loaded.
+            Find Product ID in Products → open product → copy ID.
           </Text>
           <Input label="Product ID" value={productId} onChangeText={setProductId} placeholder="uuid from product detail" autoCapitalize="none" />
           <Input label="Batch number" value={batchNumber} onChangeText={setBatchNumber} placeholder="e.g. BATCH-001" autoCapitalize="none" />
@@ -95,19 +133,31 @@ export default function InventoryAdjustmentScreen() {
           fullWidth
         />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
   container: {
     padding: spacing.lg,
     gap: spacing.lg,
-    paddingBottom: spacing.xxl,
   },
   form: { gap: spacing.md },
-  hint: { fontSize: 12, lineHeight: 18 },
-  error: { fontSize: 12, textAlign: 'center' },
-  success: { fontSize: 12, textAlign: 'center' },
+  hint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
+  success: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
 });

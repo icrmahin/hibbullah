@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius, layout, opacity as opacityToken } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
@@ -25,7 +24,6 @@ export default function Input({
   ...props
 }: InputProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const [focused, setFocused] = useState(false);
 
   return (
@@ -37,7 +35,6 @@ export default function Input({
           {
             borderColor: focused ? colors.accent : error ? colors.danger : colors.border,
             backgroundColor: colors.backgroundAlt,
-            ...shadows.xs,
           },
           focused && styles.inputRowFocused,
           !!error && styles.inputRowError,
@@ -79,7 +76,7 @@ export default function Input({
 const styles = StyleSheet.create({
   wrapper: { gap: spacing.xs },
   label: {
-    fontFamily: fontFamily.semiBold,
+    fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.bodySmall,
     lineHeight: fontSize.bodySmall * lineHeight.normal,
   },
@@ -95,7 +92,7 @@ const styles = StyleSheet.create({
   inputRowDisabled: { opacity: opacityToken.disabled },
   input: {
     flex: 1,
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.body,
     lineHeight: fontSize.body * lineHeight.normal,
     paddingHorizontal: spacing.lg,

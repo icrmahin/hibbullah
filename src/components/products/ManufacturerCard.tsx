@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import type { Manufacturer } from "../../types/manufacturer";
 
 export default function ManufacturerCard({
@@ -38,6 +38,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing.lg,
   },
-  name: { fontSize: typography.body, fontWeight: "600" },
+  name: { fontFamily: fontFamily.soraSemiBold, fontSize: typography.body },
   meta: { fontSize: typography.caption, marginTop: 4 },
 });

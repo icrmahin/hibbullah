@@ -1,6 +1,6 @@
 import { StyleSheet, Text } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import Input from "./Input";
 import { COUNTRY_PREFIX, NATIONAL_LENGTH_DIGITS, toEditableDigits } from "../../utils/phone";
 import type { TextInputProps } from "react-native";
@@ -70,7 +70,7 @@ export default function PhoneInput({
 
 const styles = StyleSheet.create({
   prefix: {
+    fontFamily: fontFamily.pjsBold,
     fontSize: typography.body,
-    fontWeight: "700",
   },
 });

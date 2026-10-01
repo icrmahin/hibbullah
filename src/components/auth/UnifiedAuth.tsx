@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { Eye, EyeOff, LockKeyhole, Mail, Phone, User } from "lucide-react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import Button from "../common/Button";
 import Input from "../common/Input";
+import Alert from "../common/Alert";
+import Icon from "../common/Icon";
 import AppLogo from "../common/AppLogo";
+import AuthShell from "./AuthShell";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { radius } from "../../constants/sizes";
@@ -172,224 +173,192 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
   const isSignIn = mode === "signin";
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
-      >
-        <View style={styles.scrollOuter}>
-          <View style={styles.content}>
-            <View style={styles.brand}>
-              <AppLogo size={44} />
-              <Text style={[styles.brandName, { color: colors.text }]}>Hibbullah</Text>
-            </View>
+    <AuthShell>
+      <View style={styles.brand}>
+        <AppLogo size={44} />
+        <Text style={[styles.brandName, { color: colors.text }]}>Hibbullah</Text>
+      </View>
 
-            <View style={styles.header}>
-              <Text style={[styles.heading, { color: colors.text }]}>
-                {isSignIn ? "Welcome back" : "Create your account"}
-              </Text>
-              <Text style={[styles.subheading, { color: colors.textMuted }]}>
-                {isSignIn ? "Sign in to continue" : "Start using Hibbullah"}
-              </Text>
-            </View>
+      <View style={styles.header}>
+        <Text style={[styles.heading, { color: colors.text }]}>
+          {isSignIn ? "Welcome back" : "Create your account"}
+        </Text>
+        <Text style={[styles.subheading, { color: colors.textMuted }]}>
+          {isSignIn ? "Sign in to continue" : "Start using Hibbullah"}
+        </Text>
+      </View>
 
-            <View style={[styles.toggle, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
+      <View style={[styles.toggle, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: isSignIn }}
+          onPress={() => switchMode("signin")}
+          style={[styles.toggleOption, isSignIn && { backgroundColor: colors.primary }]}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              // `textInverse`, not a fixed white: this segment's fill is
+              // `colors.primary`, which is a deep teal in light mode and the light
+              // sage in dark, so the label on it has to invert with the fill. A fixed
+              // white here is 2.19:1 in dark mode.
+              { color: isSignIn ? colors.textInverse : colors.textMuted },
+              isSignIn && styles.toggleTextActive,
+            ]}
+          >
+            Sign In
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: !isSignIn }}
+          onPress={() => switchMode("signup")}
+          style={[styles.toggleOption, !isSignIn && { backgroundColor: colors.primary }]}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              { color: !isSignIn ? colors.textInverse : colors.textMuted },
+              !isSignIn && styles.toggleTextActive,
+            ]}
+          >
+            Create Account
+          </Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.form}>
+        {!isSignIn ? (
+          <Input
+            label="Full name"
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Your name"
+            autoCapitalize="words"
+            autoCorrect={false}
+            editable={!loading}
+            prefix={<Icon name="person" size={18} color={colors.textMuted} />}
+          />
+        ) : null}
+
+        <Input
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
+          editable={!loading}
+          prefix={<Icon name="mail" size={18} color={colors.textMuted} />}
+        />
+
+        {!isSignIn && (
+          <Input
+            label="Phone"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="+8801XXXXXXXXX"
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+            editable={!loading}
+            hint="Optional for admin"
+            prefix={<Icon name="phone" size={18} color={colors.textMuted} />}
+          />
+        )}
+
+        <Input
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Password"
+          autoCapitalize="none"
+          autoCorrect={false}
+          textContentType={isSignIn ? "password" : "newPassword"}
+          secureTextEntry={!showPassword}
+          editable={!loading}
+          prefix={<Icon name="lock" size={18} color={colors.textMuted} />}
+          suffix={
+            <Pressable
+              onPress={() => setShowPassword((v) => !v)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+              style={styles.eyeButton}
+            >
+              <Icon
+                name={showPassword ? "visibility-off" : "visibility"}
+                size={18}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          }
+        />
+
+        {!isSignIn ? (
+          <Input
+            label="Confirm password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm password"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="newPassword"
+            secureTextEntry={!showConfirmPassword}
+            editable={!loading}
+            prefix={<Icon name="lock" size={18} color={colors.textMuted} />}
+            suffix={
               <Pressable
+                onPress={() => setShowConfirmPassword((v) => !v)}
+                hitSlop={10}
                 accessibilityRole="button"
-                accessibilityState={{ selected: isSignIn }}
-                onPress={() => switchMode("signin")}
-                style={[styles.toggleOption, isSignIn && { backgroundColor: colors.primary }]}
+                accessibilityLabel={showConfirmPassword ? "Hide password" : "Show password"}
+                style={styles.eyeButton}
               >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    // `textInverse`, not a fixed white: this segment's fill is
-                    // `colors.primary`, which is a deep teal in light mode and the light
-                    // sage in dark, so the label on it has to invert with the fill. A fixed
-                    // white here is 2.19:1 in dark mode.
-                    { color: isSignIn ? colors.textInverse : colors.textMuted },
-                    isSignIn && styles.toggleTextActive,
-                  ]}
-                >
-                  Sign In
-                </Text>
+                <Icon
+                  name={showConfirmPassword ? "visibility-off" : "visibility"}
+                  size={18}
+                  color={colors.textMuted}
+                />
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: !isSignIn }}
-                onPress={() => switchMode("signup")}
-                style={[styles.toggleOption, !isSignIn && { backgroundColor: colors.primary }]}
-              >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    { color: !isSignIn ? colors.textInverse : colors.textMuted },
-                    !isSignIn && styles.toggleTextActive,
-                  ]}
-                >
-                  Create Account
-                </Text>
-              </Pressable>
-            </View>
+            }
+          />
+        ) : null}
 
-            <View style={styles.form}>
-              {!isSignIn ? (
-                <Input
-                  label="Full name"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  placeholder="Your name"
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  editable={!loading}
-                  prefix={<User size={18} color={colors.textMuted} strokeWidth={1.8} />}
-                />
-              ) : null}
-
-              <Input
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                editable={!loading}
-                prefix={<Mail size={18} color={colors.textMuted} strokeWidth={1.8} />}
-              />
-
-              {!isSignIn && (
-                <Input
-                  label="Phone"
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="+8801XXXXXXXXX"
-                  keyboardType="phone-pad"
-                  autoCapitalize="none"
-                  editable={!loading}
-                  hint="Optional for admin"
-                  prefix={<Phone size={18} color={colors.textMuted} strokeWidth={1.8} />}
-                />
-              )}
-
-              <Input
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType={isSignIn ? "password" : "newPassword"}
-                secureTextEntry={!showPassword}
-                editable={!loading}
-                prefix={<LockKeyhole size={18} color={colors.textMuted} strokeWidth={1.8} />}
-                suffix={
-                  <Pressable
-                    onPress={() => setShowPassword((v) => !v)}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                    style={styles.eyeButton}
-                  >
-                    {showPassword ? (
-                      <EyeOff size={18} color={colors.textMuted} strokeWidth={1.8} />
-                    ) : (
-                      <Eye size={18} color={colors.textMuted} strokeWidth={1.8} />
-                    )}
-                  </Pressable>
-                }
-              />
-
-              {!isSignIn ? (
-                <Input
-                  label="Confirm password"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Confirm password"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textContentType="newPassword"
-                  secureTextEntry={!showConfirmPassword}
-                  editable={!loading}
-                  prefix={<LockKeyhole size={18} color={colors.textMuted} strokeWidth={1.8} />}
-                  suffix={
-                    <Pressable
-                      onPress={() => setShowConfirmPassword((v) => !v)}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel={showConfirmPassword ? "Hide password" : "Show password"}
-                      style={styles.eyeButton}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff size={18} color={colors.textMuted} strokeWidth={1.8} />
-                      ) : (
-                        <Eye size={18} color={colors.textMuted} strokeWidth={1.8} />
-                      )}
-                    </Pressable>
-                  }
-                />
-              ) : null}
-
-              {isSignIn ? (
-                <View style={styles.forgotRow}>
-                  <Pressable
-                    onPress={() => router.push("/(auth)/forgot-password")}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Forgot password"
-                  >
-                    <Text style={[styles.forgotText, { color: colors.accent }]}>Forgot password?</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              {error ? (
-                <View style={[styles.message, styles.errorBox, { backgroundColor: colors.redSoft, borderColor: colors.dangerBorder }]}>
-                  <Text style={[styles.messageText, { color: colors.danger }]}>{error}</Text>
-                </View>
-              ) : null}
-
-              {info ? (
-                <View style={[styles.message, styles.infoBox, { backgroundColor: colors.primarySoft, borderColor: colors.borderLight }]}>
-                  <Text style={[styles.messageText, { color: colors.accent }]}>{info}</Text>
-                </View>
-              ) : null}
-
-              <Button
-                title={loading ? "Please wait..." : isSignIn ? "Sign In" : "Create Account"}
-                onPress={isSignIn ? handleSignIn : handleSignUp}
-                loading={loading}
-                disabled={loading}
-                fullWidth
-                accessibilityLabel={isSignIn ? "Sign In" : "Create Account"}
-                style={styles.primaryButton}
-              />
-            </View>
+        {isSignIn ? (
+          <View style={styles.forgotRow}>
+            <Pressable
+              onPress={() => router.push("/(auth)/forgot-password")}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Forgot password"
+            >
+              <Text style={[styles.forgotText, { color: colors.accent }]}>Forgot password?</Text>
+            </Pressable>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        ) : null}
+
+        {error ? <Alert variant="danger" message={error} /> : null}
+
+        {info ? <Alert variant="info" message={info} /> : null}
+
+        <Button
+          title={loading ? "Please wait..." : isSignIn ? "Sign In" : "Create Account"}
+          onPress={isSignIn ? handleSignIn : handleSignUp}
+          loading={loading}
+          disabled={loading}
+          fullWidth
+          accessibilityLabel={isSignIn ? "Sign In" : "Create Account"}
+          style={styles.submitButton}
+        />
+      </View>
+    </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  flex: { flex: 1 },
-  scrollOuter: {
-    flex: 1,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    alignItems: "center",
-  },
-  content: {
-    flex: 1,
-    width: "100%",
-    maxWidth: 440,
-  },
   brand: {
     alignItems: "center",
     gap: spacing.xs,
@@ -421,11 +390,11 @@ const styles = StyleSheet.create({
   },
   toggle: {
     flexDirection: "row",
-    padding: 4,
+    padding: spacing.xs,
     borderRadius: radius.pill,
     borderWidth: 1,
     marginBottom: spacing.xl,
-    gap: 4,
+    gap: spacing.xs,
   },
   toggleOption: {
     flex: 1,
@@ -461,22 +430,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.footnote,
     lineHeight: fontSize.footnote * lineHeight.normal,
   },
-  message: {
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  errorBox: {},
-  infoBox: {},
-  messageText: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-    textAlign: "center",
-  },
-  primaryButton: {
-    borderRadius: radius.xl,
+  submitButton: {
     marginTop: spacing.sm,
   },
 });

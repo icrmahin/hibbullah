@@ -2,10 +2,10 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AdminHeader from "../../../components/admin/AdminHeader";
 import AdminProductCard from "../../../components/admin/AdminProductCard";
 import type { Product } from "../../../types/product";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import Icon from "../../../components/common/Icon";
 import EmptyState from "../../../components/common/EmptyState";
 import FilterChip from "../../../components/common/FilterChip";
@@ -13,15 +13,15 @@ import ResponsiveContainer from "../../../components/common/ResponsiveContainer"
 import SearchableSelect from "../../../components/common/SearchableSelect";
 import SearchBar from "../../../components/common/SearchBar";
 import { useThemeColors } from "../../../providers/ThemeProvider";
-import { useShadows } from "../../../constants/shadows";
 import { useResponsive } from "../../../hooks/useResponsive";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import { useCategories } from "../../../hooks/useProducts";
 import { useAdminProducts } from "../../../hooks/useAdmin";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
 import { radius } from "../../../constants/sizes";
-import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
+import { spacing } from "../../../constants/spacing";
+import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 
 type StatusFilter = "all" | "active" | "inactive";
 type StockFilter = "all" | "in_stock" | "low" | "out";
@@ -53,7 +53,7 @@ const DRAW_DISTANCE = 1200
 
 export default function AdminProductsScreen() {
   const colors = useThemeColors();
-  const shadows = useShadows();
+  const bottomInset = useBottomInset();
   // One product per row on a phone, growing from there, and this is the whole bug this
   // screen had.
   //
@@ -124,18 +124,16 @@ export default function AdminProductsScreen() {
 
   if (showFullLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Products" subtitle={`${time} · catalog`} />
+      <Screen header={<ScreenHeader title="Products" subtitle={`${time} · catalog`} />}>
         <LoadingState label="Loading products" />
-      </SafeAreaView>
+      </Screen>
     );
   }
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Products" subtitle={`${time} · catalog`} />
+      <Screen header={<ScreenHeader title="Products" subtitle={`${time} · catalog`} />}>
         <ErrorState message={error} onRetry={reload} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -143,12 +141,7 @@ export default function AdminProductsScreen() {
     <View style={styles.listHeader}>
       <SearchBar value={query} onChangeText={setQuery} placeholder="Search products" />
 
-      <View
-        style={[
-          styles.filtersIsland,
-          { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs },
-        ]}
-      >
+      <View style={[styles.filtersIsland, { backgroundColor: colors.backgroundAlt }]}>
         <Text style={[styles.filterLabel, { color: colors.textMuted }]}>Status</Text>
         <View style={styles.chipRow}>
           {STATUS_FILTERS.map((filter) => (
@@ -208,25 +201,31 @@ export default function AdminProductsScreen() {
   ) : null;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader
-        title="Products"
-        subtitle={`${time} · catalog`}
-        action={
-          <Pressable
-            onPress={() => router.push("/(admin)/products/add")}
-            style={({ pressed }) => [
-              styles.addButton,
-              { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
-            ]}
-          >
-            <Icon name="add" size={16} color={colors.textInverse} />
-            <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Add</Text>
-          </Pressable>
-        }
-      />
-
-      <View style={styles.container}>
+    <Screen
+      header={
+        <ScreenHeader
+          title="Products"
+          subtitle={`${time} · catalog`}
+          action={
+            <Pressable
+              onPress={() => router.push("/(admin)/products/add")}
+              style={({ pressed }) => [
+                styles.addButton,
+                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Add product"
+            >
+              <Icon name="add" size={16} color={colors.textInverse} />
+              <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Add</Text>
+            </Pressable>
+          }
+        />
+      }
+    >
+      {/* ResponsiveContainer owns the page margin, so this wrapper keeps only the
+          bottom inset — otherwise the 16px gutter is applied twice. */}
+      <View style={[styles.container, { paddingBottom: bottomInset }]}>
         {/* innerStyle flex: 1 gives FlashList a bounded height on native. On
             web a View sizes to its content, but on native the
             ResponsiveContainer inner had no flex so the list measured zero
@@ -282,18 +281,15 @@ export default function AdminProductsScreen() {
           />
         </ResponsiveContainer>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
   flex: { flex: 1 },
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
+  // No horizontal padding: ResponsiveContainer below supplies the page gutter, so the
+  // 16px margin exists exactly once.
+  container: { flex: 1 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -304,19 +300,22 @@ const styles = StyleSheet.create({
   },
   // The colour comes from the palette at the call site — this is a `StyleSheet`, outside
   // React, so it cannot reach `useThemeColors()`. Was `color: "#fff"`.
-  addButtonText: { fontSize: 12, fontWeight: "700" },
+  addButtonText: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
   listHeader: { gap: spacing.md, paddingBottom: spacing.sm },
+  // A white card, not an island: no border, no shadow — the page colour does the framing.
   filtersIsland: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
+    borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.sm,
   },
   filterLabel: {
-    fontSize: typography.caption,
-    fontWeight: "700",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.normal,
     marginTop: spacing.xs,
   },
   // A wrapping row rather than a horizontal ScrollView: nested horizontal
@@ -328,10 +327,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   count: {
-    fontSize: typography.caption,
-    fontWeight: "600",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
   },
   /**
    * The gutter between catalog cards.

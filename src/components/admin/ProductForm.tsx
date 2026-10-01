@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
+import { useBottomInset } from "../../hooks/useBottomInset";
 import type { Category } from "../../types/category";
 import type { Manufacturer } from "../../types/manufacturer";
 import type { Product } from "../../types/product";
@@ -99,7 +99,7 @@ export default function ProductForm({
   onSubmit,
 }: ProductFormProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
+  const bottomInset = useBottomInset();
   const isEditing = Boolean(product);
 
   // Generated once per form instance. Images upload to `products/<id>`, so the
@@ -472,15 +472,11 @@ export default function ProductForm({
     <>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
         keyboardShouldPersistTaps="handled"
       >
-        <View
-          style={[
-            styles.form,
-            { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight, ...shadows.sm },
-          ]}
-        >
+        {/* One white card, no border and no shadow: the page colour does the framing. */}
+        <View style={[styles.form, { backgroundColor: colors.backgroundAlt }]}>
           {SECTION("The medicine")}
 
           <View style={styles.row}>
@@ -675,7 +671,7 @@ export default function ProductForm({
               styles.advancedToggle,
               {
                 borderColor: colors.borderLight,
-                backgroundColor: showAdvanced ? colors.background : colors.backgroundAlt,
+                backgroundColor: showAdvanced ? colors.primarySoft : colors.backgroundAlt,
               },
             ]}
             accessibilityRole="button"
@@ -775,7 +771,7 @@ export default function ProductForm({
             />
           </View>
 
-          <View style={[styles.switches, { borderTopColor: colors.borderLight }]}>
+          <View style={[styles.switches, { borderTopColor: colors.borderSoft }]}>
             <View style={styles.switchRow}>
               <View style={styles.switchText}>
                 <Text style={[styles.switchLabel, { color: colors.text }]}>Show in the shop</Text>
@@ -813,7 +809,7 @@ export default function ProductForm({
       <View
         style={[
           styles.footer,
-          { borderTopColor: colors.borderLight, backgroundColor: colors.background },
+          { borderTopColor: colors.borderSoft, backgroundColor: colors.background },
         ]}
       >
         {submitError ? (
@@ -840,22 +836,21 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   container: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
     alignSelf: "center",
     width: "100%",
     maxWidth: 720,
   },
   form: {
     gap: spacing.md,
-    borderWidth: 1,
     borderRadius: sizes.cardRadius,
     padding: spacing.lg,
   },
+  // Section eyebrow: one size, one weight, no shouting — the label names the group,
+  // the inputs below it carry the rest.
   sectionLabel: {
-    fontSize: typography.label,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.normal,
     marginTop: spacing.sm,
   },
   row: {
@@ -875,7 +870,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignSelf: "flex-start",
   },
-  addToggleText: { fontSize: typography.caption, fontWeight: "700" },
+  addToggleText: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
   inlineRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -890,7 +889,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  inlineButtonText: { fontSize: typography.bodySmall, fontWeight: "700" },
+  inlineButtonText: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   imageRow: {
     flexDirection: "row",
     gap: spacing.md,
@@ -909,9 +912,23 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   switchText: { flex: 1, gap: 2 },
-  switchLabel: { fontSize: typography.bodySmall, fontWeight: "600" },
-  switchHint: { fontSize: typography.caption },
-  hint: { fontSize: typography.caption, marginTop: -spacing.xs, marginBottom: spacing.xs },
+  switchLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  switchHint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  hint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.xs,
+  },
   advancedToggle: {
     borderWidth: 1,
     borderRadius: sizes.cardRadius,
@@ -919,19 +936,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignItems: "center",
   },
-  advancedToggleText: { fontSize: typography.caption, fontWeight: "600" },
-  error: { fontSize: typography.caption },
+  advancedToggleText: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  // The sticky action bar: one hairline against the card above it, nothing else.
   footer: {
     padding: spacing.lg,
     borderTopWidth: 1,
   },
   submitError: {
-    fontSize: typography.bodySmall,
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
     textAlign: "center",
     marginBottom: spacing.sm,
   },
   note: {
-    fontSize: typography.caption,
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
     textAlign: "center",
     marginTop: spacing.sm,
   },

@@ -1,9 +1,8 @@
 import { Modal as RNModal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import Button from "./Button";
 
 export default function Modal({
@@ -22,7 +21,6 @@ export default function Modal({
   onAction?: () => void;
 }) {
   const colors = useThemeColors();
-  const shadows = useShadows();
 
   return (
     <RNModal
@@ -52,7 +50,7 @@ export default function Modal({
         */}
         <View
           onStartShouldSetResponder={() => true}
-          style={[styles.card, { backgroundColor: colors.backgroundAlt, ...shadows.xl }]}
+          style={[styles.card, { backgroundColor: colors.backgroundAlt }]}
         >
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
             {title}
@@ -83,7 +81,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
   },
-  title: { fontSize: typography.title2, fontWeight: "600" },
+  title: { fontFamily: fontFamily.soraSemiBold, fontSize: typography.title2 },
   message: { fontSize: typography.body, lineHeight: 24 },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
 });

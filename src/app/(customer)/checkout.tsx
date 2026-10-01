@@ -3,14 +3,19 @@ import { goBack } from "@/utils/navigation";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../providers/ThemeProvider";
+import Screen from "../../components/common/Screen";
+import ScreenHeader from "../../components/common/ScreenHeader";
 import Button from "../../components/common/Button";
 import EmptyState from "../../components/common/EmptyState";
 import LoadingState from "../../components/common/LoadingState";
 import ResponsiveContainer from "../../components/common/ResponsiveContainer";
+import CartSummary from "../../components/cart/CartSummary";
 import spacing from "../../constants/spacing";
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
+import { radius } from "../../constants/sizes";
 import { useResponsive } from "../../hooks/useResponsive";
+import { useBottomInset } from "../../hooks/useBottomInset";
 import { useAuth } from "../../hooks/useAuth";
 import { useCart } from "../../providers/CartProvider";
 import { useAddresses } from "../../hooks/useAddresses";
@@ -21,11 +26,10 @@ import { formatCurrency } from "../../utils/currency";
 import { deliveryFeeForDistrict } from "../../utils/deliveryFee";
 import { normalizeError } from "../../utils/errorHandling";
 import Icon from "../../components/common/Icon";
-import { radius } from "../../constants/sizes";
 
 export default function CheckoutScreen() {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
   const { items, summary, loading: cartLoading, reload: reloadCart } = useCart();
   const { user, isAdmin } = useAuth();
   const { data: addresses, loading: addressesLoading, remove: removeAddress } = useAddresses();
@@ -68,7 +72,7 @@ export default function CheckoutScreen() {
 
     if (!isAdmin) {
       const phone = user?.phone || "";
-      if (!phone || !/^\+?8801[0-9]{9}$/.test(phone)) {
+      if (!phone || !/^\+8801[0-9]{9}$/.test(phone)) {
         setError("Please add your Bangladeshi phone (+8801XXXXXXXXX) in Account → Profile before ordering.");
         return;
       }
@@ -124,25 +128,18 @@ export default function CheckoutScreen() {
   // a confirmation flashing away and coming back is worse than no animation at all.
   if (cartLoading || addressesLoading) {
     return (
-      <>
+      <Screen header={<ScreenHeader title="Checkout" onBack={() => goBack()} />}>
         <LoadingState label="Loading checkout" />
         <ConfirmDialog {...confirmDialogProps} />
-      </>
+      </Screen>
     );
   }
   if (!items.length) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top + spacing.md }]}>
-        <Pressable
-          style={[styles.floatingBack, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}
-          onPress={() => goBack()}
-          accessibilityLabel="Go back"
-        >
-          <Icon name="arrow-back" size={18} color={colors.text} />
-        </Pressable>
+      <Screen header={<ScreenHeader title="Checkout" onBack={() => goBack()} />}>
         <EmptyState title="Your cart is empty" message="Add a medicine before checking out." actionLabel="Browse products" onAction={() => router.replace("/(customer)/(tabs)/products")} />
         <ConfirmDialog {...confirmDialogProps} />
-      </View>
+      </Screen>
     );
   }
 
@@ -159,8 +156,7 @@ export default function CheckoutScreen() {
               onPress={() => setSelectedAddressId(addr.id)}
               style={[
                 styles.addressOption,
-                active && styles.addressOptionSelected,
-                { backgroundColor: active ? colors.primarySoft : colors.backgroundAlt, borderColor: active ? colors.primary : colors.borderLight },
+                { backgroundColor: active ? colors.primarySoft : colors.backgroundAlt, borderColor: active ? colors.accent : colors.borderLight },
               ]}
             >
               <View style={styles.addressOptionContent}>
@@ -175,7 +171,8 @@ export default function CheckoutScreen() {
                 {active && <Icon name="check-circle" size={18} color={colors.accent} />}
                 <Pressable
                   onPress={() => handleDeleteAddress(addr.id)}
-                  hitSlop={8}                  style={[styles.deleteBtn, { backgroundColor: colors.dangerSoft }]}
+                  hitSlop={8}
+                  style={[styles.deleteBtn, { backgroundColor: colors.dangerSoft }]}
                   accessibilityLabel={`Delete ${addr.label}`}
                 >
                   <Icon name="delete-outline" size={16} color={colors.danger} />
@@ -226,7 +223,7 @@ export default function CheckoutScreen() {
   };
 
   const summaryBox = (
-    <View style={[styles.summaryBox, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
+    <View style={[styles.summaryBox, { backgroundColor: colors.backgroundAlt }]}>
       <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: spacing.sm }]}>Order summary</Text>
       {items.map((item) => (
         <View key={item.id} style={styles.row}>
@@ -238,57 +235,35 @@ export default function CheckoutScreen() {
           </Text>
         </View>
       ))}
-      <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
-      <View style={styles.row}>
-        <Text style={[styles.rowLabel, { color: colors.textMuted }]}>Subtotal</Text>
-        <Text style={[styles.rowValue, { color: colors.text }]}>{formatCurrency(summary.subtotal)}</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={[styles.rowLabel, { color: colors.textMuted }]}>Discount</Text>
-        <Text style={[styles.rowValue, { color: colors.success }]}>-{formatCurrency(summary.discount)}</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={[styles.rowLabel, { color: colors.textMuted }]}>Delivery</Text>
-        <Text style={[styles.rowValue, { color: colors.text }]}>{formatCurrency(pricedSummary.deliveryFee)}</Text>
-      </View>
       {selectedAddress?.county ? (
-        <View style={[styles.row, styles.feeNoteRow]}>
-          <Text style={[styles.feeNote, { color: colors.textMuted }]}>
-            {deliveryFeeForDistrict(selectedAddress.county) === deliveryFee
-              ? `${selectedAddress.county} District — reduced rate`
-              : `${selectedAddress.county} District — standard rate`}
-          </Text>
-        </View>
+        <Text style={[styles.feeNote, { color: colors.textMuted }]}>
+          {deliveryFeeForDistrict(selectedAddress.county) === deliveryFee
+            ? `${selectedAddress.county} District — reduced rate`
+            : `${selectedAddress.county} District — standard rate`}
+        </Text>
       ) : null}
-      <View style={[styles.row, styles.totalRow, { borderTopColor: colors.borderLight }]}>
-        <Text style={[styles.totalText, { color: colors.text }]}>Total</Text>
-        <Text style={[styles.totalText, { color: colors.text }]}>{formatCurrency(pricedSummary.total)}</Text>
-      </View>
+    </View>
+  );
+
+  // The four money rows are the shared `CartSummary`, not a second copy of them: same
+  // arithmetic, same hairline above the total, and no way for the two to drift apart.
+  const summaryGroup = (
+    <View style={styles.summaryGroup}>
+      {summaryBox}
+      <CartSummary summary={pricedSummary} />
     </View>
   );
 
   const paymentBox = (
-    <View style={[styles.paymentBox, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
+    <View style={[styles.paymentBox, { backgroundColor: colors.backgroundAlt }]}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment</Text>
       <Text style={[styles.paymentMethod, { color: colors.textMuted }]}>Cash on Delivery</Text>
     </View>
   );
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {/* Floating top-right go back — thumb reachable, no title bar */}
-      <View style={[styles.floatingWrap, { top: insets.top + spacing.sm }]}>
-        <Pressable
-          style={[styles.floatingBack, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}
-          onPress={() => goBack()}
-          accessibilityLabel="Go back"
-          hitSlop={8}
-        >
-          <Icon name="arrow-back" size={18} color={colors.text} />
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 52, paddingBottom: Math.max(insets.bottom, spacing.lg) + 24 }]} showsVerticalScrollIndicator={false}>
+    <Screen header={<ScreenHeader title="Checkout" onBack={() => goBack()} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
         <ResponsiveContainer maxWidth={isDesktop ? 960 : 1320}>
           {isDesktop ? (
             <View style={styles.desktopLayout}>
@@ -297,7 +272,7 @@ export default function CheckoutScreen() {
                 {paymentBox}
               </View>
               <View style={styles.summaryColumn}>
-                {summaryBox}
+                {summaryGroup}
                 {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
                 {success ? <Text style={[styles.success, { color: colors.success }]}>Order submitted — view delivery cycle.</Text> : null}
                 <View style={styles.bottomRow}>
@@ -319,7 +294,7 @@ export default function CheckoutScreen() {
           ) : (
             <View style={styles.mobileStack}>
               {addressSection}
-              {summaryBox}
+              {summaryGroup}
               {paymentBox}
               {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
               {success ? <Text style={[styles.success, { color: colors.success }]}>Order submitted — view delivery cycle.</Text> : null}
@@ -343,31 +318,31 @@ export default function CheckoutScreen() {
         </ResponsiveContainer>
       </ScrollView>
       <ConfirmDialog {...confirmDialogProps} />
-    </View>
+    </Screen>
   );
 }
 
+/** The address-delete control is a circle: radius derived from its size, not the scale. */
+const DELETE_BTN_SIZE = 30;
+
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  floatingWrap: { position: "absolute", right: 16, zIndex: 10 },
-  floatingBack: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    // No boxShadow — a hardcoded black blur that never rendered against this screen's
-    // surface, on a 36px circle that already carries a 1px border.
-  },
   container: { paddingHorizontal: spacing.lg, gap: spacing.lg },
   desktopLayout: { flexDirection: "row", gap: spacing.xl },
   formColumn: { flex: 1, gap: spacing.lg },
   summaryColumn: { flex: 1, gap: spacing.lg },
   mobileStack: { gap: spacing.lg },
   section: { gap: spacing.sm },
-  sectionTitle: { fontWeight: "700", fontSize: 14 },
-  sectionHint: { fontSize: 11, marginTop: -4 },
+  sectionTitle: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: -0.2,
+  },
+  sectionHint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
   addressList: { gap: spacing.sm, marginTop: spacing.xs },
   addressOption: {
     flexDirection: "row",
@@ -378,13 +353,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.sm,
   },
-  addressOptionSelected: { borderWidth: 2 },
   addressOptionContent: { flex: 1, gap: 2 },
-  addressLabel: { fontWeight: "700", fontSize: 13 },
-  addressDetail: { fontSize: 12, lineHeight: 16 },
+  addressLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  addressDetail: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
   addressActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  deleteBtn: { width: 30, height: 30, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
-  emptyHint: { fontSize: 12, paddingVertical: spacing.sm },
+  deleteBtn: {
+    width: DELETE_BTN_SIZE,
+    height: DELETE_BTN_SIZE,
+    borderRadius: DELETE_BTN_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyHint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    paddingVertical: spacing.sm,
+  },
   notice: {
     flexDirection: "row",
     alignItems: "center",
@@ -395,19 +388,51 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     marginTop: spacing.sm,
   },
-  noticeText: { flex: 1, fontSize: 12, lineHeight: 17 },
-  summaryBox: { borderRadius: radius.md, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
+  noticeText: {
+    flex: 1,
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  // The order card and the money card are siblings, not a card in a card.
+  summaryGroup: { gap: spacing.sm },
+  summaryBox: { borderRadius: radius.lg, padding: spacing.lg, gap: spacing.xs },
   row: { flexDirection: "row", justifyContent: "space-between", gap: spacing.md, marginBottom: spacing.xs },
-  rowLabel: { fontSize: 12, flex: 1 },
-  rowValue: { fontSize: 12, fontWeight: "600" },
-  divider: { height: 1, marginVertical: spacing.sm },
-  feeNoteRow: { marginBottom: spacing.sm },
-  feeNote: { fontSize: 11, flex: 1 },
-  totalRow: { marginTop: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1 },
-  totalText: { fontWeight: "800", fontSize: 14 },
-  paymentBox: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
-  paymentMethod: { fontSize: 12, marginTop: 2 },
-  error: { fontSize: 12, textAlign: "center" },
-  success: { fontSize: 12, textAlign: "center" },
+  rowLabel: {
+    flex: 1,
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  rowValue: {
+    fontFamily: fontFamily.pjsMedium,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  feeNote: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: spacing.xs,
+  },
+  paymentBox: { borderRadius: radius.lg, padding: spacing.lg, gap: spacing.xs },
+  paymentMethod: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: spacing.xxs,
+  },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: "center",
+  },
+  success: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: "center",
+  },
   bottomRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
 });

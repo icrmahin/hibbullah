@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/utils/navigation';
 import { useThemeColors } from '../../../providers/ThemeProvider';
-import SoftHeader from '../../../components/common/SoftHeader';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import StatusBadge from '../../../components/common/StatusBadge';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -12,15 +12,18 @@ import EmptyState from '../../../components/common/EmptyState';
 import Button from '../../../components/common/Button';
 import Input from '../../../components/common/Input';
 import spacing from '../../../constants/spacing';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
+import { radius } from '../../../constants/sizes';
 import { useOrder } from '../../../hooks/useOrders';
 import { useAuth } from '../../../hooks/useAuth';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import { createReturnRequests } from '../../../services/returns';
 import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
-import { radius } from '../../../constants/sizes';
 
 export default function CustomerOrderDetailScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const params = useLocalSearchParams<{ orderId: string }>();
   const orderId = params.orderId as string;
   const { order, loading, error, reload } = useOrder(orderId);
@@ -34,26 +37,23 @@ export default function CustomerOrderDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Order" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Order" onBack={() => goBack()} />}>
         <LoadingState label="Loading order" />
-      </SafeAreaView>
+      </Screen>
     );
   }
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Order" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Order" onBack={() => goBack()} />}>
         <ErrorState message={error} onRetry={reload} />
-      </SafeAreaView>
+      </Screen>
     );
   }
   if (!order) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Order" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Order" onBack={() => goBack()} />}>
         <EmptyState title="Order not found" message="This order may have been removed." actionLabel="Back to orders" onAction={() => goBack()} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -108,23 +108,23 @@ export default function CustomerOrderDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title={order.orderNumber} onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+    <Screen header={<ScreenHeader title={order.orderNumber} onBack={() => goBack()} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        {/* One card level: the card carries the surface, the hairline inside it separates. */}
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.title, { color: colors.text }]}>Order summary</Text>
           <StatusBadge label={order.status} tone={tone as any} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Placed {formatDateTime(order.createdAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Delivery address: {order.address}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: Cash on Delivery</Text>
-          <View style={[styles.totals, { borderTopColor: colors.borderLight }]}>
+          <View style={[styles.totals, { borderTopColor: colors.borderSoft }]}>
             <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Subtotal</Text><Text style={[styles.value, { color: colors.text }]}>{formatCurrency(order.subtotal)}</Text></View>
             <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Discount</Text><Text style={[styles.value, { color: colors.text }]}>-{formatCurrency(order.discount)}</Text></View>
             <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Delivery</Text><Text style={[styles.value, { color: colors.text }]}>{formatCurrency(order.deliveryFee)}</Text></View>
-            <View style={[styles.row, styles.totalRow, { borderTopColor: colors.border }]}><Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text><Text style={[styles.totalValue, { color: colors.text }]}>{formatCurrency(order.total)}</Text></View>
+            <View style={[styles.row, styles.totalRow, { borderTopColor: colors.borderSoft }]}><Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text><Text style={[styles.totalValue, { color: colors.text }]}>{formatCurrency(order.total)}</Text></View>
           </View>
         </View>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Products</Text>
           {order.items.length === 0 ? (
             <Text style={[styles.meta, { color: colors.textMuted }]}>No items.</Text>
@@ -140,7 +140,7 @@ export default function CustomerOrderDetailScreen() {
             ))
           )}
         </View>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Timeline</Text>
           {(order.timeline || []).map((step) => (
             <View key={`${step.label}-${step.time}`} style={styles.timelineRow}>
@@ -152,7 +152,7 @@ export default function CustomerOrderDetailScreen() {
           {(!order.timeline || order.timeline.length === 0) ? <Text style={[styles.meta, { color: colors.textMuted }]}>No timeline events yet.</Text> : null}
         </View>
         {order.status === 'DELIVERED' ? (
-          <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+          <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Return</Text>
             {returnSuccess ? (
               <Text style={[styles.meta, { color: colors.success }]}>Return requested for {order.items.length > 1 ? `${order.items.filter((it) => selectedReturnIds.size === 0 || selectedReturnIds.has(it.id)).length} item(s)` : 'item'}. Admin will review.</Text>
@@ -162,7 +162,7 @@ export default function CustomerOrderDetailScreen() {
                 {order.items.map((it) => {
                   const selected = selectedReturnIds.size === 0 ? true : selectedReturnIds.has(it.id);
                   return (
-                    <View key={it.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: selected ? colors.primary : colors.borderLight, backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt, borderRadius: radius.md, padding: spacing.sm }}>
+                    <View key={it.id} style={[styles.returnItem, { borderColor: selected ? colors.accent : colors.borderLight, backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt }]}>
                       <Text style={[styles.itemName, { color: colors.text, flex: 1 }]}>{it.productName} — {it.quantity} pcs</Text>
                       <Button title={selected ? 'Selected' : 'Select'} variant={selected ? 'primary' : 'secondary'} onPress={() => toggleReturnItem(it.id)} />
                     </View>
@@ -182,33 +182,100 @@ export default function CustomerOrderDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.lg },
-  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: spacing.md },
-  meta: { fontSize: 12, marginTop: spacing.sm },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: spacing.md },
+  container: { padding: spacing.lg, gap: spacing.lg },
+  // The card rule: white surface on the off-white page — the lightness step is the
+  // separation, so there is no border around a card and no shadow under it.
+  card: { borderRadius: radius.lg, padding: spacing.lg },
+  title: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: -0.2,
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: -0.2,
+    marginBottom: spacing.md,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: spacing.sm,
+  },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md, gap: spacing.md },
-  itemName: { flex: 1, fontWeight: '600' },
-  itemMeta: { fontSize: 12 },
-  itemTotal: { fontWeight: '700' },
+  itemName: {
+    flex: 1,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  itemMeta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  itemTotal: {
+    fontFamily: fontFamily.pjsBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   timelineRow: { marginBottom: spacing.md },
-  timelineLabel: { fontWeight: '700', fontSize: 12 },
-  timelineTime: { fontSize: 12 },
-  timelineNote: { fontSize: 12, marginTop: spacing.xs },
+  timelineLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  timelineTime: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  timelineNote: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: spacing.xs,
+  },
+  // Hairline inside the card, never a border around it.
   totals: { marginTop: spacing.md, borderTopWidth: 1, paddingTop: spacing.md, gap: spacing.xs },
-  label: { fontSize: 12 },
-  value: { fontSize: 12, fontWeight: '600' },
-  // `borderTopColor` was `'#eee'` — a hard-coded light grey, so in dark mode the rule above
-  // the order total was one of the brightest lines on a near-black screen. Applied from the
-  // palette at the call site instead, since a `StyleSheet` cannot reach `useThemeColors()`.
+  label: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
+  value: {
+    fontFamily: fontFamily.pjsMedium,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
   totalRow: { marginTop: spacing.sm, borderTopWidth: 1, paddingTop: spacing.sm },
-  totalLabel: { fontWeight: '700' },
-  totalValue: { fontWeight: '800', fontSize: 14 },
+  totalLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  totalValue: {
+    fontFamily: fontFamily.pjsBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  // A selectable control inside the return card: 1px hairline, primarySoft when selected.
+  returnItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
 });

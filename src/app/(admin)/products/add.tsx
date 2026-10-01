@@ -1,24 +1,32 @@
 import { useState } from "react";
 import { router } from "expo-router";
-import { StyleSheet } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AdminHeader from "../../../components/admin/AdminHeader";
+import { goBack } from "@/utils/navigation";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import ProductForm from "../../../components/admin/ProductForm";
-import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useCategories, useManufacturers } from "../../../hooks/useProducts";
 import { createCategory, createManufacturer, createProduct } from "../../../services/products";
 import { uploadProductImage } from "../../../services/storage";
 
+/** One level deep: the catalog, when there is nothing to pop. */
+const onBack = () => goBack("/(admin)/products");
+
 export default function AdminAddProductScreen() {
-  const colors = useThemeColors();
   const [categoryTerm, setCategoryTerm] = useState("");
   const [manufacturerTerm, setManufacturerTerm] = useState("");
   const { data: categories, loading: catLoading } = useCategories(categoryTerm);
   const { data: manufacturers, loading: manLoading } = useManufacturers(manufacturerTerm);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Add product" subtitle="Create new catalog item" />
+    <Screen
+      header={
+        <ScreenHeader
+          title="Add product"
+          subtitle="Create new catalog item"
+          onBack={onBack}
+        />
+      }
+    >
       <ProductForm
         categories={categories}
         manufacturers={manufacturers}
@@ -39,10 +47,6 @@ export default function AdminAddProductScreen() {
           router.replace("/(admin)/products");
         }}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-});

@@ -1,35 +1,40 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AdminHeader from '../../../components/admin/AdminHeader';
+import { goBack } from '@/utils/navigation';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import StatusBadge from '../../../components/common/StatusBadge';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useAdminInventory } from '../../../hooks/useAdmin';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { radius } from '../../../constants/sizes';
+
+/** One level deep: fall back to the admin dashboard when there is nothing to pop. */
+const onBack = () => goBack('/(admin)');
 
 export default function InventoryBatchesScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const { data, loading, error, reload } = useAdminInventory();
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Batches" subtitle="Track each batch independently" />
+      <Screen header={<ScreenHeader title="Batches" subtitle="Track each batch independently" onBack={onBack} />}>
         <LoadingState label="Loading batches" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Batches" subtitle="Track each batch independently" />
+      <Screen header={<ScreenHeader title="Batches" subtitle="Track each batch independently" onBack={onBack} />}>
         <ErrorState message={error} onRetry={reload} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -42,23 +47,13 @@ export default function InventoryBatchesScreen() {
   }));
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Batches" subtitle="Track each batch independently" />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title="Batches" subtitle="Track each batch independently" onBack={onBack} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         {batches.length === 0 ? (
           <EmptyState title="No batches" message="Product batches will appear here." />
         ) : (
           batches.map((item) => (
-            <View
-              key={item.id}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.backgroundAlt,
-                  borderColor: colors.borderLight,
-                },
-              ]}
-            >
+            <View key={item.id} style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
               <Text style={[styles.heading, { color: colors.text }]}>{item.batchNumber}</Text>
               <Text style={[styles.meta, { color: colors.textMuted }]}>{item.productName}</Text>
               <Text style={[styles.meta, { color: colors.textMuted }]}>Quantity: {item.quantity}</Text>
@@ -72,19 +67,27 @@ export default function InventoryBatchesScreen() {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  container: { padding: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
   },
-  heading: { fontWeight: '700' },
-  meta: { marginTop: spacing.xs },
+  heading: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: -0.2,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    marginTop: spacing.xs,
+  },
   badgeRow: { marginTop: spacing.sm },
 });

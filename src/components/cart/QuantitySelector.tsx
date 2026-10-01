@@ -1,8 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import sizes from "../../constants/sizes";
+import { radius, layout } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
+import Icon from "../common/Icon";
 
 export default function QuantitySelector({
   value,
@@ -16,28 +17,37 @@ export default function QuantitySelector({
   max?: number;
 }) {
   const colors = useThemeColors();
+  const atMin = value <= min;
+  const atMax = value >= max;
+
   return (
-    <View style={[styles.row, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+    <View style={[styles.row, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
       <Pressable
         onPress={() => onChange(Math.max(min, value - 1))}
         style={styles.control}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel="Decrease quantity"
-        accessibilityState={{ disabled: value <= min }}
+        accessibilityState={{ disabled: atMin }}
       >
-        <Text style={[styles.symbol, { color: colors.accent }]}>−</Text>
+        <Icon name="remove" size={18} color={atMin ? colors.textMuted : colors.accent} />
       </Pressable>
-      <Text style={[styles.value, { color: colors.text }]} accessibilityRole="text">{value}</Text>
+      <Text
+        style={[styles.value, { color: colors.text }]}
+        accessibilityRole="text"
+        accessibilityLabel={`Quantity ${value}`}
+      >
+        {value}
+      </Text>
       <Pressable
         onPress={() => onChange(Math.min(max, value + 1))}
         style={styles.control}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel="Increase quantity"
-        accessibilityState={{ disabled: value >= max }}
+        accessibilityState={{ disabled: atMax }}
       >
-        <Text style={[styles.symbol, { color: colors.accent }]}>+</Text>
+        <Icon name="add" size={18} color={atMax ? colors.textMuted : colors.accent} />
       </Pressable>
     </View>
   );
@@ -47,18 +57,24 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    borderRadius: sizes.borderRadius.pill,
+    gap: spacing.xs,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    minHeight: sizes.touch,
+    paddingHorizontal: spacing.xs,
+    minHeight: layout.touch,
   },
   control: {
-    width: sizes.touch,
-    height: sizes.touch,
+    width: layout.touch - 8,
+    height: layout.touch - 8,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: radius.pill,
   },
-  symbol: { fontSize: typography.headline, fontWeight: "600" },
-  value: { fontSize: typography.headline, fontWeight: "600", minWidth: 24, textAlign: "center" },
+  value: {
+    minWidth: 32,
+    textAlign: "center",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
 });

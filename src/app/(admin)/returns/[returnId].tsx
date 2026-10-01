@@ -1,26 +1,31 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/utils/navigation';
-import AdminHeader from '../../../components/admin/AdminHeader';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import StatusBadge from '../../../components/common/StatusBadge';
 import Button from '../../../components/common/Button';
 import { useThemeColors } from '../../../providers/ThemeProvider';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchReturnById, updateReturnStatus } from '../../../services/returns';
 import { normalizeError } from '../../../utils/errorHandling';
 import { useConfirm } from '../../../hooks/useConfirm';
 import ConfirmDialog from '../../../components/common/ConfirmDialog';
 import { radius } from '../../../constants/sizes';
 
+/** One level deep: fall back to the admin dashboard when there is nothing to pop. */
+const onBack = () => goBack('/(admin)');
+
 export default function AdminReturnDetailScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const params = useLocalSearchParams<{ returnId: string }>();
   const returnId = params.returnId as string;
   const [item, setItem] = useState<any | null>(null);
@@ -88,49 +93,54 @@ export default function AdminReturnDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Return" subtitle="Return request" />
+      <Screen header={<ScreenHeader title="Return" subtitle="Return request" onBack={onBack} />}>
         <LoadingState label="Loading return" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Return" subtitle="Return request" />
+      <Screen header={<ScreenHeader title="Return" subtitle="Return request" onBack={onBack} />}>
         <ErrorState message={error} onRetry={load} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!item) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Return" subtitle="Return request" />
+      <Screen header={<ScreenHeader title="Return" subtitle="Return request" onBack={onBack} />}>
         <EmptyState
           title="Return not found"
           message="This request may have been removed."
           actionLabel="Back to returns"
           onAction={() => goBack()}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
+  // The label/value fields, styled exactly as the customer detail screen styles its own.
+  const details = [
+    { label: 'Customer', value: item.customerName },
+    { label: 'Order', value: item.orderId },
+    { label: 'Product', value: `${item.productName} × ${item.quantity}` },
+    { label: 'Reason', value: item.reason },
+  ];
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title={`Return ${item.id.slice(0, 8)}`} subtitle="Return request" />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
-          <Text style={[styles.label, { color: colors.text }]}>Customer</Text>
-          <Text style={[styles.value, { color: colors.textMuted }]}>{item.customerName}</Text>
-          <Text style={[styles.label, { color: colors.text }]}>Order</Text>
-          <Text style={[styles.value, { color: colors.textMuted }]}>{item.orderId}</Text>
-          <Text style={[styles.label, { color: colors.text }]}>Product</Text>
-          <Text style={[styles.value, { color: colors.textMuted }]}>{item.productName} × {item.quantity}</Text>
-          <Text style={[styles.label, { color: colors.text }]}>Reason</Text>
-          <Text style={[styles.value, { color: colors.textMuted }]}>{item.reason}</Text>
+    <Screen header={<ScreenHeader title={`Return ${item.id.slice(0, 8)}`} subtitle="Return request" onBack={onBack} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
+          {details.map((field) => (
+            <View
+              key={field.label}
+              style={[styles.field, styles.fieldDivider, { borderBottomColor: colors.borderSoft }]}
+            >
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>{field.label}</Text>
+              <Text style={[styles.fieldValue, { color: colors.textMuted }]}>{field.value}</Text>
+            </View>
+          ))}
           <View style={styles.badgeRow}>
             <StatusBadge
               label={item.status}
@@ -149,21 +159,34 @@ export default function AdminReturnDetailScreen() {
         ) : null}
       </ScrollView>
       <ConfirmDialog {...confirmDialogProps} />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
+  container: { padding: spacing.lg, gap: spacing.lg },
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
   },
-  label: { fontSize: typography.bodySmall, fontWeight: '700', marginTop: spacing.md },
-  value: { fontSize: typography.body, marginTop: spacing.xs },
+  field: { paddingVertical: spacing.sm, gap: spacing.xxs },
+  fieldDivider: { borderBottomWidth: 1 },
+  fieldLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  fieldValue: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   badgeRow: { marginTop: spacing.md },
   actions: { gap: spacing.md },
-  error: { fontSize: 12, textAlign: 'center' },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
 });

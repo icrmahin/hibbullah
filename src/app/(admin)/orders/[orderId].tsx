@@ -1,18 +1,19 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching and derived state sync require setState inside effects */
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/utils/navigation';
-import AdminHeader from '../../../components/admin/AdminHeader';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import Button from '../../../components/common/Button';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import StatusBadge from '../../../components/common/StatusBadge';
 import { useThemeColors } from '../../../providers/ThemeProvider';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchAdminOrderById, updateOrderStatus } from '../../../services/admin';
 import type { Order, OrderStatus } from '../../../types/order';
 import { formatCurrency } from '../../../utils/currency';
@@ -37,8 +38,12 @@ function toneForStatus(status: OrderStatus): 'success' | 'warning' | 'danger' | 
   return 'info';
 }
 
+/** One level deep: fall back to the admin dashboard when there is nothing to pop. */
+const onBack = () => goBack('/(admin)');
+
 export default function AdminOrderDetailScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const params = useLocalSearchParams<{ orderId: string }>();
   const orderId = params.orderId as string;
 
@@ -84,36 +89,32 @@ export default function AdminOrderDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Order" subtitle="Review order details" />
+      <Screen header={<ScreenHeader title="Order" subtitle="Review order details" onBack={onBack} />}>
         <LoadingState label="Loading order" />
-      </SafeAreaView>
+      </Screen>
     );
   }
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Order" subtitle="Review order details" />
+      <Screen header={<ScreenHeader title="Order" subtitle="Review order details" onBack={onBack} />}>
         <ErrorState message={error} onRetry={load} />
-      </SafeAreaView>
+      </Screen>
     );
   }
   if (!order) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Order" subtitle="Review order details" />
+      <Screen header={<ScreenHeader title="Order" subtitle="Review order details" onBack={onBack} />}>
         <EmptyState title="Order not found" message="This order may have been removed." actionLabel="Back to orders" onAction={() => goBack()} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   const nextStatuses = TRANSITIONS[order.status] || [];
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title={order.orderNumber} subtitle="Review order details" />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
+    <Screen header={<ScreenHeader title={order.orderNumber} subtitle="Review order details" onBack={onBack} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.customer, { color: colors.text }]}>{order.customerName}</Text>
           <StatusBadge label={order.status} tone={toneForStatus(order.status)} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Placed: {formatDateTime(order.createdAt)}</Text>
@@ -122,7 +123,7 @@ export default function AdminOrderDetailScreen() {
           <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: {order.paymentMethod}</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Products</Text>
           {order.items.length === 0 ? (
             <Text style={[styles.meta, { color: colors.textMuted }]}>No items.</Text>
@@ -136,18 +137,18 @@ export default function AdminOrderDetailScreen() {
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Timeline</Text>
           {(order.timeline || []).map((step) => (
-            <View key={`${step.label}-${step.time}`} style={{ marginBottom: spacing.sm }}>
+            <View key={`${step.label}-${step.time}`} style={styles.step}>
               <Text style={[styles.itemName, { color: colors.text }]}>{step.label}</Text>
-              <Text style={[styles.meta, { color: colors.textMuted }]}>{formatDateTime(step.time)} {step.note ? `· ${step.note}` : ''}</Text>
+              <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{formatDateTime(step.time)} {step.note ? `· ${step.note}` : ''}</Text>
             </View>
           ))}
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: colors.borderLight, backgroundColor: colors.background }]}>
+      <View style={[styles.footer, { borderTopColor: colors.borderSoft, backgroundColor: colors.background }]}>
         {actionError ? <Text style={[styles.actionError, { color: colors.danger }]}>{actionError}</Text> : null}
         {nextStatuses.length === 0 ? (
           <Text style={[styles.meta, { color: colors.textMuted, textAlign: 'center' }]}>No further transitions for {order.status}</Text>
@@ -165,20 +166,53 @@ export default function AdminOrderDetailScreen() {
           ))
         )}
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
-  customer: { fontSize: typography.h3, fontWeight: '700', marginBottom: spacing.sm },
-  meta: { fontSize: typography.bodySmall, marginTop: spacing.sm },
-  sectionTitle: { fontSize: typography.h3, fontWeight: '700', marginBottom: spacing.md },
+  container: { padding: spacing.lg, gap: spacing.lg },
+  card: { borderRadius: radius.lg, padding: spacing.lg },
+  // The customer's name is a name, not a heading: Sora at name scale, one step above the
+  // section titles below it.
+  customer: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.body,
+    lineHeight: fontSize.body * lineHeight.tight,
+    letterSpacing: -0.2,
+    marginBottom: spacing.sm,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    marginTop: spacing.sm,
+  },
+  sectionTitle: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: -0.2,
+    marginBottom: spacing.md,
+  },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm, gap: spacing.sm },
-  itemName: { fontSize: typography.body, flex: 1 },
-  itemMeta: { fontSize: typography.bodySmall },
+  step: { marginBottom: spacing.sm },
+  itemName: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+    flex: 1,
+  },
+  itemMeta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
   footer: { padding: spacing.lg, gap: spacing.md, borderTopWidth: 1 },
-  actionError: { fontSize: typography.bodySmall, textAlign: 'center' },
+  actionError: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
 });

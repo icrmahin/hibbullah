@@ -42,18 +42,22 @@ export const borderWidth = {
 
 // ─── Touch targets & layout sizes ────────────────────────
 export const layout = {
-  /** 40px — minimum touch target (compact) */
-  touch: 40,
-  /** 40px — default button height */
-  buttonHeight: 40,
+  /** 44px — minimum touch target (Apple's 44pt / Android's 48dp floor, rounded to the 4px grid) */
+  touch: 44,
+  /** 44px — default button height */
+  buttonHeight: 44,
   /** 36px — small button / compact control height */
   controlHeightSmall: 36,
-  /** 40px — standard control height (pill buttons, tabs) */
-  controlHeight: 40,
+  /** 44px — standard control height (buttons, tabs) */
+  controlHeight: 44,
   /** 44px — large control height */
-  controlHeightLarge: 44,
+  controlHeightLarge: 48,
   /** 44px — default input height */
   inputHeight: 44,
+  /** 44px — header row height (the compact bar every screen shares) */
+  headerHeight: 44,
+  /** 36px — the header's back control */
+  backButton: 36,
   /** 36px — icon button default size */
   iconButtonSize: 36,
   /** 28px — small icon button size */

@@ -1,48 +1,51 @@
 import { router } from "expo-router";
-import { FlatList, StyleSheet, Text, View, Pressable } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useFavorites } from "../../../providers/FavoritesProvider";
 import ProductCard from "../../../components/products/ProductCard";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import EmptyState from "../../../components/common/EmptyState";
+import LoadingState from "../../../components/common/LoadingState";
 import Icon from "../../../components/common/Icon";
 import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
+import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 import { useResponsive } from "../../../hooks/useResponsive";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 
 export default function FavoritesScreen() {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
   const { items, loading } = useFavorites();
   // Two per row on a phone, growing from there. The expression this replaces was the same
   // division of the screen width by two that the home screen had, in a second file, which
   // is why favourites stayed two-across forever while everything else was made responsive.
   const { columns, cardWidth } = useResponsive();
 
-  if (!loading && items.length === 0) {
+  if (loading) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top + spacing.lg }]}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>Your hand-picked medicines</Text>
-        </View>
+      <Screen header={<ScreenHeader title="Favorites" />}>
+        <LoadingState label="Loading favorites" />
+      </Screen>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Screen header={<ScreenHeader title="Favorites" subtitle="Your hand-picked medicines" />}>
         <EmptyState
           title="No favorites yet"
           message="Tap the heart on any product to save it here — most recent first."
           actionLabel="Browse products"
           onAction={() => router.push("/(customer)/(tabs)/products")}
+          icon="favorite"
         />
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>{items.length} saved · recent first</Text>
-      </View>
-
+    <Screen header={<ScreenHeader title="Favorites" subtitle={`${items.length} saved · recent first`} />}>
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
@@ -50,7 +53,7 @@ export default function FavoritesScreen() {
         // FlatList, unlike FlashList, has `columnWrapperStyle`, so the gutter is a real gap
         // rather than the paired half-padding the catalog uses to keep cells on one rhythm.
         columnWrapperStyle={{ gap: spacing.md }}
-        contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, spacing.lg) + 24 }]}
+        contentContainerStyle={[styles.list, { paddingBottom: bottomInset }]}
         renderItem={({ item }) => (
           <View style={{ width: cardWidth, marginBottom: spacing.md }}>
             <ProductCard
@@ -67,16 +70,16 @@ export default function FavoritesScreen() {
           </View>
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: 2 },
-  title: { fontSize: 20, fontWeight: "800" },
-  subtitle: { fontSize: typography.caption, marginTop: 2 },
   list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  hintRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
-  hint: { fontSize: 11 },
+  hintRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
+  hint: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
 });

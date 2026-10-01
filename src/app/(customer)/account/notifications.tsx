@@ -1,94 +1,45 @@
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { useState } from "react";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../../providers/ThemeProvider";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
 import EmptyState from "../../../components/common/EmptyState";
+import StatusBadge from "../../../components/common/StatusBadge";
 import { goBack } from "@/utils/navigation";
 import spacing from "../../../constants/spacing";
 import { NOTIFICATION_LIMIT } from "../../../constants/limits";
 import { useNotifications } from "../../../hooks/useNotifications";
 import { useConfirm } from "../../../hooks/useConfirm";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { normalizeError } from "../../../utils/errorHandling";
 import { formatDateTime } from "../../../utils/date";
 import Icon from "../../../components/common/Icon";
 import type { NotificationItem } from "../../../types/notification";
-import { radius } from "../../../constants/sizes";
-
-function statusColor(type: NotificationItem["type"], colors: any) {
-  switch (type) {
-    case "alert":
-      return colors.danger; // red urgent
-    case "warning":
-      // Was a hard-coded `#EAB308`, which is a *yellow* unrelated to both palettes — a
-      // notification dot in a colour the rest of the app does not contain. `warning` is the
-      // palette's amber and is contrast-checked in both themes.
-      return colors.warning;
-    case "success":
-      return colors.success;
-    case "info":
-    default:
-      return colors.accent;
-  }
-}
+import { opacity, radius } from "../../../constants/sizes";
+import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 
 /**
- * The solid counterparts of `statusColor`.
- *
- * The status chip used to build its own colours by appending an alpha pair to a hex —
- * `statusColor(...) + "1A"` for the fill and `+ "30"` for the border. That is not a solid
- * background, and it also ignored the palette: these are washes computed at the call site
- * out of an ink, so they are not the `*Soft` and `*Border` values that were contrast-checked
- * for exactly this pairing. The palette already has solid tokens for a status on its own
- * background, so the chip uses those.
+ * Each notification type maps to a `StatusBadge` tone and keeps the label it has always
+ * shown. The chip used to be drawn here — an ink, a `*Soft` wash and a `*Border` hairline
+ * computed per call site — which is exactly what `StatusBadge` is for. The old ink for
+ * `warning` was also a hard-coded `#EAB308`, a yellow unrelated to either palette.
  */
-function statusSoft(type: NotificationItem["type"], colors: any) {
-  switch (type) {
-    case "alert":
-      return colors.dangerSoft;
-    case "warning":
-      return colors.warningSoft;
-    case "success":
-      return colors.successSoft;
-    case "info":
-    default:
-      return colors.primarySoft;
-  }
-}
-
-function statusBorder(type: NotificationItem["type"], colors: any) {
-  switch (type) {
-    case "alert":
-      return colors.dangerBorder;
-    case "warning":
-      return colors.warningBorder;
-    case "success":
-      return colors.successBorder;
-    case "info":
-    default:
-      return colors.border;
-  }
-}
-
-function statusLabel(type: NotificationItem["type"]) {
-  switch (type) {
-    case "alert":
-      return "Urgent";
-    case "warning":
-      return "Attention";
-    case "success":
-      return "Done";
-    case "info":
-    default:
-      return "Info";
-  }
-}
+const STATUS: Record<
+  NotificationItem["type"],
+  { tone: "success" | "warning" | "danger" | "info"; label: string }
+> = {
+  alert: { tone: "danger", label: "Urgent" },
+  warning: { tone: "warning", label: "Attention" },
+  success: { tone: "success", label: "Done" },
+  info: { tone: "info", label: "Info" },
+};
 
 export default function CustomerNotificationsScreen() {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
   const { items, loading, error, reload, unreadCount, readCount, markAsRead, markAllRead, clearAll, clearRead } =
     useNotifications();
   const { confirm, confirmDialogProps } = useConfirm();
@@ -155,67 +106,59 @@ export default function CustomerNotificationsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top + 52 }]}>
-        <View style={[styles.floatingBack, { top: insets.top + spacing.sm, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
-          <Pressable onPress={() => goBack()} hitSlop={8} style={styles.floatingPress}>
-            <Icon name="arrow-back" size={18} color={colors.text} />
-          </Pressable>
-        </View>
+      <Screen header={<ScreenHeader title="Notifications" onBack={goBack} />}>
         <LoadingState label="Loading notifications" />
         <ConfirmDialog {...confirmDialogProps} />
-      </View>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top + 52 }]}>
-        <View style={[styles.floatingBack, { top: insets.top + spacing.sm, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
-          <Pressable onPress={() => goBack()} hitSlop={8} style={styles.floatingPress}>
-            <Icon name="arrow-back" size={18} color={colors.text} />
-          </Pressable>
-        </View>
+      <Screen header={<ScreenHeader title="Notifications" onBack={goBack} />}>
         <ErrorState message={error} onRetry={reload} />
         <ConfirmDialog {...confirmDialogProps} />
-      </View>
+      </Screen>
     );
   }
 
-  return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <View style={[styles.floatingBack, { top: insets.top + spacing.sm, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
-        <Pressable onPress={() => goBack()} hitSlop={8} style={styles.floatingPress} accessibilityLabel="Go back">
-          <Icon name="arrow-back" size={18} color={colors.text} />
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 52, paddingBottom: Math.max(insets.bottom, spacing.lg) + 24 }]}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: colors.text }]}>Notifications</Text>
-          {items.length > 0 ? (
-            <Pressable onPress={handleMarkAllRead} hitSlop={6}>
-              <Text style={[styles.markAll, { color: colors.accent }]}>Mark all read</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        {/* The clear actions sit in their own row rather than crowding the title, so
-            the destructive one is a deliberate tap instead of a near-miss on
-            "Mark all read" -- the two sit at opposite ends of the same line otherwise. */}
-        {items.length > 0 ? (
-          <View
-            style={[
-              styles.clearRow,
-              { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
-            ]}
+  const header = (
+    <ScreenHeader
+      title="Notifications"
+      onBack={goBack}
+      action={
+        items.length > 0 ? (
+          <Pressable
+            onPress={handleMarkAllRead}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Mark all notifications as read"
           >
+            <Text style={[styles.markAll, { color: colors.accent }]}>Mark all read</Text>
+          </Pressable>
+        ) : undefined
+      }
+    />
+  );
+
+  return (
+    <Screen header={header}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* The clear actions sit in their own row rather than crowding the header, so
+            the destructive one is a deliberate tap instead of a near-miss on
+            "Mark all read" — the two sit at opposite ends of the same line otherwise. */}
+        {items.length > 0 ? (
+          <View style={[styles.clearRow, { backgroundColor: colors.backgroundAlt }]}>
             <Pressable
               onPress={handleClearRead}
               disabled={readCount === 0}
               hitSlop={6}
               style={({ pressed }) => [
                 styles.clearButton,
-                pressed && readCount > 0 && { opacity: 0.6 },
+                pressed && readCount > 0 && { opacity: opacity.pressed },
                 readCount === 0 && styles.clearButtonDisabled,
               ]}
             >
@@ -232,12 +175,12 @@ export default function CustomerNotificationsScreen() {
               ) : null}
             </Pressable>
 
-            <View style={[styles.clearDivider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.clearDivider, { backgroundColor: colors.borderSoft }]} />
 
             <Pressable
               onPress={handleClearAll}
               hitSlop={6}
-              style={({ pressed }) => [styles.clearButton, pressed && { opacity: 0.6 }]}
+              style={({ pressed }) => [styles.clearButton, pressed && { opacity: opacity.pressed }]}
             >
               <Icon name="delete-outline" size={14} color={colors.danger} />
               <Text style={[styles.clearLabel, { color: colors.danger }]}>Clear all</Text>
@@ -257,26 +200,36 @@ export default function CustomerNotificationsScreen() {
         ) : null}
 
         {items.length === 0 ? (
-          <EmptyState title="No notifications" message="Order updates and offers will appear here." />
+          <EmptyState
+            title="No notifications"
+            message="Order updates and offers will appear here."
+            icon="notifications"
+          />
         ) : (
           <View style={styles.list}>
             {items.map((notification) => (
-              <Pressable key={notification.id} onPress={() => handleMarkRead(notification.id)} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+              <Pressable
+                key={notification.id}
+                onPress={() => handleMarkRead(notification.id)}
+                style={({ pressed }) => pressed && styles.pressed}
+                accessibilityRole="button"
+                accessibilityLabel={notification.title}
+              >
                 <View
                   style={[
                     styles.card,
-                    { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight, opacity: notification.read ? 0.68 : 1 },
+                    { backgroundColor: colors.backgroundAlt, opacity: notification.read ? 0.68 : 1 },
                   ]}
                 >
-                  <View style={[styles.statusDot, { backgroundColor: statusColor(notification.type, colors) }]} />
                   <View style={styles.cardBody}>
                     <View style={styles.cardHeader}>
                       <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
                         {notification.title}
                       </Text>
-                      <View style={[styles.statusChip, { backgroundColor: statusSoft(notification.type, colors), borderColor: statusBorder(notification.type, colors) }]}>
-                        <Text style={[styles.statusText, { color: statusColor(notification.type, colors) }]}>{statusLabel(notification.type)}</Text>
-                      </View>
+                      <StatusBadge
+                        label={STATUS[notification.type].label}
+                        tone={STATUS[notification.type].tone}
+                      />
                     </View>
                     <Text style={[styles.body, { color: colors.textMuted }]}>{notification.body}</Text>
                     <Text style={[styles.time, { color: colors.textMuted }]}>{formatDateTime(notification.createdAt)}</Text>
@@ -305,37 +258,29 @@ export default function CustomerNotificationsScreen() {
         ) : null}
       </ScrollView>
       <ConfirmDialog {...confirmDialogProps} />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  floatingBack: {
-    position: "absolute",
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
-    // No boxShadow. It was a hardcoded `rgba(0,0,0,0.08)` written into the StyleSheet,
-    // which is invisible on this screen's dark surface — and it was invisible on the light
-    // one too, being a 4px blur on a 36px circle that already has a 1px border. Flat.
+  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
+  markAll: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
   },
-  floatingPress: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
-  container: { paddingHorizontal: spacing.lg, gap: spacing.md },
-  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { fontSize: 18, fontWeight: "800" },
-  markAll: { fontSize: 12, fontWeight: "700" },
-  actionError: { fontSize: 12, textAlign: "center" },
+  actionError: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: "center",
+  },
+  // One white row holding two actions — a control group, so it takes the control radius
+  // and the two halves are split by a hairline divider rather than a border around it.
   clearRow: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: radius.md,
-    borderWidth: 1,
     overflow: "hidden",
   },
   clearButton: {
@@ -343,31 +288,65 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: spacing.sm,
     paddingVertical: spacing.sm + 2,
   },
-  clearButtonDisabled: { opacity: 0.55 },
-  clearLabel: { fontSize: 12, fontWeight: "700" },
-  clearCount: { fontSize: 11, fontWeight: "700" },
+  clearButtonDisabled: { opacity: opacity.disabled },
+  clearLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  clearCount: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.tight,
+  },
   clearDivider: { width: 1, alignSelf: "stretch" },
-  capNote: { fontSize: 11, lineHeight: 15, marginTop: -spacing.xs },
-  footnote: { fontSize: 11, textAlign: "center" },
+  capNote: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: -spacing.xs,
+  },
+  footnote: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: "center",
+  },
   list: { gap: spacing.md },
   card: {
     flexDirection: "row",
     gap: spacing.md,
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.md,
     alignItems: "flex-start",
   },
-  statusDot: { width: 8, height: 8, borderRadius: radius.pill, marginTop: 6 },
   unreadDot: { width: 8, height: 8, borderRadius: radius.pill, marginTop: 6 },
-  cardBody: { flex: 1, gap: 4 },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
-  cardTitle: { fontSize: 13, fontWeight: "700", flex: 1 },
-  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, borderWidth: 1 },
-  statusText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
-  body: { fontSize: 12, lineHeight: 16 },
-  time: { fontSize: 11, marginTop: 2 },
+  cardBody: { flex: 1, gap: spacing.xs },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  cardTitle: {
+    flex: 1,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  body: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  time: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    marginTop: 2,
+  },
+  pressed: { opacity: 0.85 },
 });

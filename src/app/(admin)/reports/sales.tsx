@@ -1,19 +1,25 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AdminHeader from '../../../components/admin/AdminHeader';
+import { goBack } from '@/utils/navigation';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import { useThemeColors } from '../../../providers/ThemeProvider';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
 import { fetchSalesReport } from '../../../services/reports';
 import { radius } from '../../../constants/sizes';
 
+/** One level deep: fall back to the admin dashboard when there is nothing to pop. */
+const onBack = () => goBack('/(admin)');
+
 export default function AdminSalesReportScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState({ revenue: 0, deliveredOrders: 0, discounts: 0 });
@@ -36,51 +42,68 @@ export default function AdminSalesReportScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Sales report" subtitle="Revenue overview" />
+      <Screen header={<ScreenHeader title="Sales report" subtitle="Revenue overview" onBack={onBack} />}>
         <LoadingState label="Loading sales report" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Sales report" subtitle="Revenue overview" />
+      <Screen header={<ScreenHeader title="Sales report" subtitle="Revenue overview" onBack={onBack} />}>
         <ErrorState message={error} onRetry={load} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
+  const rows = [
+    { label: 'Revenue', value: formatCurrency(data.revenue) },
+    { label: 'Delivered orders', value: String(data.deliveredOrders) },
+    { label: 'Discounts given', value: formatCurrency(data.discounts) },
+  ];
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Sales report" subtitle="Revenue overview" />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
-          <Text style={[styles.label, { color: colors.textMuted }]}>Revenue</Text>
-          <Text style={[styles.value, { color: colors.text }]}>{formatCurrency(data.revenue)}</Text>
-        </View>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
-          <Text style={[styles.label, { color: colors.textMuted }]}>Delivered orders</Text>
-          <Text style={[styles.value, { color: colors.text }]}>{String(data.deliveredOrders)}</Text>
-        </View>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
-          <Text style={[styles.label, { color: colors.textMuted }]}>Discounts given</Text>
-          <Text style={[styles.value, { color: colors.text }]}>{formatCurrency(data.discounts)}</Text>
+    <Screen header={<ScreenHeader title="Sales report" subtitle="Revenue overview" onBack={onBack} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
+          {rows.map((r, index) => (
+            <React.Fragment key={r.label}>
+              {index > 0 ? <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} /> : null}
+              <View style={styles.metricRow}>
+                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{r.label}</Text>
+                <Text style={[styles.metricValue, { color: colors.text }]}>{r.value}</Text>
+              </View>
+            </React.Fragment>
+          ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  container: { padding: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
   },
-  label: { fontSize: typography.bodySmall },
-  value: { fontWeight: '700', marginTop: spacing.xs, fontSize: typography.h2 },
+  divider: { height: 1 },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  metricLabel: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.normal,
+  },
+  metricValue: {
+    fontFamily: fontFamily.soraBold,
+    fontSize: fontSize.title2,
+    lineHeight: fontSize.title2 * lineHeight.tight,
+    textAlign: 'right',
+  },
 });

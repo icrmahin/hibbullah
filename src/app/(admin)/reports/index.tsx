@@ -1,19 +1,30 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AdminHeader from '../../../components/admin/AdminHeader';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import Screen from '../../../components/common/Screen';
+import ScreenHeader from '../../../components/common/ScreenHeader';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
+import Icon from '../../../components/common/Icon';
 import { useThemeColors } from '../../../providers/ThemeProvider';
+import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
+import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
 import { fetchReports } from '../../../services/reports';
 import { radius } from '../../../constants/sizes';
 
+/** The detail reports this screen is the front door for — both were registered routes
+ *  nothing linked to. */
+const REPORT_LINKS = [
+  { label: 'Sales report', href: '/(admin)/reports/sales' },
+  { label: 'Inventory report', href: '/(admin)/reports/inventory' },
+] as const;
+
 export default function AdminReportsScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sales, setSales] = useState({ revenue: 0, deliveredOrders: 0, discounts: 0 });
@@ -39,19 +50,17 @@ export default function AdminReportsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Reports" subtitle="High-level performance" />
+      <Screen header={<ScreenHeader title="Reports" subtitle="High-level performance" />}>
         <LoadingState label="Loading reports" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Reports" subtitle="High-level performance" />
+      <Screen header={<ScreenHeader title="Reports" subtitle="High-level performance" />}>
         <ErrorState message={error} onRetry={load} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -63,38 +72,78 @@ export default function AdminReportsScreen() {
     { label: "Out of stock", value: String(inventory.outOfStock) },
   ];
 
+  // One card of rows: five stacked bordered cards with 22px bold numbers became a single
+  // white surface with hairline-separated rows, the way every other list in the app reads.
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Reports" subtitle="High-level performance" />
-      <ScrollView contentContainerStyle={styles.container}>
-        {reports.map((r) => (
-          <View
-            key={r.label}
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.backgroundAlt,
-                borderColor: colors.borderLight,
-              },
-            ]}
-          >
-            <Text style={[styles.label, { color: colors.textMuted }]}>{r.label}</Text>
-            <Text style={[styles.value, { color: colors.text }]}>{r.value}</Text>
-          </View>
-        ))}
+    <Screen header={<ScreenHeader title="Reports" subtitle="High-level performance" />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
+          {reports.map((r, index) => (
+            <React.Fragment key={r.label}>
+              {index > 0 ? <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} /> : null}
+              <View style={styles.metricRow}>
+                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>{r.label}</Text>
+                <Text style={[styles.metricValue, { color: colors.text }]}>{r.value}</Text>
+              </View>
+            </React.Fragment>
+          ))}
+          {REPORT_LINKS.map((link) => (
+            <React.Fragment key={link.href}>
+              <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
+              <Pressable
+                onPress={() => router.push(link.href)}
+                style={({ pressed }) => [styles.navRow, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel={link.label}
+              >
+                <Text style={[styles.navLabel, { color: colors.text }]}>{link.label}</Text>
+                <Icon name="chevron-right" size={18} color={colors.textMuted} />
+              </Pressable>
+            </React.Fragment>
+          ))}
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  container: { padding: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
   },
-  label: { fontSize: typography.bodySmall },
-  value: { fontWeight: '700', marginTop: spacing.xs, fontSize: typography.h2 },
+  divider: { height: 1 },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  metricLabel: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.normal,
+  },
+  metricValue: {
+    fontFamily: fontFamily.soraBold,
+    fontSize: fontSize.title2,
+    lineHeight: fontSize.title2 * lineHeight.tight,
+    textAlign: 'right',
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  navLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  pressed: { opacity: 0.7 },
 });

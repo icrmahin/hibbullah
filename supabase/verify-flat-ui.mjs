@@ -326,7 +326,6 @@ function lineOf(file, needle) {
     join(SRC, "app", "(admin)", "index.tsx"),
     join(SRC, "components", "admin", "ProductForm.tsx"),
     join(SRC, "components", "auth", "UnifiedAuth.tsx"),
-    join(SRC, "components", "common", "AuthBackButton.tsx"),
     join(SRC, "components", "products", "ProductHeroSlider.tsx"),
   ]);
 

@@ -2,8 +2,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { goBack } from '@/utils/navigation';
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AdminHeader from "../../../../components/admin/AdminHeader";
+import Screen from "../../../../components/common/Screen";
+import ScreenHeader from "../../../../components/common/ScreenHeader";
 import Button from "../../../../components/common/Button";
 import EmptyState from "../../../../components/common/EmptyState";
 import LoadingState from "../../../../components/common/LoadingState";
@@ -13,16 +13,19 @@ import ResponsiveContainer from "../../../../components/common/ResponsiveContain
 import StatusBadge from "../../../../components/common/StatusBadge";
 import ProductImage from "../../../../components/products/ProductImage";
 import { useThemeColors } from "../../../../providers/ThemeProvider";
-import { useShadows } from "../../../../constants/shadows";
 import { useResponsive } from "../../../../hooks/useResponsive";
+import { useBottomInset } from "../../../../hooks/useBottomInset";
 import { useProduct } from "../../../../hooks/useProducts";
 import { updateProduct, deleteProduct } from "../../../../services/products";
 import config from "../../../../constants/config";
 import { radius } from "../../../../constants/sizes";
-import spacing from "../../../../constants/spacing";
-import typography from "../../../../constants/typography";
+import { spacing } from "../../../../constants/spacing";
+import { fontFamily, fontSize, lineHeight, letterSpacing } from "../../../../constants/typography";
 import { formatCurrency } from "../../../../utils/currency";
 import { normalizeError } from "../../../../utils/errorHandling";
+
+/** One level deep: the catalog, when there is nothing to pop. */
+const onBack = () => goBack("/(admin)");
 
 function InfoRow({ label, value, colors }: { label: string; value: string; colors: ReturnType<typeof useThemeColors> }) {
   if (!value) return null;
@@ -36,7 +39,7 @@ function InfoRow({ label, value, colors }: { label: string; value: string; color
 
 export default function AdminProductDetailScreen() {
   const colors = useThemeColors();
-  const shadows = useShadows();
+  const bottomInset = useBottomInset();
   const { isDesktop } = useResponsive();
   const params = useLocalSearchParams<{ productId: string }>();
   const productId = params.productId as string;
@@ -48,33 +51,30 @@ export default function AdminProductDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Product" subtitle="Product overview" />
+      <Screen header={<ScreenHeader title="Product" subtitle="Product overview" onBack={onBack} />}>
         <LoadingState label="Loading product" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Product" subtitle="Product overview" />
+      <Screen header={<ScreenHeader title="Product" subtitle="Product overview" onBack={onBack} />}>
         <ErrorState message={error} onRetry={reload} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!product) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Product" subtitle="Product overview" />
+      <Screen header={<ScreenHeader title="Product" subtitle="Product overview" onBack={onBack} />}>
         <EmptyState
           title="Product not found"
           message="This product may have been removed."
           actionLabel="Back to products"
           onAction={() => goBack()}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -112,16 +112,14 @@ export default function AdminProductDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title={product?.name ?? "Product"} subtitle="Product overview" />
-
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen header={<ScreenHeader title={product?.name ?? "Product"} subtitle="Product overview" onBack={onBack} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <ResponsiveContainer sidebarAware maxWidth={isDesktop ? 960 : 1320}>
-          <View style={[styles.imageIsland, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm }]}>
+          <View style={[styles.imageIsland, { backgroundColor: colors.backgroundAlt }]}>
             <ProductImage uri={product.image} recyclingKey={product.id} style={isDesktop ? styles.imageDesktop : styles.image} />
           </View>
 
-          <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm }]}>
+          <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.brand, { color: colors.textMuted }]}>{product.brand}</Text>
           <Text style={[styles.name, { color: colors.text }]}>{product.name}</Text>
           <Text style={[styles.generic, { color: colors.textMuted }]}>{product.genericName}</Text>
@@ -158,7 +156,7 @@ export default function AdminProductDetailScreen() {
             ) : null}
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+          <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
 
           <InfoRow label="Category" value={categoryName} colors={colors} />
           <InfoRow label="Manufacturer" value={manufacturerName} colors={colors} />
@@ -176,12 +174,14 @@ export default function AdminProductDetailScreen() {
           />
           <InfoRow label="Featured" value={product.isFeatured ? "Yes" : "No"} colors={colors} />
 
-          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+          <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
 
           <Text style={[styles.description, { color: colors.textMuted }]}>{product.description}</Text>
         </View>
 
-        {actionError ? <Text style={{ color: colors.danger, fontSize: 12, textAlign: 'center' }}>{actionError}</Text> : null}
+        {actionError ? (
+          <Text style={[styles.actionError, { color: colors.danger }]}>{actionError}</Text>
+        ) : null}
 
         <View style={styles.actions}>
           <Button
@@ -221,39 +221,46 @@ export default function AdminProductDetailScreen() {
         onAction={handleDelete}
         onClose={() => setDeleteConfirm(false)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
+  // ResponsiveContainer below owns the horizontal gutter, so this holds only the
+  // vertical rhythm and the bottom inset.
   container: {
-    padding: spacing.lg,
+    paddingTop: spacing.sm,
     gap: spacing.md,
-    paddingBottom: spacing.xxl,
   },
   imageIsland: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
+    borderRadius: radius.lg,
     overflow: "hidden",
     padding: spacing.sm,
   },
   image: { height: 180, borderRadius: radius.lg },
   imageDesktop: { height: 280, borderRadius: radius.lg },
   card: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.sm,
   },
   brand: {
-    fontSize: typography.caption,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.micro,
+    lineHeight: fontSize.micro * lineHeight.normal,
+    letterSpacing: letterSpacing.wide,
   },
-  name: { fontSize: typography.h2, fontWeight: "700" },
-  generic: { fontSize: typography.bodySmall },
+  name: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.title2,
+    lineHeight: fontSize.title2 * lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
+  },
+  generic: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
   priceRow: {
     flexDirection: "row",
@@ -261,9 +268,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  price: { fontSize: typography.h3, fontWeight: "800" },
+  price: {
+    fontFamily: fontFamily.pjsBold,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
+  },
   original: {
-    fontSize: typography.caption,
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
     textDecorationLine: "line-through",
   },
   divider: { height: 1, marginVertical: spacing.sm },
@@ -273,12 +286,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
   },
-  infoLabel: { fontSize: typography.bodySmall },
+  infoLabel: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   infoValue: {
-    fontSize: typography.bodySmall,
-    fontWeight: "600",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
     flexShrink: 1,
   },
-  description: { fontSize: typography.bodySmall, lineHeight: 20 },
+  description: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  actionError: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: "center",
+  },
   actions: { gap: spacing.md, marginTop: spacing.xs },
 });

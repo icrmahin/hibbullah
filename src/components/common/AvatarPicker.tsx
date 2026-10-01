@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily } from "../../constants/typography";
 import { radius } from "../../constants/sizes";
 import Icon from "./Icon";
 import Avatar from "./Avatar";
@@ -39,7 +38,6 @@ export default function AvatarPicker({
   error,
 }: AvatarPickerProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const [menuOpen, setMenuOpen] = useState(false);
   const { pick, error: pickerError } = useImagePicker({ aspect: [1, 1] });
 
@@ -54,7 +52,7 @@ export default function AvatarPicker({
   return (
     <View style={styles.wrapper}>
       <View style={styles.row}>
-        <View style={[styles.avatarWrap, { borderColor: colors.borderSoft, ...shadows.sm }]}>
+        <View style={[styles.avatarWrap, { borderColor: colors.borderSoft }]}>
           <Avatar uri={uri} name={name} size={size} priority="high" />
           {uploading ? (
             // A scrim over the avatar while it uploads, so it dims an image rather than
@@ -112,7 +110,7 @@ export default function AvatarPicker({
 
       {/* Rendered outside the clipped avatar circle so the menu is never cut off. */}
       {menuOpen ? (
-        <View style={[styles.menu, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm }]}>
+        <View style={[styles.menu, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
           <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]} onPress={() => void choose("library")}>
             <Icon name="photo-library" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Choose from library</Text>
@@ -150,7 +148,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   actions: { flex: 1, gap: spacing.xs },
-  title: { fontSize: typography.bodySmall, fontWeight: "700" },
+  title: { fontFamily: fontFamily.soraBold, fontSize: typography.bodySmall },
   hint: { fontSize: typography.caption },
   buttons: {
     flexDirection: "row",
@@ -167,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
   },
-  buttonText: { fontSize: typography.caption, fontWeight: "700" },
+  buttonText: { fontFamily: fontFamily.pjsBold, fontSize: typography.caption },
   menu: {
     borderWidth: 1,
     borderRadius: radius.lg,
@@ -180,7 +178,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },
-  menuText: { fontSize: typography.bodySmall, fontWeight: "600" },
+  menuText: { fontFamily: fontFamily.pjsSemiBold, fontSize: typography.bodySmall },
   hairline: { height: 1 },
   pressed: { opacity: 0.6 },
   error: { fontSize: typography.caption },

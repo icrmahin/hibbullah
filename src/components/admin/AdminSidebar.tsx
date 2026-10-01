@@ -1,7 +1,6 @@
 import { router, usePathname } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize } from "../../constants/typography";
 import sizes from "../../constants/sizes";
@@ -83,7 +82,6 @@ function SidebarItem({
 export default function AdminSidebar() {
   const pathname = usePathname();
   const colors = useThemeColors();
-  const shadows = useShadows();
   const activePath = getActivePath(pathname);
 
   return (
@@ -93,7 +91,6 @@ export default function AdminSidebar() {
         {
           backgroundColor: colors.backgroundAlt,
           borderRightColor: colors.borderLight,
-          ...shadows.sm,
         },
       ]}
     >
@@ -207,8 +204,8 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontFamily: fontFamily.semiBold,
-    fontSize: 9,
-    lineHeight: 9 * 1.3,
+    fontSize: fontSize.tiny,
+    lineHeight: fontSize.tiny * 1.3,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     paddingHorizontal: spacing.sm,

@@ -138,9 +138,9 @@ const styles = StyleSheet.create({
   disabled: { opacity: opacityToken.disabled },
   link: { paddingHorizontal: 0, paddingVertical: 0, minHeight: 0 },
   label: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.tight,
-    letterSpacing: 0.2,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+    letterSpacing: 0.1,
   },
 });

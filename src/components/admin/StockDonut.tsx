@@ -1,6 +1,7 @@
 import { Text, View, StyleSheet } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { useThemeColors } from "../../providers/ThemeProvider";
+import { fontFamily, fontSize } from "../../constants/typography";
 
 export default function StockDonut({ healthy, low, out }: { healthy: number; low: number; out: number }) {
   const colors = useThemeColors();
@@ -50,6 +51,6 @@ export default function StockDonut({ healthy, low, out }: { healthy: number; low
 const styles = StyleSheet.create({
   wrap: { width: 84, height: 84, alignItems: "center", justifyContent: "center" },
   center: { position: "absolute", alignItems: "center" },
-  pct: { fontSize: 16, fontWeight: "800" },
-  label: { fontSize: 10, fontWeight: "600" },
+  pct: { fontFamily: fontFamily.soraBold, fontSize: fontSize.callout },
+  label: { fontFamily: fontFamily.pjsSemiBold, fontSize: fontSize.tiny },
 });

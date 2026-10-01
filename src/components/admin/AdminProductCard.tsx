@@ -1,9 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
-import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import { spacing } from "../../constants/spacing";
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import type { Product } from "../../types/product";
 import ProductImage from "../products/ProductImage";
 import ProductPrice from "../products/ProductPrice";
@@ -17,18 +16,13 @@ export default function AdminProductCard({
   onPress?: (product: Product) => void;
 }) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const available = product.isActive && product.stock > 0;
 
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
-        {
-          backgroundColor: colors.backgroundAlt,
-          borderColor: colors.borderSoft,
-          ...shadows.xs,
-        },
+        { backgroundColor: colors.backgroundAlt },
         pressed && styles.pressed,
       ]}
       onPress={() => onPress?.(product)}
@@ -88,8 +82,7 @@ export default function AdminProductCard({
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
-    borderRadius: radius.xl,
-    borderWidth: 1,
+    borderRadius: radius.lg,
     overflow: "hidden",
     alignItems: "center",
   },
@@ -101,13 +94,26 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: spacing.sm,
   },
-  name: { flex: 1, fontSize: typography.bodySmall, fontWeight: "700" },
-  meta: { fontSize: typography.caption },
+  name: {
+    flex: 1,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
   footer: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
     marginTop: spacing.xs,
   },
-  stock: { fontSize: typography.caption, fontWeight: "600" },
+  stock: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
 });

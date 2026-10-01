@@ -1,23 +1,26 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { goBack } from '@/utils/navigation';
 import { useThemeColors } from '../../providers/ThemeProvider';
-import SoftHeader from '../../components/common/SoftHeader';
+import Screen from '../../components/common/Screen';
+import ScreenHeader from '../../components/common/ScreenHeader';
 import StatusBadge from '../../components/common/StatusBadge';
 import LoadingState from '../../components/common/LoadingState';
 import ErrorState from '../../components/common/ErrorState';
 import EmptyState from '../../components/common/EmptyState';
 import Button from '../../components/common/Button';
 import spacing from '../../constants/spacing';
+import { fontFamily, fontSize, lineHeight } from '../../constants/typography';
+import { radius } from '../../constants/sizes';
 import { useDeliveryCycle } from '../../hooks/useDeliveryCycle';
 import { useOrders } from '../../hooks/useOrders';
+import { useBottomInset } from '../../hooks/useBottomInset';
 import { formatCurrency } from '../../utils/currency';
 import { formatDateTime } from '../../utils/date';
-import { radius } from '../../constants/sizes';
 
 export default function DeliveryCycleScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const { cycle, loading, error, reload, create } = useDeliveryCycle();
   const { orders } = useOrders();
   const [creating, setCreating] = React.useState(false);
@@ -25,27 +28,24 @@ export default function DeliveryCycleScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Delivery cycle" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Delivery cycle" onBack={() => goBack()} />}>
         <LoadingState label="Loading delivery cycle" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Delivery cycle" onBack={() => goBack()} />
+      <Screen header={<ScreenHeader title="Delivery cycle" onBack={() => goBack()} />}>
         <ErrorState message={error} onRetry={reload} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!cycle) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <SoftHeader title="Delivery cycle" onBack={() => goBack()} />
-        <ScrollView contentContainerStyle={styles.container}>
+      <Screen header={<ScreenHeader title="Delivery cycle" onBack={() => goBack()} />}>
+        <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
           <EmptyState title="No active cycle" message="Start a 24-hour delivery cycle to group your orders." />
           {createError ? <Text style={[styles.error, { color: colors.danger }]}>{createError}</Text> : null}
           <Button
@@ -66,7 +66,7 @@ export default function DeliveryCycleScreen() {
             fullWidth
           />
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -75,10 +75,9 @@ export default function DeliveryCycleScreen() {
   const pendingOrders = orders.filter((o) => o.status === 'PENDING' || o.status === 'CONFIRMED' || o.status === 'PROCESSING')
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title="Delivery cycle" onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+    <Screen header={<ScreenHeader title="Delivery cycle" onBack={() => goBack()} />}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.title, { color: colors.text }]}>Active order cycle</Text>
           <StatusBadge label={cycle.status} tone={cycle.status === 'PENDING' ? 'warning' : 'info'} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Start: {formatDateTime(cycle.startedAt)}</Text>
@@ -86,7 +85,7 @@ export default function DeliveryCycleScreen() {
           <Text style={[styles.total, { color: colors.text }]}>Estimated total: {formatCurrency(cycle.estimatedTotal)}</Text>
           {cycleProducts.length > 0 ? (
             <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-              <Text style={[styles.meta, { color: colors.text, fontWeight: '700' }]}>Products in cycle ({cycleProducts.length})</Text>
+              <Text style={[styles.groupLabel, { color: colors.text }]}>Products in cycle ({cycleProducts.length})</Text>
               {cycleProducts.map((p: any) => (
                 <View key={p.id} style={styles.row}>
                   <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>{p.name} × {p.quantity ?? 1}</Text>
@@ -96,7 +95,7 @@ export default function DeliveryCycleScreen() {
             </View>
           ) : null}
         </View>
-        <View style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Pending orders in window ({pendingOrders.length})</Text>
           <Text style={[styles.meta, { color: colors.textMuted, marginBottom: spacing.sm }]}>Orders with status PENDING/CONFIRMED/PROCESSING created after {formatDateTime(cycle.startedAt)}</Text>
           {pendingOrders.length === 0 ? (
@@ -111,22 +110,63 @@ export default function DeliveryCycleScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  card: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.lg },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: spacing.md },
-  meta: { fontSize: 12, marginTop: spacing.sm },
-  total: { marginTop: spacing.md, fontWeight: '700' },
-  sectionTitle: { fontSize: 20, fontWeight: '700', marginBottom: spacing.md },
+  container: { padding: spacing.lg, gap: spacing.lg },
+  // The card rule: white surface on the off-white page, no border, no shadow.
+  card: { borderRadius: radius.lg, padding: spacing.lg },
+  title: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
+    letterSpacing: -0.2,
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
+    letterSpacing: -0.2,
+    marginBottom: spacing.md,
+  },
+  groupLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: spacing.sm,
+  },
+  total: {
+    fontFamily: fontFamily.pjsBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+    marginTop: spacing.md,
+  },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  itemName: { flex: 1 },
+  itemName: {
+    flex: 1,
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
   // Colour comes from the palette at the call site. Was `color: '#3D4A46'`, a copy of
   // light mode's secondary text that stayed dark in dark mode — grey-on-near-black.
-  itemPrice: {},
-  error: { fontSize: 12, textAlign: 'center' },
+  itemPrice: {
+    fontFamily: fontFamily.pjsMedium,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    textAlign: 'center',
+  },
 });

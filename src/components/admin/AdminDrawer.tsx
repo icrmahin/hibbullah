@@ -3,10 +3,9 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "../common/Icon";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
-import typography from "../../constants/typography";
+import typography, { fontFamily, fontSize } from "../../constants/typography";
 import type { IconName } from "../common/Icon";
 
 const MENU_ITEMS: { label: string; path: string; icon: IconName }[] = [
@@ -21,7 +20,6 @@ const SHOP_ITEM = { label: "Back to Shop", path: "/(customer)/(tabs)" as const, 
 
 export default function AdminDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const colors = useThemeColors();
-  const shadows = useShadows();
   const insets = useSafeAreaInsets();
 
   const navigate = (path: string) => {
@@ -40,7 +38,6 @@ export default function AdminDrawer({ visible, onClose }: { visible: boolean; on
               backgroundColor: colors.backgroundAlt,
               borderColor: colors.borderSoft,
               paddingBottom: Math.max(insets.bottom, spacing.lg),
-              ...shadows.sm,
             },
           ]}
         >
@@ -116,8 +113,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
   },
-  sheetEyebrow: { fontSize: 10, fontWeight: "700", letterSpacing: 0.7, textTransform: "uppercase" },
-  sheetTitle: { fontSize: typography.title3, fontWeight: "700", marginTop: 2 },
+  sheetEyebrow: { fontFamily: fontFamily.pjsBold, fontSize: fontSize.tiny, letterSpacing: 0.7, textTransform: "uppercase" },
+  sheetTitle: { fontFamily: fontFamily.soraBold, fontSize: typography.title3, marginTop: 2 },
   closeButton: {
     width: 28,
     height: 28,
@@ -144,6 +141,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  menuLabel: { flex: 1, fontSize: 13, fontWeight: "600" },
+  menuLabel: { flex: 1, fontFamily: fontFamily.pjsSemiBold, fontSize: fontSize.footnote },
   divider: { height: 1, marginHorizontal: spacing.md, marginVertical: spacing.sm },
 });

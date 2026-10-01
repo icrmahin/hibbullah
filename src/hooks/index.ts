@@ -19,4 +19,6 @@ export { useAdmin, useAdminProducts, useAdminOrders, useAdminInventory, useStock
 
 export { useResponsive } from './useResponsive'
 
+export { useBottomInset } from './useBottomInset'
+
 export { useMotionPress, useMotionToggle } from './useMotion'

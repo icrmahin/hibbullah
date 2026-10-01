@@ -2,9 +2,9 @@ import { router, usePathname } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
+import { fontFamily, fontSize } from "../../constants/typography";
 import { useCart } from "../../providers/CartProvider";
 import Icon from "./Icon";
 import type { IconName } from "./Icon";
@@ -36,7 +36,6 @@ export default function CustomerNavigation() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const shadows = useShadows();
   const { distinctCount } = useCart();
   const activePath = getActivePath(pathname);
 
@@ -48,7 +47,6 @@ export default function CustomerNavigation() {
           {
             backgroundColor: colors.backgroundAlt,
             borderColor: colors.borderSoft,
-            ...shadows.sm,
           },
         ]}
       >
@@ -114,8 +112,8 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   label: {
-    fontSize: 10,
-    fontWeight: "600",
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.tiny,
     letterSpacing: 0.2,
     lineHeight: 11,
   },
@@ -131,8 +129,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeText: {
-    fontSize: 8,
-    fontWeight: "700",
+    fontFamily: fontFamily.pjsBold,
+    fontSize: fontSize.tiny,
   },
   pressed: { opacity: 0.7 },
 });

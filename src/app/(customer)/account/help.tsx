@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { goBack } from "@/utils/navigation";
 import { useThemeColors } from "../../../providers/ThemeProvider";
-import { useShadows } from "../../../constants/shadows";
-import SoftHeader from "../../../components/common/SoftHeader";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
 import Icon from "../../../components/common/Icon";
+import { useBottomInset } from "../../../hooks/useBottomInset";
 import spacing from "../../../constants/spacing";
-import typography from "../../../constants/typography";
-import { radius } from "../../../constants/sizes";
+import { fontFamily, fontSize, lineHeight, letterSpacing } from "../../../constants/typography";
+import { opacity, radius } from "../../../constants/sizes";
 import config from "../../../constants/config";
 
 type FAQ = { q: string; a: string };
@@ -25,21 +25,33 @@ const FAQS: FAQ[] = [
 
 export default function HelpFAQScreen() {
   const colors = useThemeColors();
-  const shadows = useShadows();
+  const bottomInset = useBottomInset();
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <SoftHeader title="Help & FAQ" onBack={() => goBack()} />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.hero, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.sm }]}>
+    <Screen header={<ScreenHeader title="Help & FAQ" onBack={goBack} />}>
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.hero, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.heroTitle, { color: colors.text }]}>How can we help?</Text>
           <Text style={[styles.heroSub, { color: colors.textMuted }]}>Soft feather help — tap a question. Contact {config.supportEmail} if still stuck.</Text>
         </View>
         {FAQS.map((f, i) => {
           const isOpen = open === i;
           return (
-            <Pressable key={f.q} onPress={() => setOpen(isOpen ? null : i)} style={[styles.card, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft, ...shadows.xs }]}>
+            <Pressable
+              key={f.q}
+              onPress={() => setOpen(isOpen ? null : i)}
+              style={({ pressed }) => [
+                styles.card,
+                { backgroundColor: colors.backgroundAlt },
+                pressed && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isOpen }}
+            >
               <View style={styles.qRow}>
                 <Text style={[styles.q, { color: colors.text }]}>{f.q}</Text>
                 <Icon name={isOpen ? "expand-less" : "expand-more"} size={20} color={colors.textMuted} />
@@ -49,18 +61,37 @@ export default function HelpFAQScreen() {
           );
         })}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  hero: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg, gap: spacing.xs },
-  heroTitle: { fontSize: typography.h3, fontWeight: "700" },
-  heroSub: { fontSize: typography.caption, lineHeight: 16 },
-  card: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg, gap: spacing.sm },
+  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
+  // White cards on the off-white page — no border, no shadow; the lightness step separates them.
+  hero: { borderRadius: radius.lg, padding: spacing.lg, gap: spacing.xs },
+  heroTitle: {
+    fontFamily: fontFamily.soraBold,
+    fontSize: fontSize.title2,
+    lineHeight: fontSize.title2 * lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
+  },
+  heroSub: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+  },
+  card: { borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
   qRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
-  q: { flex: 1, fontSize: typography.bodySmall, fontWeight: "700" },
-  a: { fontSize: typography.bodySmall, lineHeight: 18 },
+  q: {
+    flex: 1,
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  a: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.normal,
+  },
+  pressed: { opacity: opacity.pressed },
 });

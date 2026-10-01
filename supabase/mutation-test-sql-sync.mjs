@@ -263,7 +263,10 @@ const cases = [
   [
     'hard-code a colour in a screen again',
     'src/app/(customer)/delivery-cycle.tsx',
-    (s) => s.replace('itemPrice: {},', "itemPrice: { color: '#3D4A46' },"),
+    // The style entry the price used to carry its colour in. The migration moved colour to
+    // the call site (`{ color: colors.text }`), so the mutation puts the literal back in
+    // the stylesheet — same crime, same check.
+    (s) => s.replace('itemPrice: {', "itemPrice: { color: '#3D4A46',"),
   ],
   [
     'infer the theme by comparing a colour to a hex',

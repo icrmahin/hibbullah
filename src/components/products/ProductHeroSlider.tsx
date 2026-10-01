@@ -57,10 +57,7 @@ export default function ProductHeroSlider({ products, onProductPress }: ProductH
   if (promoProducts.length === 0) return null;
 
   return (
-    <View style={styles.container}>
-      <View style={{ width: cardWidth, alignSelf: "center" }}>
-        {/* Using FlatList via require to avoid import change — keep simple ScrollView-like */}
-      </View>
+    <>
       <PromoFlatList
         flatListRef={flatListRef}
         products={promoProducts}
@@ -85,7 +82,7 @@ export default function ProductHeroSlider({ products, onProductPress }: ProductH
           ))}
         </View>
       ) : null}
-    </View>
+    </>
   );
 }
 
@@ -130,7 +127,7 @@ function PromoCard({
   onPress?: () => void;
 }) {
   const discount = product.discountPercent;
-  const headline = discount && discount >= 20 ? `UP TO ${discount}% OFF` : discount ? `${discount}% OFF` : "Special offer";
+  const headline = discount && discount >= 20 ? `Up to ${discount}% off` : discount ? `${discount}% off` : "Special offer";
   return (
     <Pressable
       onPress={onPress}
@@ -170,9 +167,6 @@ function PromoCard({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-  },
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -183,12 +177,12 @@ const styles = StyleSheet.create({
   },
   cardLeft: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   headline: {
     fontFamily: fontFamily.soraBold,
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
     letterSpacing: -0.3,
   },
   sub: {
@@ -199,7 +193,8 @@ const styles = StyleSheet.create({
   limit: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.micro,
-    marginTop: 2,
+    lineHeight: fontSize.micro * lineHeight.normal,
+    marginTop: spacing.xxs,
   },
   cta: {
     alignSelf: "flex-start",

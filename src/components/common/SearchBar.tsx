@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { useShadows } from "../../constants/shadows";
 import { radius, layout } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
@@ -62,7 +61,6 @@ export default function SearchBar({
   ...props
 }: SearchBarProps) {
   const colors = useThemeColors();
-  const shadows = useShadows();
 
   // A button, not a field. Returned before the TextInput below is ever created — see the
   // note on `onPress` for why that ordering is the fix and not a detail.
@@ -80,7 +78,6 @@ export default function SearchBar({
           {
             backgroundColor: colors.backgroundAlt,
             borderColor: colors.borderLight,
-            ...shadows.sm,
           },
           pressed && styles.pressed,
         ]}
@@ -103,7 +100,6 @@ export default function SearchBar({
         {
           backgroundColor: colors.backgroundAlt,
           borderColor: colors.borderLight,
-          ...shadows.sm,
         },
       ]}
     >
@@ -148,7 +144,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.footnote,
     lineHeight: fontSize.footnote * lineHeight.normal,
     paddingVertical: spacing.sm,

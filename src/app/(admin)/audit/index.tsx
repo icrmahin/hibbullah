@@ -1,20 +1,25 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AdminHeader from '../../../components/admin/AdminHeader';
-import EmptyState from '../../../components/common/EmptyState';
-import LoadingState from '../../../components/common/LoadingState';
-import ErrorState from '../../../components/common/ErrorState';
-import { useThemeColors } from '../../../providers/ThemeProvider';
-import spacing from '../../../constants/spacing';
-import typography from '../../../constants/typography';
-import { formatDateTime } from '../../../utils/date';
-import { fetchAuditEntries } from '../../../services/audit';
-import { AUDIT_LOG_LIMIT } from '../../../constants/limits';
-import type { AuditEntry } from '../../../types/audit';
-import { diffAuditValues } from '../../../utils/auditDiff';
-import { radius } from '../../../constants/sizes';
+import React, { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import Screen from "../../../components/common/Screen";
+import ScreenHeader from "../../../components/common/ScreenHeader";
+import EmptyState from "../../../components/common/EmptyState";
+import LoadingState from "../../../components/common/LoadingState";
+import ErrorState from "../../../components/common/ErrorState";
+import { useThemeColors } from "../../../providers/ThemeProvider";
+import { useBottomInset } from "../../../hooks/useBottomInset";
+import spacing from "../../../constants/spacing";
+import {
+  fontFamily,
+  fontSize,
+  lineHeight,
+} from "../../../constants/typography";
+import { formatDateTime } from "../../../utils/date";
+import { fetchAuditEntries } from "../../../services/audit";
+import { AUDIT_LOG_LIMIT } from "../../../constants/limits";
+import type { AuditEntry } from "../../../types/audit";
+import { diffAuditValues } from "../../../utils/auditDiff";
+import { radius } from "../../../constants/sizes";
 
 /**
  * What actually changed, for one audit entry.
@@ -28,26 +33,42 @@ function AuditChange({ entry }: { entry: AuditEntry }) {
   const { changes, hidden } = diffAuditValues(entry.oldValue, entry.newValue);
 
   if (changes.length === 0) return null;
-  const verb = entry.action === 'INSERT' ? 'set' : entry.action === 'DELETE' ? 'was' : 'changed';
+  const verb =
+    entry.action === "INSERT"
+      ? "set"
+      : entry.action === "DELETE"
+        ? "was"
+        : "changed";
 
   return (
-    <View style={[styles.changeBox, { borderTopColor: colors.borderLight }]}>
+    <View style={[styles.changeBox, { borderTopColor: colors.borderSoft }]}>
       {changes.map((c) => (
-        <Text key={c.field} style={[styles.change, { color: colors.textSecondary }]}>
-          <Text style={{ color: colors.textMuted }}>{c.field} </Text>
-          {entry.action === 'INSERT' ? (
-            <Text style={{ color: colors.text }}>{verb} to {c.to}</Text>
-          ) : entry.action === 'DELETE' ? (
-            <Text style={{ color: colors.text }}>{verb} {c.from}</Text>
+        <Text
+          key={c.field}
+          style={[styles.change, { color: colors.textSecondary }]}
+        >
+          <Text style={[styles.changeField, { color: colors.textMuted }]}>
+            {c.field}{" "}
+          </Text>
+          {entry.action === "INSERT" ? (
+            <Text style={[styles.changeValue, { color: colors.text }]}>
+              {verb} to {c.to}
+            </Text>
+          ) : entry.action === "DELETE" ? (
+            <Text style={[styles.changeValue, { color: colors.text }]}>
+              {verb} {c.from}
+            </Text>
           ) : (
-            <Text style={{ color: colors.text }}>
-              {c.from ?? '—'} → {c.to ?? '—'}
+            <Text style={[styles.changeValue, { color: colors.text }]}>
+              {c.from ?? "—"} → {c.to ?? "—"}
             </Text>
           )}
         </Text>
       ))}
       {hidden > 0 ? (
-        <Text style={[styles.change, { color: colors.textMuted }]}>+{hidden} more</Text>
+        <Text style={[styles.change, { color: colors.textMuted }]}>
+          +{hidden} more
+        </Text>
       ) : null}
     </View>
   );
@@ -55,6 +76,7 @@ function AuditChange({ entry }: { entry: AuditEntry }) {
 
 export default function AuditLogScreen() {
   const colors = useThemeColors();
+  const bottomInset = useBottomInset();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +88,7 @@ export default function AuditLogScreen() {
       const data = await fetchAuditEntries();
       setEntries(data);
     } catch (e: any) {
-      setError(e.message || 'Failed to load audit log');
+      setError(e.message || "Failed to load audit log");
     } finally {
       setLoading(false);
     }
@@ -78,80 +100,131 @@ export default function AuditLogScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Audit log" subtitle="Recent operational activity" />
+      <Screen
+        header={
+          <ScreenHeader
+            title="Audit log"
+            subtitle="Recent operational activity"
+          />
+        }
+      >
         <LoadingState label="Loading audit log" />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <AdminHeader title="Audit log" subtitle="Recent operational activity" />
+      <Screen
+        header={
+          <ScreenHeader
+            title="Audit log"
+            subtitle="Recent operational activity"
+          />
+        }
+      >
         <ErrorState message={error} onRetry={load} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <AdminHeader title="Audit log" subtitle="Recent operational activity" />
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen
+      header={
+        <ScreenHeader
+          title="Audit log"
+          subtitle="Recent operational activity"
+        />
+      }
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: bottomInset },
+        ]}
+      >
         {entries.length === 0 ? (
-          <EmptyState title="No audit entries" message="Operational activity will appear here." />
+          <EmptyState
+            title="No audit entries"
+            message="Operational activity will appear here."
+          />
         ) : (
           <>
             {/* Stated rather than left to be discovered. The database drops the oldest
                 entry once the cap is passed, so without this an admin would watch rows
                 vanish and reasonably conclude the log was unreliable. */}
             <Text style={[styles.note, { color: colors.textMuted }]}>
-              The {AUDIT_LOG_LIMIT} most recent entries are kept. Older activity is removed automatically.
+              The {AUDIT_LOG_LIMIT} most recent entries are kept. Older activity
+              is removed automatically.
             </Text>
             {entries.map((entry) => (
               <View
                 key={entry.id}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.backgroundAlt,
-                    borderColor: colors.borderLight,
-                  },
-                ]}
+                style={[styles.card, { backgroundColor: colors.backgroundAlt }]}
               >
-                <Text style={[styles.action, { color: colors.text }]}>{entry.action} · {entry.recordType}</Text>
-                <Text style={[styles.meta, { color: colors.textMuted }]}>{entry.actorName}</Text>
-                <Text style={[styles.meta, { color: colors.textMuted }]}>{formatDateTime(entry.timestamp)}</Text>
+                <Text style={[styles.action, { color: colors.text }]}>
+                  {entry.action} · {entry.recordType}
+                </Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>
+                  {entry.actorName}
+                </Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>
+                  {formatDateTime(entry.timestamp)}
+                </Text>
                 <AuditChange entry={entry} />
               </View>
             ))}
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  note: { fontSize: typography.bodySmall, lineHeight: 16 },
+  container: { padding: spacing.lg, gap: spacing.md },
+  note: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+  },
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
     padding: spacing.lg,
   },
-  action: { fontSize: typography.body, fontWeight: '700' },
-  meta: { fontSize: typography.bodySmall, marginTop: spacing.xs },
+  action: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+    letterSpacing: -0.2,
+  },
+  meta: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    marginTop: spacing.xs,
+  },
   changeBox: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
+    // Solid `borderSoft`, theme-aware. It used to be a hardcoded `rgba(128,128,128,0.25)`,
+    // a 25%-alpha grey that read as noise on the near-black dark surface.
     borderTopWidth: 1,
-    // The border colour moved inline to `colors.borderLight`. It used to be a hardcoded
-    // `rgba(128,128,128,0.25)`, which is a 25%-alpha grey: not solid, and not theme-aware,
-    // so on the near-black dark surface it was a hairline of grey noise. `borderLight` is
-    // a solid `#1F2422` there and a solid `#E2E7E5` in light.
-    gap: 2,
+    gap: spacing.xxs,
   },
-  change: { fontSize: typography.bodySmall, lineHeight: 18 },
+  change: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  changeField: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  changeValue: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.subhead,
+    lineHeight: fontSize.subhead * lineHeight.tight,
+  },
 });
