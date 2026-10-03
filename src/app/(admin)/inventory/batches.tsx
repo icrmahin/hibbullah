@@ -13,6 +13,7 @@ import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { radius } from '../../../constants/sizes';
+import { statusTone } from '../../../utils/statusTone';
 
 /** One level deep: fall back to the admin dashboard when there is nothing to pop. */
 const onBack = () => goBack('/(admin)');
@@ -60,7 +61,7 @@ export default function InventoryBatchesScreen() {
               <View style={styles.badgeRow}>
                 <StatusBadge
                   label={item.status}
-                  tone={item.status === 'out_of_stock' ? 'danger' : item.status === 'low' ? 'warning' : 'success'}
+                  tone={statusTone(item.status)}
                 />
               </View>
             </View>

@@ -16,6 +16,7 @@ import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { radius } from '../../../constants/sizes';
+import { statusTone } from '../../../utils/statusTone';
 import type { Order } from '../../../types/order';
 
 /** One order row — defined once and shared by the grid and the list branch. */
@@ -29,7 +30,7 @@ function OrderRow({ order }: { order: Order }) {
       </View>
       <StatusBadge
         label={order.status}
-        tone={order.status === 'PENDING' ? 'warning' : order.status === 'DELIVERED' ? 'success' : 'info'}
+        tone={statusTone(order.status)}
       />
       <Text
         style={[styles.link, { color: colors.accent }]}

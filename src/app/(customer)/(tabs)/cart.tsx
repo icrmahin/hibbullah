@@ -82,8 +82,7 @@ export default function CustomerCartScreen() {
   // desktop and the mobile branch, two of everything that had to change in step.
   //
   // It is not `CartSummary` because this box has two rows that component cannot draw —
-  // the delivery fee is labelled "from" (the cart prices the floor rate; see
-  // services/cart.ts) and the fee note underneath it explains where the number comes from.
+  // the delivery row and the note underneath it saying the fee is flat and Dhaka-only.
   const summaryCard = (
     <View style={[styles.summaryBox, { backgroundColor: colors.backgroundAlt }]}>
       <Text style={[styles.summaryTitle, { color: colors.text }]}>Summary</Text>
@@ -101,16 +100,12 @@ export default function CustomerCartScreen() {
       </View>
       <View style={styles.summaryRow}>
         <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Delivery</Text>
-        {/* "from": the cart prices the floor rate, because no address has been picked
-            yet — see the note in services/cart.ts. Checkout reprices from the district. */}
         <Text style={[styles.summaryValue, { color: colors.text }]}>
-          from {formatCurrency(summary.deliveryFee)}
+          {formatCurrency(summary.deliveryFee)}
         </Text>
       </View>
       <Text style={[styles.summaryNote, { color: colors.textMuted }]}>
-        {formatCurrency(config.deliveryFees.insideDhaka)} inside Dhaka District,{" "}
-        {formatCurrency(config.deliveryFees.outsideDhaka)} elsewhere — confirmed against
-        your address at checkout.
+        Flat {formatCurrency(config.deliveryFees.insideDhaka)} delivery · Dhaka only for now.
       </Text>
       <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: colors.borderSoft }]}>
         <Text style={[styles.totalText, { color: colors.text }]}>Total</Text>

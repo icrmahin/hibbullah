@@ -280,8 +280,9 @@ try {
   // same customer would append to the first order and assert the wrong thing.
   head('Delivery pricing by district')
 
-  const INSIDE = 80
-  const OUTSIDE = 150
+  // Flat ৳80 delivery for every district (the two-tier split is retired — see the
+  // flat-delivery migration). Every address below must come out at 80.
+  const FLAT = 80
 
   /** Sign up a throwaway customer, save an address in `county`, and place a 1-line order. */
   const priceOrderIn = async (county, tag) => {
@@ -299,17 +300,17 @@ try {
   }
 
   for (const [i, [county, expected, why]] of [
-    ['Dhaka', INSIDE, 'Dhaka District gets the reduced rate'],
-    [' dhaka ', INSIDE, 'and it is matched regardless of case or padding'],
-    ['Chattogram', OUTSIDE, 'Chattogram District pays the standard rate'],
-    // The distinction the whole split exists for. Gazipur is in Dhaka *Division* and is a
-    // short drive from the city, but it is not Dhaka District, so it must not quietly get
-    // the reduced price.
-    ['Gazipur', OUTSIDE, 'Gazipur — Dhaka Division but not Dhaka District — still pays the standard rate'],
-    ['Narayanganj', OUTSIDE, 'and likewise Narayanganj'],
-    [null, OUTSIDE, 'a missing district pays the standard rate'],
-    ['', OUTSIDE, 'and so does an empty one'],
-    ['NotADistrict', OUTSIDE, 'an unrecognised district pays the standard rate rather than undercharging'],
+    ['Dhaka', FLAT, 'Dhaka District pays the flat ৳80'],
+    [' dhaka ', FLAT, 'and it is matched regardless of case or padding'],
+    ['Chattogram', FLAT, 'Chattogram District pays the same flat ৳80'],
+    // No district split any more: Gazipur is in Dhaka *Division* and used to be the
+    // case that proved the inside/outside boundary. It stays as the case that proves
+    // there is no boundary.
+    ['Gazipur', FLAT, 'Gazipur — Dhaka Division but not Dhaka District — still pays the flat ৳80'],
+    ['Narayanganj', FLAT, 'and likewise Narayanganj'],
+    [null, FLAT, 'a missing district pays the flat ৳80'],
+    ['', FLAT, 'and so does an empty one'],
+    ['NotADistrict', FLAT, 'an unrecognised district pays the flat ৳80 rather than undercharging'],
   ].entries()) {
     // The tag is the loop index, not the district. GoTrue lowercases every email, so
     // tagging by district made "Dhaka" and " dhaka " collide into one account and the
@@ -325,9 +326,9 @@ try {
 
   // The bug the repricing change exists for. create_order reuses the PENDING order, and it
   // used to carry the existing fee forward via `coalesce(v_existing_delivery_fee, ...)`.
-  // While the fee was a constant that was harmless. Once it depends on the address, a
-  // customer who adds an item after switching to a cheaper zone keeps paying the old,
-  // higher fee against a checkout total that says otherwise -- and nothing reports it.
+  // With a flat fee both placements are 80, so what this now proves is that the reused
+  // order still carries the fee at all (rather than nulling or doubling it) and still
+  // follows the latest address.
   const switcher = await signUp({ email: `lc-cust-fee-${stamp}-switch@hibbullah.test`, password: `LcFee-${stamp}-switch-Aa1!` })
   // Only the first address may be the default: `idx_addresses_default_per_user` is a unique
   // partial index on (user_id) where is_default. Marking the second one default too made
@@ -346,7 +347,7 @@ try {
   await api('/rest/v1/cart_items', { method: 'POST', token: switcher.token, body: { user_id: switcher.id, product_id: fix.product, quantity: 1 } })
   const firstPlace = await api('/rest/v1/rpc/create_order', { method: 'POST', token: switcher.token, body: { p_customer_id: switcher.id, p_address_id: chattogramAddr } })
   const firstFee = (await api(`/rest/v1/orders?id=eq.${firstPlace.json}&select=delivery_fee`, { token: switcher.token })).json?.[0]?.delivery_fee
-  check(Number(firstFee) === OUTSIDE, 'a Chattogram order is first charged the standard rate', `fee=${firstFee}`)
+  check(Number(firstFee) === FLAT, 'a Chattogram order is first charged the flat ৳80', `fee=${firstFee}`)
 
   // Add another item and place again against the Dhaka address.
   await api('/rest/v1/cart_items', { method: 'POST', token: switcher.token, body: { user_id: switcher.id, product_id: fix.product, quantity: 1 } })
@@ -358,8 +359,8 @@ try {
     `first=${firstPlace.json} second=${secondPlace.json}`,
   )
   check(
-    Number(after?.delivery_fee) === INSIDE && Number(after?.total) === Number(after?.subtotal) + INSIDE,
-    'and REPRICES it to the new address instead of carrying the old fee forward',
+    Number(after?.delivery_fee) === FLAT && Number(after?.total) === Number(after?.subtotal) + FLAT,
+    'and it still carries the flat ৳80 after the second placement instead of dropping or doubling it',
     `fee was ${firstFee}, now ${after?.delivery_fee} · subtotal=${after?.subtotal} total=${after?.total}`,
   )
   check(

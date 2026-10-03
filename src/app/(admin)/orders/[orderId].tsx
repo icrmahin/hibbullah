@@ -20,6 +20,7 @@ import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
 import { normalizeError } from '../../../utils/errorHandling';
 import { radius } from '../../../constants/sizes';
+import { statusTone } from '../../../utils/statusTone';
 
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
@@ -31,12 +32,7 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   RETURNED: [],
 };
 
-function toneForStatus(status: OrderStatus): 'success' | 'warning' | 'danger' | 'info' {
-  if (status === 'DELIVERED') return 'success';
-  if (status === 'CANCELLED' || status === 'RETURNED') return 'danger';
-  if (status === 'PENDING') return 'warning';
-  return 'info';
-}
+const toneForStatus = statusTone;
 
 /** One level deep: fall back to the admin dashboard when there is nothing to pop. */
 const onBack = () => goBack('/(admin)');

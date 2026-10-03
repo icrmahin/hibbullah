@@ -1,17 +1,12 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutable by design */
 import { Pressable, StyleSheet, View, type PressableProps, type ViewStyle } from "react-native";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, useReducedMotion } from "react-native-reanimated";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { radius, layout, opacity as opacityToken } from "../../constants/sizes";
-import { springConfigs, compression as compressionValues } from "../../lib/motion";
 
 /**
- * One view, for the same reason as `Button`: an unstyled `Pressable` carrying the
- * `android_ripple` around a painted `Animated.View` gave a square ripple on a circular
- * button, which on a 36px icon button is the most obvious defect in the app.
+ * Ripple-only icon button. The button stays circular (`size / 2` — a derived circle,
+ * not a radius token), and the ripple is clipped to that circle by `overflow: hidden`.
+ * No scale, no fade.
  */
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 type IconButtonProps = PressableProps & {
   /** The icon element to render */
   icon: React.ReactNode;
@@ -37,7 +32,6 @@ export default function IconButton({
   ...props
 }: IconButtonProps) {
   const colors = useThemeColors();
-  const reducedMotion = useReducedMotion();
 
   const bg = {
     primary: colors.primary,
@@ -46,11 +40,7 @@ export default function IconButton({
     danger: colors.dangerSoft,
   }[variant];
 
-  // The primary fill is the accent, and the accent inverts between the themes — a deep teal
-  // in light, a light sage in dark. So the ripple on it has to invert too: a white ripple
-  // is what you want on the dark teal, and is 1.1:1 against the light sage, i.e. invisible.
-  // `ripple.onPrimary` is the token for "whatever the primary fill's label colour is, a
-  // ripple in that same polarity".
+  // The primary fill inverts between the themes, so its ripple inverts too.
   const ripple = {
     primary: colors.ripple.onPrimary,
     secondary: colors.ripple.primary,
@@ -58,36 +48,14 @@ export default function IconButton({
     danger: colors.ripple.danger,
   }[variant];
 
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  const handlePressIn = () => {
-    if (disabled || reducedMotion) return;
-    scale.value = withSpring(compressionValues.standard, springConfigs.press);
-    opacity.value = withSpring(opacityToken.pressed, springConfigs.press);
-  };
-
-  const handlePressOut = () => {
-    if (disabled || reducedMotion) return;
-    scale.value = withSpring(1, springConfigs.press);
-    opacity.value = withSpring(1, springConfigs.press);
-  };
-
   return (
-    <AnimatedPressable
+    <Pressable
       {...props}
       disabled={disabled}
       android_ripple={{ color: ripple, borderless: false }}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: !!disabled }}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       style={[
         styles.base,
         {
@@ -99,13 +67,12 @@ export default function IconButton({
           opacity: disabled ? opacityToken.disabled : 1,
         },
         variant === "secondary" && styles.bordered,
-        animatedStyle,
         style,
       ]}
     >
       {icon}
       {badge && <View style={[styles.badgeDot, { backgroundColor: colors.danger }]} />}
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 

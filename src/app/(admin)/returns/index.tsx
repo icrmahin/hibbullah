@@ -14,6 +14,7 @@ import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchReturns } from '../../../services/returns';
 import { formatDateTime } from '../../../utils/date';
+import { statusTone } from '../../../utils/statusTone';
 import { radius } from '../../../constants/sizes';
 
 export default function AdminReturnsScreen() {
@@ -94,7 +95,7 @@ export default function AdminReturnsScreen() {
               <View style={styles.footer}>
                 <StatusBadge
                   label={item.status}
-                  tone={item.status === 'APPROVED' || item.status === 'PROCESSED' ? 'success' : item.status === 'REJECTED' ? 'danger' : 'warning'}
+                  tone={statusTone(item.status)}
                 />
                 <Text
                   style={[styles.link, { color: colors.accent }]}

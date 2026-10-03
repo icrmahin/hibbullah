@@ -375,21 +375,25 @@ report(
 // because it reports green.
 const FEE_MIGRATION = `${MIGRATIONS_DIR}/20260927040000_district_delivery_fee.sql`
 const feeSql = readFileSync(FEE_MIGRATION, 'utf8')
+// Flat-rate change lives here; the district file above keeps the rule shape and
+// create_order, which the checks below still read from it.
+const FEE_RATES_MIGRATION = `${MIGRATIONS_DIR}/20261003040000_flat_delivery_fee_80.sql`
+const feeRatesSql = readFileSync(FEE_RATES_MIGRATION, 'utf8')
 const configTs = readFileSync('src/constants/config.ts', 'utf8')
 const districtsTs = readFileSync('src/constants/districts.ts', 'utf8')
 const feeUtilTs = readFileSync('src/utils/deliveryFee.ts', 'utf8')
 
 /** The single numeric literal inside one of the constant functions. */
-const sqlNumber = (name) =>
+const sqlNumberIn = (sql, name) =>
   Number(
-    feeSql.match(new RegExp(`function\\s+public\\.${name}\\s*\\(\\s*\\)[^$]*\\$\\$?\\w*\\$?\\s*select\\s*([\\d.]+)`, 'i'))?.[1],
+    sql.match(new RegExp(`function\\s+public\\.${name}\\s*\\(\\s*\\)[^$]*\\$\\$?\\w*\\$?\\s*select\\s*([\\d.]+)`, 'i'))?.[1],
   )
 /** The single quoted literal inside one of the constant functions. */
 const sqlText = (name) =>
   feeSql.match(new RegExp(`function\\s+public\\.${name}\\s*\\(\\s*\\)[^$]*\\$\\$?\\w*\\$?\\s*select\\s*'([^']+)'`, 'i'))?.[1]
 
-const sqlInside = sqlNumber('inside_dhaka_delivery_fee')
-const sqlOutside = sqlNumber('outside_dhaka_delivery_fee')
+const sqlInside = sqlNumberIn(feeSql, 'inside_dhaka_delivery_fee')
+const sqlOutside = sqlNumberIn(feeRatesSql, 'outside_dhaka_delivery_fee')
 const sqlZone = sqlText('inside_dhaka_district')
 const tsInside = Number(configTs.match(/insideDhaka\s*:\s*([\d.]+)/)?.[1])
 const tsOutside = Number(configTs.match(/outsideDhaka\s*:\s*([\d.]+)/)?.[1])
@@ -400,16 +404,16 @@ report(
   `the inside-Dhaka rate agrees: SQL ${sqlInside} = config.deliveryFees.insideDhaka ${tsInside} = 80`,
 )
 report(
-  Number.isFinite(sqlOutside) && sqlOutside === tsOutside && sqlOutside === 150,
-  `the outside-Dhaka rate agrees: SQL ${sqlOutside} = config.deliveryFees.outsideDhaka ${tsOutside} = 150`,
+  Number.isFinite(sqlOutside) && sqlOutside === tsOutside && sqlOutside === 80,
+  `the outside-Dhaka rate agrees: SQL ${sqlOutside} = config.deliveryFees.outsideDhaka ${tsOutside} = 80 (flat rate)`,
 )
 report(
   Boolean(sqlZone) && sqlZone === tsZone && sqlZone === 'Dhaka',
   `the qualifying district agrees: SQL '${sqlZone}' = INSIDE_DHAKA_DISTRICT '${tsZone}' = 'Dhaka'`,
 )
 report(
-  sqlInside < sqlOutside,
-  `the reduced rate is genuinely lower (${sqlInside} < ${sqlOutside})`,
+  sqlInside === sqlOutside,
+  `delivery is a flat rate (${sqlInside} = ${sqlOutside}) while serving Dhaka only`,
 )
 
 // The zone district has to actually exist in the picker, or no customer could ever select

@@ -1,10 +1,7 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutable by design */
-import { Pressable, StyleSheet, type ViewProps } from "react-native";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, useReducedMotion } from "react-native-reanimated";
+import { Pressable, StyleSheet, View, type ViewProps } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
-import { springConfigs, compression as compressionValues } from "../../lib/motion";
 
 type CardProps = ViewProps & {
   onPress?: () => void;
@@ -12,38 +9,24 @@ type CardProps = ViewProps & {
   elevation?: "none" | "xs" | "sm" | "md";
 };
 
+/**
+ * One flat surface: 6px rectangle, 1px hairline, page-to-card lightness step.
+ * `elevation` is accepted and ignored — shadows are gone, kept only so call sites
+ * keep working. A pressable card answers with the native ripple, clipped by
+ * `overflow: hidden`; there is no scale or fade.
+ */
 export default function Card({
   onPress,
   pressed = false,
-  elevation = "sm",
+  elevation: _elevation,
   style,
   children,
   ...props
 }: CardProps) {
   const colors = useThemeColors();
-  const reducedMotion = useReducedMotion();
+  void _elevation;
 
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  const handlePressIn = () => {
-    if (reducedMotion) return;
-    scale.value = withSpring(compressionValues.subtle, springConfigs.card);
-    opacity.value = withSpring(0.92, springConfigs.card);
-  };
-
-  const handlePressOut = () => {
-    if (reducedMotion) return;
-    scale.value = withSpring(1, springConfigs.card);
-    opacity.value = withSpring(1, springConfigs.card);
-  };
-
-  const cardStyles = [
+  const cardStyle = [
     styles.card,
     {
       backgroundColor: colors.backgroundAlt,
@@ -58,20 +41,20 @@ export default function Card({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
+        style={[styles.pressable, { borderColor: colors.borderLight }]}
       >
-        <Animated.View style={[cardStyles, animatedStyle]} {...props}>
+        <View style={cardStyle} {...props}>
           {children}
-        </Animated.View>
+        </View>
       </Pressable>
     );
   }
 
   return (
-    <Animated.View style={[cardStyles, animatedStyle]} {...props}>
+    <View style={cardStyle} {...props}>
       {children}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -80,6 +63,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
+  },
+  pressable: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    overflow: "hidden",
   },
   pressed: {
     opacity: 0.92,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../../hooks/useAuth";
@@ -72,6 +73,17 @@ export default function AccountScreen() {
   const { resolvedTheme, setThemeMode } = useTheme();
   const { isDesktop } = useResponsive();
 
+  // Optimistic switch: flipping the theme re-renders every themed component in the
+  // app in one commit, which stalls the JS thread on a slow phone — and because the
+  // Switch is controlled, its own thumb waits for that same commit, so the switch
+  // itself looks frozen. The switch answers from local state on this frame; the
+  // global commit is deferred a frame so it lands after the thumb has started moving.
+  // `pendingDark` only wins while it disagrees with the context — the moment the
+  // deferred commit lands, the context is the answer again, with no extra render.
+  const [pendingDark, setPendingDark] = useState<boolean | null>(null);
+  const resolvedDark = resolvedTheme === "dark";
+  const isDark = pendingDark !== null && pendingDark !== resolvedDark ? pendingDark : resolvedDark;
+
   // Was: `themeMode === "dark" || (themeMode === "system" && colors.background === "#111A17")`
   //
   // That inferred the resolved theme by comparing a *colour value* to a hard-coded hex,
@@ -79,7 +91,6 @@ export default function AccountScreen() {
   // except the one it was written against, so changing the dark background silently turns
   // it off with no error anywhere. `resolvedTheme` is what this was reimplementing, badly,
   // and `useTheme` already computes it from the system scheme.
-  const isDark = resolvedTheme === "dark";
   const statusText = isAdmin ? "Admin • Verified" : "Member • Active";
   const displayPhone = formatBdPhone(user?.phone);
 
@@ -93,8 +104,11 @@ export default function AccountScreen() {
     }
   };
 
-  const handleDarkModeToggle = () => {
-    setThemeMode(isDark ? "light" : "dark");
+  const handleDarkModeToggle = (next: boolean) => {
+    setPendingDark(next);
+    requestAnimationFrame(() => {
+      setThemeMode(next ? "dark" : "light");
+    });
   };
 
   return (
@@ -177,7 +191,7 @@ export default function AccountScreen() {
                       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
                       onPress={() => {
                         if (item.toggle) {
-                          handleDarkModeToggle();
+                          handleDarkModeToggle(!isDark);
                         } else {
                           handleItemPress(item);
                         }

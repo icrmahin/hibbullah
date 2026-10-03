@@ -280,7 +280,7 @@ const cases = [
     // Exactly the expression that was there before, and exactly the failure mode: it is
     // not an error, it is a comparison that quietly returns false for every value except
     // the one it was written against.
-    (s) => s.replace('const isDark = resolvedTheme === "dark"', 'const isDark = colors.background === "#111A17"'),
+    (s) => s.replace('const resolvedDark = resolvedTheme === "dark";', 'const resolvedDark = colors.background === "#111A17";'),
   ],
   // ── one grid ───────────────────────────────────────────────────────────────────────
   //

@@ -6,8 +6,9 @@
  * The address form is a plain text field rather than a 64-item picker, so the app now
  * accepts whatever a customer types and resolves it here. That is a real loosening: the
  * delivery-fee rule is a single equality test against one district name, and anything it
- * does not recognise is billed the full ৳150. So the thing worth proving is not that the
- * resolver is tidy — it is that loosening the input cannot undercharge anybody.
+ * does not recognise used to be billed the full ৳150. Delivery is now a flat ৳80
+ * while serving Dhaka only, so the thing worth proving is that the resolver still
+ * resolves every district faithfully and never changes what anyone is charged.
  *
  * The failure that matters is a typo in a Dhaka address resolving to ৳80, or an
  * unrecognised district silently costing the reduced rate. Both are asserted below as
@@ -62,8 +63,8 @@ try {
   // Named explicitly rather than derived from the table, because the contents of the
   // alias table are a product decision and a test that reads them back proves only that
   // the code agrees with itself. `Daka` is the one that costs money: it is the most
-  // likely way a Dhaka customer types their own district, and dropping it would bill
-  // them ৳150 instead of ৳80 while the field looked like it had accepted the input.
+  // likely way a Dhaka customer types their own district, and dropping it would fail
+  // the lookup while the field looked like it had accepted the input.
   check('the pre-2018 spellings and Daka resolve', [
     resolveDistrict('Bogra')?.name,
     resolveDistrict('Barisal')?.name,
@@ -102,16 +103,17 @@ try {
   })
   check('resolving a district never changes its fee', mispriced.map((d) => d.name), [])
 
-  // ── the money invariant, part 2: the reduced rate is reachable only via Dhaka ────
-  const reducedNames = DISTRICTS.filter((d) => deliveryFeeForDistrict(d.name) === REDUCED)
-  check('exactly one district earns the reduced rate', reducedNames.map((d) => d.name), [
-    INSIDE_DHAKA_DISTRICT,
-  ])
+  // ── the money invariant, part 2: delivery is flat while Dhaka-only ──────────
+  // One rate for every district. The resolver still must not change a district's
+  // fee (part 1), but there is no longer a reduced tier for exactly one district
+  // to earn.
+  const flatMismatch = DISTRICTS.filter((d) => deliveryFeeForDistrict(d.name) !== REDUCED)
+  check('every district costs the flat rate', flatMismatch.map((d) => d.name), [])
 
   // ── the money invariant, part 3: no typo can undercharge ────────────────────────
   // Every district name is corrupted three ways — a dropped character, a doubled one,
-  // and a transposed pair. If any of those resolves to Dhaka, a one-keystroke mistake
-  // in any of the other 63 districts would be billed ৳80 instead of ৳150. Corruptions of
+  // and a transposed pair. If any of those resolves to a different district than the
+  // one typed, the lookup is guessing. Corruptions of
   // "Dhaka" itself are excluded from the expectation, since landing on Dhaka from a
   // near-miss of Dhaka is not the undercharge being guarded against.
   const corrupt = (name) => [

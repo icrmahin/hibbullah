@@ -39,6 +39,7 @@ export default function CheckoutScreen() {
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [orderNote, setOrderNote] = useState("");
+  const [noteOpen, setNoteOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -70,20 +71,18 @@ export default function CheckoutScreen() {
     if (!selectedAddressId) {
       setError(
         addresses.length === 0
-          ? "Add a delivery address to place this order. We need somewhere to send it."
-          : "Choose a delivery address for this order."
+          ? "Add a delivery address first."
+          : "Choose where to deliver."
       );
       return;
     }
 
     if (!isAdmin) {
-      // The address now carries its own mobile — the number the customer typed for THIS
-      // delivery — so it satisfies the contact requirement by itself. Requiring the
-      // profile number too would send someone who gave us a number in the very form this
-      // order is about away to Account → Profile first.
+      // The address now carries its own mobile — the number typed for THIS
+      // delivery — so it satisfies the contact requirement by itself.
       const phone = user?.phone || selectedAddress?.phone || "";
       if (!phone || !/^\+8801[0-9]{9}$/.test(phone)) {
-        setError("Please add a Bangladeshi phone (+8801XXXXXXXXX) — in this address or your profile — before ordering.");
+        setError("Add a mobile number (+8801…) to this address to place the order.");
         return;
       }
     }
@@ -155,8 +154,22 @@ export default function CheckoutScreen() {
 
   const addressSection = (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Delivery Address</Text>
-      <Text style={[styles.sectionHint, { color: colors.textMuted }]}>Choose where to deliver · tap the bin to remove one</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Where to deliver</Text>
+      {/* Dhaka-only while the delivery network grows: always visible, so nobody
+          fills the whole form before learning their area is not served yet. */}
+      <View
+        style={[
+          styles.notice,
+          { backgroundColor: colors.warningSoft, borderColor: colors.warningBorder },
+        ]}
+        accessibilityRole="alert"
+      >
+        <Icon name="error-outline" size={16} color={colors.warning} />
+        <Text style={[styles.noticeText, { color: colors.text }]}>
+          Delivery is currently available in Dhaka only.
+        </Text>
+      </View>
+      <Text style={[styles.sectionHint, { color: colors.textMuted }]}>Tap an address to choose it</Text>
       <View style={styles.addressList}>
         {addresses.map((addr) => {
           const active = selectedAddressId === addr.id;
@@ -212,23 +225,29 @@ export default function CheckoutScreen() {
           <Icon name="error-outline" size={16} color={colors.warning} />
           <Text style={[styles.noticeText, { color: colors.text }]}>
             {addresses.length === 0
-              ? "No delivery address yet. Add one to place this order."
-              : "Select a delivery address to place this order."}
+              ? "No delivery address yet. Add one below to place this order."
+              : "Tap an address above to place this order."}
           </Text>
         </View>
       ) : null}
+      <Pressable
+        onPress={() => router.push("/(customer)/address/edit")}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Add a new address"
+      >
+        <Text style={[styles.addAddressLink, { color: colors.accent }]}>+ Add a new address</Text>
+      </Pressable>
     </View>
   );
 
   // The total the customer is actually quoted, priced from the address they picked.
   //
-  // The provider's own summary carries the cheapest rate, because the cart page has no
-  // address to price from and must not invent a Dhaka assumption. Reusing it here would
-  // therefore underquote every outside-Dhaka order by 70 taka, and the customer would only
-  // find out when the order landed — a total that silently changes is the single most
-  // trust-destroying thing a checkout can do. `create_order` computes the same figure from
-  // the same district and writes it onto the order row, so what is shown here is what gets
-  // charged; verify:sql-sync fails if the two implementations of the rule ever drift.
+  // Delivery is a flat ৳80 while serving Dhaka only, so cart and checkout agree
+  // by construction. `create_order` computes the same figure from the same
+  // district and writes it onto the order row, so what is shown here is what
+  // gets charged; verify:sql-sync fails if the two implementations of the rule
+  // ever drift.
   // The customer picked address — one value, read by the contact check above and the fee
   // below.
   const deliveryFee = deliveryFeeForDistrict(selectedAddress?.county);
@@ -253,9 +272,7 @@ export default function CheckoutScreen() {
       ))}
       {selectedAddress?.county ? (
         <Text style={[styles.feeNote, { color: colors.textMuted }]}>
-          {deliveryFeeForDistrict(selectedAddress.county) === deliveryFee
-            ? `${selectedAddress.county} District — reduced rate`
-            : `${selectedAddress.county} District — standard rate`}
+          Flat {formatCurrency(deliveryFee)} delivery
         </Text>
       ) : null}
     </View>
@@ -277,15 +294,13 @@ export default function CheckoutScreen() {
     </View>
   );
 
-  // Optional, last, and one box: what the customer wants the rider to know. It travels
-  // with the order (create_order stores it on the row), so the admin's order screen reads
-  // it back exactly as typed.
-  const noteSection = (
+  // Optional and collapsed: most orders need no note, and an always-open box pushes
+  // the Place order button further down the phone screen. It travels with the order
+  // (create_order stores it on the row), so the admin's order screen reads it back
+  // exactly as typed.
+  const noteSection = noteOpen ? (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Add a note (optional)</Text>
-      <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-        Anything we should know about this delivery.
-      </Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Note for rider</Text>
       <Input
         value={orderNote}
         onChangeText={setOrderNote}
@@ -295,6 +310,15 @@ export default function CheckoutScreen() {
         maxLength={500}
       />
     </View>
+  ) : (
+    <Pressable
+      onPress={() => setNoteOpen(true)}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Add a note for the rider"
+    >
+      <Text style={[styles.addNoteLink, { color: colors.accent }]}>+ Note for rider (optional)</Text>
+    </Pressable>
   );
 
   return (
@@ -311,21 +335,14 @@ export default function CheckoutScreen() {
               <View style={styles.summaryColumn}>
                 {summaryGroup}
                 {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
-                {success ? <Text style={[styles.success, { color: colors.success }]}>Order submitted — view delivery cycle.</Text> : null}
-                <View style={styles.bottomRow}>
-                  <View style={{ flex: 1 }}>
-                    <Button title="Add address" variant="secondary" onPress={() => router.push("/(customer)/address/edit")} fullWidth />
-                  </View>
-                  <View style={{ flex: 1.2 }}>
-                    <Button
-                      title={success ? "View cycle" : "Submit order"}
-                      onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
-                      loading={submitting}
-                      disabled={success ? false : submitting}
-                      fullWidth
-                    />
-                  </View>
-                </View>
+                {success ? <Text style={[styles.success, { color: colors.success }]}>Order placed — the rider will call you.</Text> : null}
+                <Button
+                  title={success ? "View cycle" : "Place order"}
+                  onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
+                  loading={submitting}
+                  disabled={success ? false : submitting}
+                  fullWidth
+                />
               </View>
             </View>
           ) : (
@@ -335,22 +352,14 @@ export default function CheckoutScreen() {
               {paymentBox}
               {noteSection}
               {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
-              {success ? <Text style={[styles.success, { color: colors.success }]}>Order submitted — view delivery cycle.</Text> : null}
-              {/* Compact thumb-reachable row */}
-              <View style={styles.bottomRow}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Add address" variant="secondary" onPress={() => router.push("/(customer)/address/edit")} fullWidth />
-                </View>
-                <View style={{ flex: 1.2 }}>
-                  <Button
-                    title={success ? "View cycle" : "Submit order"}
-                    onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
-                    loading={submitting}
-                    disabled={success ? false : submitting}
-                    fullWidth
-                  />
-                </View>
-              </View>
+              {success ? <Text style={[styles.success, { color: colors.success }]}>Order placed — the rider will call you.</Text> : null}
+              <Button
+                title={success ? "View cycle" : "Place order"}
+                onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
+                loading={submitting}
+                disabled={success ? false : submitting}
+                fullWidth
+              />
             </View>
           )}
         </ResponsiveContainer>
@@ -472,5 +481,16 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.caption * lineHeight.normal,
     textAlign: "center",
   },
-  bottomRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
+  addAddressLink: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    paddingVertical: spacing.xs,
+  },
+  addNoteLink: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    paddingVertical: spacing.xs,
+  },
 });

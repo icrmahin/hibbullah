@@ -20,6 +20,7 @@ import { useBottomInset } from '../../../hooks/useBottomInset';
 import { createReturnRequests } from '../../../services/returns';
 import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
+import { statusTone } from '../../../utils/statusTone';
 
 export default function CustomerOrderDetailScreen() {
   const colors = useThemeColors();
@@ -57,7 +58,7 @@ export default function CustomerOrderDetailScreen() {
     );
   }
 
-  const tone = order?.status === 'DELIVERED' ? 'success' : order?.status === 'CANCELLED' ? 'danger' : order?.status === 'PENDING' ? 'warning' : 'info';
+  const tone = statusTone(order?.status ?? '');
 
   const toggleReturnItem = (id: string) => {
     setSelectedReturnIds((prev) => {
@@ -113,7 +114,7 @@ export default function CustomerOrderDetailScreen() {
         {/* One card level: the card carries the surface, the hairline inside it separates. */}
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.title, { color: colors.text }]}>Order summary</Text>
-          <StatusBadge label={order.status} tone={tone as any} />
+          <StatusBadge label={order.status} tone={tone} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Placed {formatDateTime(order.createdAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Delivery address: {order.address}</Text>
           {order.customerNote ? (

@@ -32,8 +32,8 @@ const COLORS = join(SRC, "constants", "colors.ts");
 const DARK = join(SRC, "constants", "darkColors.ts");
 const SHADOWS = join(SRC, "constants", "shadows.ts");
 
-/** The three values the radius scale is allowed to contain. */
-const ALLOWED_RADII = new Set([2, 6, 8]);
+/** The one radius the scale is allowed to contain: every key resolves to 6. */
+const ALLOWED_RADII = new Set([6]);
 
 /**
  * Radius values that are a circle, not a rounded rectangle, and so are outside the scale.
@@ -100,19 +100,24 @@ function lineOf(file, needle) {
   } else {
     const entries = [...block[1].matchAll(/(\w+):\s*(\d+)/g)].map((m) => [m[1], Number(m[2])]);
     const bad = entries.filter(([, v]) => !ALLOWED_RADII.has(v));
+    const distinct = [...new Set(entries.map(([, v]) => v))];
 
     if (bad.length) {
       fail(
         "radius-scale",
-        `radius values outside 2/6/8: ${bad.map(([k, v]) => `${k}: ${v}`).join(", ")}. ` +
-          "The scale is three values by design; a sixth step is what made a chip and a card " +
+        `radius values outside {6}: ${bad.map(([k, v]) => `${k}: ${v}`).join(", ")}. ` +
+          "The scale is one shape by design; a second value is what made a chip and a card " +
           "corners nobody can tell apart.",
       );
     } else if (!entries.length) {
       fail("radius-scale", "the radius scale parsed as empty, so nothing was actually checked");
+    } else if (distinct.length !== 1) {
+      fail(
+        "radius-scale",
+        `radius scale holds ${distinct.length} distinct values {${distinct.join(", ")}} — one shape means one value.`,
+      );
     } else {
-      const found = [...new Set(entries.map(([, v]) => v))].sort((a, b) => a - b);
-      pass("radius-scale", `${entries.length} steps, all within {${found.join(", ")}}`);
+      pass("radius-scale", `${entries.length} steps, all 6 — one shape for every rectangle`);
     }
   }
 }
@@ -120,9 +125,9 @@ function lineOf(file, needle) {
 // ── 2. no call site reintroduces a pill ────────────────────────────────────────────
 
 {
-  // `radius.pill` is still a *name* — 61 call sites use it — but it now resolves to 8px.
+  // `radius.pill` is still a *name* — 61 call sites use it — but it now resolves to 6px.
   // What must not come back is the literal: `999`, or any other hand-written radius large
-  // enough to be a pill. That is the value that made every button a lozenge.
+  // enough to be a pill, or any second shape (2, 8, 10…) that reintroduces a hierarchy.
   const offenders = [];
 
   for (const [file, src] of code) {

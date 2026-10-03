@@ -1,33 +1,30 @@
-// ─── Border radius — flat, one small scale ─────────────────────────────
+// ─── Border radius — flat, one shape ─────────────────────────────
 /**
- * Three values, and every larger step collapses onto the top of it.
+ * One value: 6px everywhere.
  *
- * The previous scale was 10/12/16/20/24/999 — six values spanning 24px plus a pill, which
- * meant the corner of a chip and the corner of a feature card were told apart by a
- * difference nobody can see at a glance. A flat UI has one radius vocabulary: 2 for the
- * smallest chips, 6 for controls, 8 for anything with a surface. The keys are kept so the
- * 162 call sites keep working and keep their relative order, so "a card is at least as
- * rounded as the control inside it" still holds.
+ * Every rectangle in the app — card, button, input, chip, badge, modal, sheet —
+ * is the same 6px rounded rectangle. The keys are kept so the 138 call sites keep
+ * working; they no longer encode a hierarchy ("a card is rounder than its button")
+ * because a flat UI has no hierarchy of roundness. One shape, one layout.
  *
- * `pill` is 8, not 999. That is the single most visible change here — 61 call sites, every
- * button, chip, badge, header and quantity stepper in the app.
+ * `pill` is 6, not 999. No lozenges, no capsules.
  *
  * Note that genuinely circular things do not come through this token: an avatar, the logo
  * and a round icon button compute `size / 2` at their own call site, so they stay circles.
  */
 export const radius = {
-  /** 2px — chips, tags, the smallest controls */
-  sm: 2,
-  /** 6px — inputs, buttons */
+  /** 6px — one shape for everything */
+  sm: 6,
+  /** 6px — one shape for everything */
   md: 6,
-  /** 8px — cards, panels, modals, and every larger step */
-  lg: 8,
-  /** 8px — was 20px */
-  xl: 8,
-  /** 8px — was 24px */
-  xxl: 8,
-  /** 8px — was 999px. A pill shape is no longer part of the vocabulary. */
-  pill: 8,
+  /** 6px — one shape for everything */
+  lg: 6,
+  /** 6px — was 20px */
+  xl: 6,
+  /** 6px — was 24px */
+  xxl: 6,
+  /** 6px — was 999px. A pill shape is no longer part of the vocabulary. */
+  pill: 6,
 } as const;
 
 // ─── Border widths ───────────────────────────────────────

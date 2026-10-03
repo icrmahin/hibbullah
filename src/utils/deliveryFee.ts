@@ -9,10 +9,11 @@
  * simply looks wrong when it arrives. supabase/verify-sql-sync.mjs compares the two rates
  * and the qualifying district name across SQL and TypeScript, so the split cannot open.
  *
- * Defaulting to the higher fee is the whole safety property here. A missing, misspelled or
- * unrecognised district charges 150 rather than 80. Undercharging 70 taka on an unknown
- * district is a rounding error; quietly billing every unrecognised address at 80 would be
- * a real leak that nothing would ever surface.
+ * Defaulting to the higher fee is the whole safety property here. While the rate is
+ * flat this changes nothing numerically, and if two tiers ever return, a missing,
+ * misspelled or unrecognised district must again charge the higher one: quietly
+ * billing every unrecognised address at the cheap rate would be a real leak that
+ * nothing would ever surface.
  */
 import { INSIDE_DHAKA_DISTRICT, isInsideDhaka } from "../constants/districts";
 import { config } from "../constants/config";
@@ -28,7 +29,7 @@ export function deliveryFeeForDistrict(district?: string | null): number {
   return isInsideDhaka(district) ? config.deliveryFees.insideDhaka : config.deliveryFees.outsideDhaka;
 }
 
-/** The cheapest delivery in the country, for "from ৳X" copy where no district is chosen yet. */
+/** The flat delivery fee, for copy where no district is chosen yet. */
 export function lowestDeliveryFee(): number {
   return config.deliveryFees.insideDhaka;
 }

@@ -21,8 +21,8 @@ export default function AdminAddProductScreen() {
     <Screen
       header={
         <ScreenHeader
-          title="Add product"
-          subtitle="Create new catalog item"
+          title="Add medicine"
+          subtitle="New item for the shop"
           onBack={onBack}
         />
       }
@@ -39,7 +39,7 @@ export default function AdminAddProductScreen() {
         // The form owns the product id, because the image has to be uploaded to
         // `products/<id>` before the product row exists.
         onUploadImage={(localUri, slot, productId) => uploadProductImage(localUri, productId, slot)}
-        submitLabel="Save product"
+        submitLabel="Save medicine"
         onSubmit={async (input) => {
           await createProduct(input);
           // Replace (not goBack) so the list screen remounts/focuses and its

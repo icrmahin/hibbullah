@@ -1,4 +1,5 @@
 import StatusBadge from "../common/StatusBadge";
+import { statusTone } from "../../utils/statusTone";
 import type { OrderStatus as OrderStatusValue } from "../../types/order";
 
 const labels: Record<OrderStatusValue, string> = {
@@ -12,6 +13,5 @@ const labels: Record<OrderStatusValue, string> = {
 };
 
 export default function OrderStatus({ status }: { status: OrderStatusValue }) {
-	const tone = status === "DELIVERED" ? "success" : status === "CANCELLED" || status === "RETURNED" ? "danger" : status === "PENDING" ? "warning" : "info";
-	return <StatusBadge label={labels[status]} tone={tone} />;
+	return <StatusBadge label={labels[status]} tone={statusTone(status)} />;
 }

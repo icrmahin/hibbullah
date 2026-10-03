@@ -203,7 +203,7 @@ const DISTRICT_ALIASES: Record<string, string> = {
  *
  * Note this is *not* wired into `isInsideDhaka`. That function is compared against the
  * SQL delivery-fee rule by verify:sql-sync, and loosening it here would let the app quote
- * ৳80 for a spelling the server does not recognise and then charge ৳150 — a checkout that
+ * a district rate for a spelling the server does not recognise — a checkout that
  * disagrees with the bill, which is exactly the split that check exists to prevent. The
  * form resolves to the canonical name *before* saving, so the stored value is always one
  * the server can match.

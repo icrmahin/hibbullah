@@ -20,6 +20,7 @@ export default function FilterChip({ label, selected = false, onPress, icon }: F
   return (
     <Pressable
       onPress={onPress}
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
       style={({ pressed }) => [
         styles.chip,
         {
@@ -51,6 +52,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
   },
   text: {
     fontFamily: fontFamily.pjsSemiBold,

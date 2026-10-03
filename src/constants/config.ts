@@ -6,22 +6,17 @@ export const config = {
   defaultPageSize: 20,
   supportEmail: "hibbullah82026@gmail.com",
   /**
-   * Delivery is priced by destination district, not flat. `insideDhaka` applies to Dhaka
-   * District only — Gazipur, Narayanganj and the rest of Dhaka Division are further out
-   * and stay on the standard rate, which is the point of splitting it.
+   * Delivery is a flat ৳80 while serving Dhaka only. The district split is kept
+   * (server rule + client helper still agree via verify:sql-sync) so the
+   * two-tier pricing can return without restructuring, but both tiers are 80.
    *
-   * These two numbers are duplicated in `create_order`, which is what actually charges the
-   * customer. supabase/verify-sql-sync.mjs fails if they ever drift, because a drift means
-   * the checkout total and the real charge disagree with no error anywhere.
-   *
-   * `deliveryFee` below remains as the fallback for an order row with no stored fee, and
-   * is deliberately the standard rate rather than the cheaper one.
+   * `deliveryFee` below remains as the fallback for an order row with no stored fee.
    */
   deliveryFees: {
     insideDhaka: 80,
-    outsideDhaka: 150,
+    outsideDhaka: 80,
   },
-  deliveryFee: 150,
+  deliveryFee: 80,
   lowStockThreshold: 10,
   expiryWarningDays: 60,
 };

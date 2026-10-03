@@ -23,6 +23,7 @@ import { spacing } from "../../../../constants/spacing";
 import { fontFamily, fontSize, lineHeight, letterSpacing } from "../../../../constants/typography";
 import { formatCurrency } from "../../../../utils/currency";
 import { normalizeError } from "../../../../utils/errorHandling";
+import { statusTone } from "../../../../utils/statusTone";
 
 /** One level deep: the catalog, when there is nothing to pop. */
 const onBack = () => goBack("/(admin)");
@@ -125,7 +126,7 @@ export default function AdminProductDetailScreen() {
           <Text style={[styles.generic, { color: colors.textMuted }]}>{product.genericName}</Text>
 
           <View style={styles.badges}>
-            <StatusBadge label={product.isActive ? "Active" : "Inactive"} tone={product.isActive ? "info" : "neutral"} />
+            <StatusBadge label={product.isActive ? "Active" : "Inactive"} tone={statusTone(product.isActive ? "ACTIVE" : "INACTIVE")} />
             <StatusBadge
               label={
                 product.stock === 0
@@ -134,13 +135,13 @@ export default function AdminProductDetailScreen() {
                     ? "Low stock"
                     : "In stock"
               }
-              tone={
+              tone={statusTone(
                 product.stock === 0
-                  ? "danger"
+                  ? "OUT_OF_STOCK"
                   : product.stock < config.lowStockThreshold
-                    ? "warning"
-                    : "success"
-              }
+                    ? "LOW"
+                    : "ACTIVE",
+              )}
             />
           </View>
 

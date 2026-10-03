@@ -38,9 +38,9 @@ function ruleOf(output) {
 const MUTATIONS = [
   {
     rule: "radius-scale",
-    what: "widen the scale past 2/6/8, back to a soft 10/12/16",
+    what: "widen the scale past a single 6, back to a soft 10/12/16",
     file: "src/constants/sizes.ts",
-    apply: (s) => s.replace(/(\n\s*sm:\s*)2,/, "$110,").replace(/(\n\s*lg:\s*)8,/, "$116,"),
+    apply: (s) => s.replace(/(\n\s*sm:\s*)6,/, "$110,").replace(/(\n\s*lg:\s*)6,/, "$116,"),
   },
   {
     rule: "no-pill-radius",

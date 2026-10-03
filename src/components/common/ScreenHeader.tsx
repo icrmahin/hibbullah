@@ -53,6 +53,7 @@ export default function ScreenHeader({ title, subtitle, onBack, action, leading 
         {onBack ? (
           <Pressable
             onPress={onBack}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             style={styles.back}
             hitSlop={8}
             accessibilityRole="button"
@@ -100,7 +101,8 @@ const styles = StyleSheet.create({
     marginLeft: -6,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
+    overflow: "hidden",
   },
   leading: {
     alignItems: "center",

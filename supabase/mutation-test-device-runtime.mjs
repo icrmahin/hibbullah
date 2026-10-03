@@ -198,15 +198,14 @@ const cases = [
     (s) => s.replace('if (onPress) {', 'if (false as boolean) {'),
   ],
   [
-    // The exact shape that shipped: the ripple and the press handlers on an unstyled
-    // Pressable, every visual property on a painted child. Square ripple on a pill.
-    'put the button paint back on a child, leaving the responder unstyled',
+    // The old shape in the new world: the spring is gone, so the regression is a painted
+    // animated child (or any press-scale machinery) creeping back onto the responder.
+    'put a painted animated child back inside the button responder',
     BUTTON,
     (s) =>
       s
-        .replace('Animated.createAnimatedComponent(Pressable)', 'Pressable')
-        .replace('    >\n      {icon}', '    >\n      <Animated.View style={[styles.base]}>\n      {icon}')
-        .replace('    </AnimatedPressable>', '      </Animated.View>\n    </AnimatedPressable>'),
+        .replace('    >\n      {icon}', '    >\n      <Animated.View>\n      {icon}')
+        .replace('      )}\n    </Pressable>', '      )}\n      </Animated.View>\n    </Pressable>'),
   ],
   [
     'remove the clip that keeps the ripple inside the pill',

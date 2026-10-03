@@ -17,6 +17,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { formatCurrency } from '../../utils/currency';
 import { formatDateTime } from '../../utils/date';
+import { statusTone } from '../../utils/statusTone';
 
 export default function DeliveryCycleScreen() {
   const colors = useThemeColors();
@@ -79,7 +80,7 @@ export default function DeliveryCycleScreen() {
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.title, { color: colors.text }]}>Active order cycle</Text>
-          <StatusBadge label={cycle.status} tone={cycle.status === 'PENDING' ? 'warning' : 'info'} />
+          <StatusBadge label={cycle.status} tone={statusTone(cycle.status)} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Start: {formatDateTime(cycle.startedAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Closes: {formatDateTime(cycle.closesAt)}</Text>
           <Text style={[styles.total, { color: colors.text }]}>Estimated total: {formatCurrency(cycle.estimatedTotal)}</Text>

@@ -1,14 +1,9 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutable by design */
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, useReducedMotion } from "react-native-reanimated";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { layout } from "../../constants/sizes";
+import { layout, radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
-import { springConfigs } from "../../lib/motion";
 import Icon from "./Icon";
-import type { IconName } from "./Icon";
-import { radius } from "../../constants/sizes";
 
 type ListItemProps = {
   title: string;
@@ -21,6 +16,10 @@ type ListItemProps = {
   style?: ViewStyle;
 };
 
+/**
+ * One row: 44px touch target, 6px rectangle, hairline divider when stacked.
+ * Press feedback is the native ripple, clipped by `overflow: hidden` — no scale.
+ */
 export default function ListItem({
   title,
   subtitle,
@@ -32,27 +31,10 @@ export default function ListItem({
   style,
 }: ListItemProps) {
   const colors = useThemeColors();
-  const reducedMotion = useReducedMotion();
 
   const padding = compact
     ? { paddingVertical: spacing.sm, paddingHorizontal: spacing.md }
     : { paddingVertical: spacing.md, paddingHorizontal: spacing.lg };
-
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    if (reducedMotion) return;
-    scale.value = withSpring(0.98, springConfigs.snap);
-  };
-
-  const handlePressOut = () => {
-    if (reducedMotion) return;
-    scale.value = withSpring(1, springConfigs.snap);
-  };
 
   const content = (
     <View
@@ -87,10 +69,10 @@ export default function ListItem({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
+        style={[styles.pressable, { backgroundColor: colors.backgroundAlt }]}
       >
-        <Animated.View style={[animatedStyle, { backgroundColor: colors.backgroundAlt }]}>{content}</Animated.View>
+        {content}
       </Pressable>
     );
   }
@@ -105,6 +87,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     minHeight: layout.touch,
     borderRadius: radius.md,
+  },
+  pressable: {
+    borderRadius: radius.md,
+    overflow: "hidden",
   },
   left: { flexShrink: 0 },
   content: { flex: 1, gap: 2 },

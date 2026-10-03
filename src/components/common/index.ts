@@ -23,6 +23,7 @@ export { default as Toggle } from "./Toggle";
 
 // Surfaces
 export { default as Card } from "./Card";
+export { default as Section } from "./Section";
 
 // Feedback
 export { default as Alert } from "./Alert";

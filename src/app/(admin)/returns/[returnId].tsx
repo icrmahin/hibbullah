@@ -16,6 +16,7 @@ import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchReturnById, updateReturnStatus } from '../../../services/returns';
 import { normalizeError } from '../../../utils/errorHandling';
+import { statusTone } from '../../../utils/statusTone';
 import { useConfirm } from '../../../hooks/useConfirm';
 import ConfirmDialog from '../../../components/common/ConfirmDialog';
 import { radius } from '../../../constants/sizes';
@@ -144,7 +145,7 @@ export default function AdminReturnDetailScreen() {
           <View style={styles.badgeRow}>
             <StatusBadge
               label={item.status}
-              tone={item.status === 'APPROVED' || item.status === 'PROCESSED' ? 'success' : item.status === 'REJECTED' ? 'danger' : 'warning'}
+              tone={statusTone(item.status)}
             />
           </View>
         </View>

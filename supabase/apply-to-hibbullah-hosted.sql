@@ -387,7 +387,7 @@ create table public.orders (
   )),
   subtotal numeric(12,2) not null default 0 check (subtotal >= 0),
   discount numeric(12,2) not null default 0 check (discount >= 0),
-  delivery_fee numeric(12,2) not null default 150 check (delivery_fee >= 0),
+  delivery_fee numeric(12,2) not null default 80 check (delivery_fee >= 0),
   total numeric(12,2) not null default 0 check (total >= 0),
   payment_method text not null default 'CASH_ON_DELIVERY'
     check (payment_method = 'CASH_ON_DELIVERY'),
@@ -4573,7 +4573,7 @@ create or replace function public.inside_dhaka_delivery_fee()
 returns numeric language sql immutable as $fn$ select 80::numeric $fn$;
 
 create or replace function public.outside_dhaka_delivery_fee()
-returns numeric language sql immutable as $fn$ select 150::numeric $fn$;
+returns numeric language sql immutable as $fn$ select 80::numeric $fn$;
 
 create or replace function public.inside_dhaka_district()
 returns text language sql immutable as $fn$ select 'Dhaka'::text $fn$;

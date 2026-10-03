@@ -611,6 +611,12 @@ const code = new Map(allFiles.map((f) => [f, stripComments(readFileSync(f, 'utf8
   // past the rounded ends, and on the circular icon buttons it was worse. The press spring
   // also scaled the child, so the button shrank inside a touch target that did not.
   //
+  // Flat UI v2 retired the spring entirely: touch feedback is the native ripple and
+  // nothing else — no scale, no opacity fade. So this now asserts both halves of the
+  // invariant: the responder still carries its own paint (no unstyled Pressable around a
+  // painted child), AND no press-scale machinery (`withSpring`, shared values, an
+  // `Animated.View` child) has crept back onto either button.
+  //
   // This is the third structural touch bug in this app that `tsc`, `eslint`, `expo export`
   // and the web build all passed clean — the search bar and the local-file read were the
   // first two. None of them is visible to a static check, because the code is valid; the
@@ -632,14 +638,18 @@ const code = new Map(allFiles.map((f) => [f, stripComments(readFileSync(f, 'utf8
 
     const offenders = []
 
-    // The responder must be an animated component of Pressable, so that the press style,
-    // the ripple and the paint can all land on one view.
-    if (!/Animated\.createAnimatedComponent\(Pressable\)/.test(src)) {
-      offenders.push(
-        `${name}: no Animated.createAnimatedComponent(Pressable), so the press spring cannot be ` +
-          'applied to the responder itself. If the spring is on a child instead, the button ' +
-          'visibly shrinks inside a touch target that stays put.',
-      )
+    // No press-scale machinery on the responder. The spring used to live here
+    // (`Animated.createAnimatedComponent(Pressable)` + `withSpring` on shared values);
+    // flat UI v2 removed it, and any of its pieces coming back means the lift is back.
+    for (const marker of ['withSpring', 'useSharedValue', '<Animated.View', 'createAnimatedComponent']) {
+      if (src.includes(marker)) {
+        offenders.push(
+          `${name}: contains \`${marker}\` — press-scale lift is retired. Touch feedback is ` +
+            'the native ripple only; a spring on the responder (or on a child of it) brings ' +
+            'back the shrink-inside-its-touch-target the flat pass removed.',
+        )
+        break
+      }
     }
 
     // A `Pressable` with a ripple but no style of its own is the exact shape that shipped.

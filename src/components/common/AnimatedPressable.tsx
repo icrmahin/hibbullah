@@ -1,69 +1,46 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutable by design */
 import { type ReactNode } from "react";
 import { Pressable, type PressableProps, type ViewStyle } from "react-native";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, useReducedMotion } from "react-native-reanimated";
-import { springConfigs, compression as compressionValues } from "../../lib/motion";
+import { useThemeColors } from "../../providers/ThemeProvider";
 
 type Compression = "subtle" | "standard" | "deep";
 
-type AnimatedPressableProps = Omit<PressableProps, "style" | "children"> & {
+type AnimatedPressableProps = Omit<PressableProps, "style" | "children" | "android_ripple"> & {
   children: ReactNode;
-  /** Compression scale. Default: "standard" */
+  /**
+   * Deprecated no-op, kept for API compatibility.
+   * Press feedback is the Android-native ripple now; there is no scale to tune.
+   */
   compression?: Compression;
-  /** Override the base style (applied to the Animated.View) */
   style?: ViewStyle | ViewStyle[];
-  /** Disable press animation. Default: false */
   disabled?: boolean;
+  android_ripple?: PressableProps["android_ripple"];
 };
 
 /**
- * Pressable with animated spring compression.
+ * Ripple-only pressable.
  *
- * @example
- * <AnimatedPressable onPress={handlePress}>
- *   <Text>Tap me</Text>
- * </AnimatedPressable>
+ * Previously a Reanimated spring compressed the child to 0.92–0.97 on press — the last
+ * "lift" in the app. Now the view answers a touch with the native Android ripple and
+ * nothing else. `compression` is accepted and ignored so the 3 call sites keep working.
  */
 export default function AnimatedPressable({
   children,
-  compression: comp = "standard",
+  compression: _comp,
   disabled = false,
+  android_ripple,
   style,
   ...props
 }: AnimatedPressableProps) {
-  const reducedMotion = useReducedMotion();
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
-
-  const targetScale = compressionValues[comp];
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-
-  const handlePressIn = () => {
-    if (disabled || reducedMotion) return;
-    scale.value = withSpring(targetScale, springConfigs.press);
-    opacity.value = withSpring(0.85, springConfigs.press);
-  };
-
-  const handlePressOut = () => {
-    if (disabled || reducedMotion) return;
-    scale.value = withSpring(1, springConfigs.press);
-    opacity.value = withSpring(1, springConfigs.press);
-  };
-
+  const colors = useThemeColors();
+  void _comp;
   return (
     <Pressable
       {...props}
       disabled={disabled}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      android_ripple={android_ripple ?? { color: colors.ripple.primary, borderless: false }}
+      style={style as PressableProps["style"]}
     >
-      <Animated.View style={[style, animatedStyle]}>
-        {children}
-      </Animated.View>
+      {children}
     </Pressable>
   );
 }

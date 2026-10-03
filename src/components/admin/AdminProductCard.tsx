@@ -7,6 +7,7 @@ import type { Product } from "../../types/product";
 import ProductImage from "../products/ProductImage";
 import ProductPrice from "../products/ProductPrice";
 import StatusBadge from "../common/StatusBadge";
+import { statusTone } from "../../utils/statusTone";
 
 export default function AdminProductCard({
   product,
@@ -17,13 +18,14 @@ export default function AdminProductCard({
 }) {
   const colors = useThemeColors();
   const available = product.isActive && product.stock > 0;
+  const stockKey = !product.isActive ? "INACTIVE" : product.stock === 0 ? "OUT_OF_STOCK" : product.stock < 10 ? "LOW" : "ACTIVE";
 
   return (
     <Pressable
-      style={({ pressed }) => [
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
+      style={[
         styles.card,
         { backgroundColor: colors.backgroundAlt },
-        pressed && styles.pressed,
       ]}
       onPress={() => onPress?.(product)}
       accessibilityRole="button"
@@ -51,13 +53,7 @@ export default function AdminProductCard({
                     ? "Low stock"
                     : "Active"
             }
-            tone={
-              !product.isActive || product.stock === 0
-                ? "danger"
-                : product.stock < 10
-                  ? "warning"
-                  : "success"
-            }
+            tone={statusTone(stockKey)}
           />
         </View>
         <Text style={[styles.meta, { color: colors.textMuted }]}>
@@ -86,7 +82,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
   },
-  pressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
   image: { width: 88, height: 88, borderRadius: radius.lg },
   content: { flex: 1, padding: spacing.md, gap: spacing.xs },
   topRow: {

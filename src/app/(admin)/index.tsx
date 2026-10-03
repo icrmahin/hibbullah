@@ -21,6 +21,7 @@ import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, letterSpacing, lineHeight } from "../../constants/typography";
 import { formatCurrency } from "../../utils/currency";
 import { formatShortDate } from "../../utils/date";
+import { statusTone } from "../../utils/statusTone";
 import type { IconName } from "../../components/common/Icon";
 
 function timeNow(): string {
@@ -371,7 +372,7 @@ export default function AdminDashboardScreen() {
                       <Text style={[styles.rowTitle, { color: colors.text }]}>{o.orderNumber} · {formatCurrency(o.total)}</Text>
                       <Text style={[styles.rowSub, { color: colors.textMuted }]}>{o.customerName} · {formatShortDate(o.createdAt)}</Text>
                     </View>
-                    <StatusBadge label={o.status} tone={o.status === "DELIVERED" ? "success" : o.status === "PENDING" ? "warning" : "info"} />
+                    <StatusBadge label={o.status} tone={statusTone(o.status)} />
                     <Icon name="chevron-right" size={16} color={colors.textMuted} />
                   </Pressable>
                   {i < Math.min(4, recentOrders.length) - 1 ? <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} /> : null}

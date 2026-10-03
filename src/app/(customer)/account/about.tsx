@@ -32,7 +32,7 @@ export default function AboutScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.h, { color: colors.text }]}>What we do</Text>
-          <Text style={[styles.p, { color: colors.textMuted }]}>• 500+ generics & brands, searchable by name/brand/generic.{"\n"}• 24h delivery cycles, nationwide. ৳{config.deliveryFees.insideDhaka} inside Dhaka District, ৳{config.deliveryFees.outsideDhaka} everywhere else.{"\n"}• Favorites & cart synced via Supabase, notifications for stock & order updates.{"\n"}• Admin cockpit for inventory, expiry, returns, audit.</Text>
+          <Text style={[styles.p, { color: colors.textMuted }]}>• 500+ generics & brands, searchable by name/brand/generic.{"\n"}• 24h delivery cycles, flat ৳{config.deliveryFees.insideDhaka} delivery — Dhaka only for now.{"\n"}• Favorites & cart synced via Supabase, notifications for stock & order updates.{"\n"}• Admin cockpit for inventory, expiry, returns, audit.</Text>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
