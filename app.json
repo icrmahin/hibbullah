@@ -18,11 +18,17 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.hibbullah.app",
-      "versionCode": 5
+      "versionCode": 8
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/logo/hibbullah-main.png"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/389c0952-efcd-47ca-8324-5623a341861a"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
     },
     "plugins": [
       "expo-router",

@@ -29,6 +29,7 @@ export { default as Section } from "./Section";
 export { default as Alert } from "./Alert";
 export { default as Badge } from "./Badge";
 export { default as StatusBadge } from "./StatusBadge";
+export { default as UpdateBanner } from "./UpdateBanner";
 export { default as CountBadge } from "./CountBadge";
 export { default as LoadingState } from "./LoadingState";
 export { default as EmptyState } from "./EmptyState";

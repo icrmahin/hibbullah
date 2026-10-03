@@ -7,8 +7,10 @@ import { useFonts as usePJSFonts } from "@expo-google-fonts/plus-jakarta-sans";
 import * as SplashScreen from "expo-splash-screen";
 import { AppProviders } from "../providers/AppProviders";
 import AppErrorBoundary from "../components/common/ErrorBoundary";
+import UpdateBanner from "../components/common/UpdateBanner";
 import { useTheme, useThemeColors } from "../providers/ThemeProvider";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+import { useAppUpdates } from "../hooks/useAppUpdates";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -45,6 +47,17 @@ function PushNotificationsHost() {
   return null;
 }
 
+/**
+ * Renders nothing until an OTA update has finished downloading in the
+ * background. Same host pattern as PushNotificationsHost: lives at the top
+ * of the tree, inside AppProviders (the banner reads the theme).
+ */
+function UpdateBannerHost() {
+  const { updateReady, dismiss } = useAppUpdates();
+  if (!updateReady) return null;
+  return <UpdateBanner onDismiss={dismiss} />;
+}
+
 export default function RootLayout() {
   const [soraLoaded] = useFonts({
     Sora_400Regular: require("@expo-google-fonts/sora/400Regular/Sora_400Regular.ttf"),
@@ -74,6 +87,7 @@ export default function RootLayout() {
         <ThemedStatusBar />
         <PushNotificationsHost />
         <ThemedRootView>
+          <UpdateBannerHost />
           {/* Inside AppProviders so the fallback can read the theme, and around the
               Stack so a throw in any screen shows this instead of ending the process. */}
           <AppErrorBoundary>

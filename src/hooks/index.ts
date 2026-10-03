@@ -21,4 +21,6 @@ export { useResponsive } from './useResponsive'
 
 export { useBottomInset } from './useBottomInset'
 
+export { useAppUpdates } from './useAppUpdates'
+
 export { useMotionPress, useMotionToggle } from './useMotion'
