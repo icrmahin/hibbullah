@@ -8,6 +8,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { AppProviders } from "../providers/AppProviders";
 import AppErrorBoundary from "../components/common/ErrorBoundary";
 import { useTheme, useThemeColors } from "../providers/ThemeProvider";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +32,17 @@ function ThemedStatusBar() {
 function ThemedRootView({ children }: { children: React.ReactNode }) {
   const colors = useThemeColors();
   return <View style={{ flex: 1, backgroundColor: colors.background }}>{children}</View>;
+}
+
+/**
+ * Renders nothing. It exists so device-push registration and tap-routing live in one
+ * place at the top of the tree, inside AppProviders (the hook reads the auth session to
+ * know which account this phone currently belongs to) and alongside the Stack (so a
+ * notification tap can navigate the moment it is observed).
+ */
+function PushNotificationsHost() {
+  usePushNotifications();
+  return null;
 }
 
 export default function RootLayout() {
@@ -60,6 +72,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AppProviders>
         <ThemedStatusBar />
+        <PushNotificationsHost />
         <ThemedRootView>
           {/* Inside AppProviders so the fallback can read the theme, and around the
               Stack so a throw in any screen shows this instead of ending the process. */}

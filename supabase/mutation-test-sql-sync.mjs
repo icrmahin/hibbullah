@@ -26,9 +26,15 @@ const SEARCH_SQL = [SEARCH, HOSTED]
 const REPORTS_TS = 'src/services/reports.ts'
 const EXPIRY_TS = 'src/app/(admin)/inventory/expiry.tsx'
 const DIFF_TS = 'src/utils/auditDiff.ts'
+const PUSH = 'supabase/migrations/20261003020000_push_notifications.sql'
 
 const cases = [
-  ['drop the notify_user revoke', LOCK, (s) => s.replace(/^revoke all on function public\.notify_user[^\n]*\n/m, '')],
+  // Both notify_user cases are aimed at the push migration, not the lockdown one. The
+  // check reads from the migration that LAST defines the function, and the push migration
+  // redefined notify_user with the reference parameter — so the lockdown's revoke is
+  // outside the window now, and mutating it would prove nothing. Same lesson as
+  // deduct_inventory_fifo below: a mutation has to break the copy that is load-bearing.
+  ['drop the notify_user revoke', PUSH, (s) => s.replace(/^revoke all on function public\.notify_user[^\n]*\n/m, '')],
   // Retargeted. This used to break the `deduct_inventory_fifo` revoke in the lockdown
   // migration, and it quietly stopped proving anything the moment the profit migration
   // redefined that function with a third argument: the old signature's revoke became
@@ -39,11 +45,11 @@ const cases = [
   // `deduct_inventory_fifo` is now mutated where it is defined instead, further down.
   [
     'narrow the notify_user revoke to PUBLIC only',
-    LOCK,
+    PUSH,
     (s) =>
       s.replace(
         /^revoke all on function public\.notify_user\(.*\) from public, anon, authenticated;$/m,
-        'revoke all on function public.notify_user(p_user_id uuid, p_title text, p_body text, p_type text) from public;',
+        'revoke all on function public.notify_user(uuid, text, text, text, uuid) from public;',
       ),
   ],
   [

@@ -7,6 +7,7 @@ import spacing from "../../constants/spacing";
 import { fontFamily, fontSize } from "../../constants/typography";
 import { useCart } from "../../providers/CartProvider";
 import Icon from "./Icon";
+import CountBadge from "./CountBadge";
 import type { IconName } from "./Icon";
 
 const navigationItems: {
@@ -59,19 +60,14 @@ export default function CustomerNavigation() {
               onPress={() => router.replace(item.path as never)}
               android_ripple={{ color: colors.ripple.primary }}
               accessibilityRole="button"
-              accessibilityLabel={item.label}
+              accessibilityLabel={
+                item.badge && distinctCount > 0 ? `${item.label}, ${distinctCount} items in cart` : item.label
+              }
               accessibilityState={{ selected: active }}
             >
               <View style={[styles.iconContainer, active && { backgroundColor: colors.primarySoft }]}>
                 <Icon name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.accent : colors.textMuted} />
-                {item.badge && distinctCount > 0 ? (
-                  /* A count is not an action, so this is a neutral chip rather than an
-                     accent-filled one. `colors.text` with a `textInverse` label is legible
-                     in both themes without spending the accent. */
-                  <View style={[styles.badge, { backgroundColor: colors.text }]}>
-                    <Text style={[styles.badgeText, { color: colors.textInverse }]}>{distinctCount > 99 ? "99+" : String(distinctCount)}</Text>
-                  </View>
-                ) : null}
+                {item.badge ? <CountBadge count={distinctCount} /> : null}
               </View>
               <Text style={[styles.label, { color: active ? colors.accent : colors.textMuted }]}>{item.label}</Text>
             </Pressable>
@@ -116,21 +112,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.tiny,
     letterSpacing: 0.2,
     lineHeight: 11,
-  },
-  badge: {
-    position: "absolute",
-    top: -2,
-    right: -4,
-    minWidth: 14,
-    height: 14,
-    paddingHorizontal: 2,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeText: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.tiny,
   },
   pressed: { opacity: 0.7 },
 });

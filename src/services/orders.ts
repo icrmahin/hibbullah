@@ -37,10 +37,14 @@ export async function fetchOrderById(orderId: string): Promise<OrderWithItems | 
   return mapOrder(data as unknown as Parameters<typeof mapOrder>[0]) as OrderWithItems
 }
 
-export async function createOrder(customerId: string, addressId: string): Promise<string> {
+export async function createOrder(customerId: string, addressId: string, note?: string): Promise<string> {
   const { data, error } = await supabase.rpc('create_order', {
     p_customer_id: customerId,
     p_address_id: addressId,
+    // Optional by design: an empty note is sent as null, which is what the database
+    // stores for "the customer left nothing", rather than an empty string that reads on
+    // the admin screen as though they typed a blank line.
+    p_note: note && note.trim() ? note.trim() : null,
   })
 
   if (error) throw error

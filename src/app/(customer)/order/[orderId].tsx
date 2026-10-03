@@ -116,6 +116,9 @@ export default function CustomerOrderDetailScreen() {
           <StatusBadge label={order.status} tone={tone as any} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Placed {formatDateTime(order.createdAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Delivery address: {order.address}</Text>
+          {order.customerNote ? (
+            <Text style={[styles.meta, { color: colors.textMuted }]}>Note: {order.customerNote}</Text>
+          ) : null}
           <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: Cash on Delivery</Text>
           <View style={[styles.totals, { borderTopColor: colors.borderSoft }]}>
             <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Subtotal</Text><Text style={[styles.value, { color: colors.text }]}>{formatCurrency(order.subtotal)}</Text></View>

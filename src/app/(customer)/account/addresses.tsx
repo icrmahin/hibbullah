@@ -62,7 +62,7 @@ export default function CustomerAddressesScreen() {
     const ok = await confirm({
       title: 'Delete address',
       message: target
-        ? `Remove "${target.label}" — ${target.street}, ${target.city}?`
+        ? `Remove "${target.label}" — ${[target.street, target.city].filter(Boolean).join(", ")}?`
         : 'Remove this saved location?',
       confirmLabel: 'Delete',
       destructive: true,
@@ -94,8 +94,12 @@ export default function CustomerAddressesScreen() {
               <View style={styles.row}>
                 <Text style={[styles.label, { color: colors.text }]}>{address.label}{address.isDefault ? ' · Default' : ''}</Text>
               </View>
-              <Text style={[styles.text, { color: colors.textMuted }]}>{address.street}</Text>
-              <Text style={[styles.text, { color: colors.textMuted }]}>{address.city}{address.county ? `, ${address.county}` : ''}{address.postalCode ? ` ${address.postalCode}` : ''}</Text>
+              {/* The city is optional now: a new-form address keeps its whole location in
+                  `street`, so an empty city renders nothing rather than a dangling
+                  comma. The mobile is its own line — it is contact information, not part
+                  of where the parcel goes. */}
+              <Text style={[styles.text, { color: colors.textMuted }]}>{[address.street, address.city].filter(Boolean).join(", ")}{address.county ? `, ${address.county}` : ''}{address.postalCode ? ` ${address.postalCode}` : ''}</Text>
+              {address.phone ? <Text style={[styles.text, { color: colors.textMuted }]}>{address.phone}</Text> : null}
               <View style={styles.actions}>
                 {!address.isDefault ? (
                   <Pressable

@@ -32,29 +32,30 @@
  * checked but not held to the text bar.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdtempSync } from 'node:fs'
-import { stripTypeScriptTypes } from 'node:module'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { readFileSync, writeFileSync, existsSync, mkdtempSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /** WCAG 2.1 relative luminance. */
 const luminance = (hex) => {
-  const s = hex.replace('#', '')
+  const s = hex.replace("#", "");
   const channel = (v) => {
-    const c = parseInt(s.slice(v, v + 2), 16) / 255
-    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  }
-  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
-}
+    const c = parseInt(s.slice(v, v + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+};
 
 /** WCAG 2.1 contrast ratio. */
 const contrast = (a, b) => {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
-}
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
 
-const grade = (r) => (r >= 7 ? 'AAA' : r >= 4.5 ? 'AA' : r >= 3 ? 'AA-large only' : 'unreadable')
+const grade = (r) =>
+  r >= 7 ? "AAA" : r >= 4.5 ? "AA" : r >= 3 ? "AA-large only" : "unreadable";
 
 /**
  * Load the palette out of the real module rather than a copy of it.
@@ -66,18 +67,21 @@ const grade = (r) => (r >= 7 ? 'AAA' : r >= 4.5 ? 'AA' : r >= 3 ? 'AA-large only
  * the palette is fine.
  */
 const load = async (file, tag) => {
-  const dir = mkdtempSync(join(tmpdir(), 'hibbullah-contrast-'))
-  const out = join(dir, `${tag}.mjs`)
+  const dir = mkdtempSync(join(tmpdir(), "hibbullah-contrast-"));
+  const out = join(dir, `${tag}.mjs`);
   writeFileSync(
     out,
-    stripTypeScriptTypes(readFileSync(file, 'utf8')).replace(/export default[^;]+;/g, ''),
-  )
-  return import(pathToFileURL(out).href)
-}
+    stripTypeScriptTypes(readFileSync(file, "utf8")).replace(
+      /export default[^;]+;/g,
+      "",
+    ),
+  );
+  return import(pathToFileURL(out).href);
+};
 
-const light = await load('src/constants/colors.ts', 'light')
-const dark = await load('src/constants/darkColors.ts', 'dark')
-const THEMES = { light: light.colors, dark: dark.darkColors }
+const light = await load("src/constants/colors.ts", "light");
+const dark = await load("src/constants/darkColors.ts", "dark");
+const THEMES = { light: light.colors, dark: dark.darkColors };
 
 /**
  * The pairs, and the bar each has to clear.
@@ -88,19 +92,19 @@ const THEMES = { light: light.colors, dark: dark.darkColors }
  */
 const CHECKS = [
   // ── body text ──────────────────────────────────────────────────────────────────────
-  ['body text on a card', 'text', 'backgroundAlt', 4.5],
-  ['body text on the page', 'text', 'background', 4.5],
-  ['secondary text on a card', 'textSecondary', 'backgroundAlt', 4.5],
-  ['secondary text on the page', 'textSecondary', 'background', 4.5],
+  ["body text on a card", "text", "backgroundAlt", 4.5],
+  ["body text on the page", "text", "background", 4.5],
+  ["secondary text on a card", "textSecondary", "backgroundAlt", 4.5],
+  ["secondary text on the page", "textSecondary", "background", 4.5],
   // The one that was worst: 3.37:1, behind 275 usages, mostly 11–13px captions.
-  ['muted text on a card', 'textMuted', 'backgroundAlt', 4.5],
-  ['muted text on the page', 'textMuted', 'background', 4.5],
+  ["muted text on a card", "textMuted", "backgroundAlt", 4.5],
+  ["muted text on the page", "textMuted", "background", 4.5],
 
   // ── the accent, as ink ─────────────────────────────────────────────────────────────
-  ['accent link on a card', 'accent', 'backgroundAlt', 4.5],
-  ['accent link on the page', 'accent', 'background', 4.5],
-  ['accent on a soft accent fill', 'accent', 'primarySoft', 4.5],
-  ['accent on a muted accent fill', 'accent', 'primaryMuted', 4.5],
+  ["accent link on a card", "accent", "backgroundAlt", 4.5],
+  ["accent link on the page", "accent", "background", 4.5],
+  ["accent on a soft accent fill", "accent", "primarySoft", 4.5],
+  ["accent on a muted accent fill", "accent", "primaryMuted", 4.5],
 
   // ── labels on fills ───────────────────────────────────────────────────────────────
   // `textInverse`, not `white`. A `primary` fill now inverts between the themes — a deep
@@ -114,74 +118,76 @@ const CHECKS = [
   // now the token the component actually uses, so it polices the real pair in both themes:
   // 12.2:1 light, 8.96:1 dark. A white label on the dark fill is 2.19:1 and is exactly the
   // regression recorded at the top of this file, so `textInverse` is load-bearing here.
-  ['label on a primary fill', 'textInverse', 'primary', 4.5],
-  ['label on a primary fill, pressed', 'textInverse', 'primaryDark', 4.5],
+  ["label on a primary fill", "textInverse", "primary", 4.5],
+  ["label on a primary fill, pressed", "textInverse", "primaryDark", 4.5],
   // A *status* fill inverts between themes — dark in light, light in dark — so its label
   // has to invert too, which is what `textInverse` is. Using `white` here is what put a
   // 3.5:1 badge on the cart in dark mode while being perfectly correct in light mode.
-  ['label on a danger fill', 'textInverse', 'danger', 4.5],
-  ['label on a success fill', 'textInverse', 'success', 4.5],
-  ['label on a warning fill', 'textInverse', 'warning', 4.5],
-  ['label on an info fill', 'textInverse', 'info', 4.5],
+  ["label on a danger fill", "textInverse", "danger", 4.5],
+  ["label on a success fill", "textInverse", "success", 4.5],
+  ["label on a warning fill", "textInverse", "warning", 4.5],
+  ["label on an info fill", "textInverse", "info", 4.5],
 
   // ── status as ink, which is how warnings and errors are read ───────────────────────
-  ['danger text on a card', 'danger', 'backgroundAlt', 4.5],
-  ['danger text on its own soft fill', 'danger', 'dangerSoft', 4.5],
-  ['success text on a card', 'success', 'backgroundAlt', 4.5],
-  ['success text on its own soft fill', 'success', 'successSoft', 4.5],
+  ["danger text on a card", "danger", "backgroundAlt", 4.5],
+  ["danger text on its own soft fill", "danger", "dangerSoft", 4.5],
+  ["success text on a card", "success", "backgroundAlt", 4.5],
+  ["success text on its own soft fill", "success", "successSoft", 4.5],
   // Was 2.69:1: the low-stock count on the admin dashboard.
-  ['warning text on a card', 'warning', 'backgroundAlt', 4.5],
-  ['warning text on its own soft fill', 'warning', 'warningSoft', 4.5],
-  ['info text on a card', 'info', 'backgroundAlt', 4.5],
-  ['info text on its own soft fill', 'info', 'infoSoft', 4.5],
+  ["warning text on a card", "warning", "backgroundAlt", 4.5],
+  ["warning text on its own soft fill", "warning", "warningSoft", 4.5],
+  ["info text on a card", "info", "backgroundAlt", 4.5],
+  ["info text on its own soft fill", "info", "infoSoft", 4.5],
 
   // ── boundaries ─────────────────────────────────────────────────────────────────────
   // A card's edge against the page. 1.2 rather than 3: a hairline is decoration, but a
   // hairline that is invisible is how two cards merge into one panel.
-  ['a card edge against the page', 'border', 'background', 1.2],
+  ["a card edge against the page", "border", "background", 1.2],
   // A focus ring has to be unmistakable, so this one is held to the 3:1 UI bar.
-  ['a focus ring on a card', 'borderFocus', 'backgroundAlt', 3],
-  ['a focus ring on the page', 'borderFocus', 'background', 3],
-]
+  ["a focus ring on a card", "borderFocus", "backgroundAlt", 3],
+  ["a focus ring on the page", "borderFocus", "background", 3],
+];
 
-const only = process.argv[2]
-const modes = only ? [only] : ['light', 'dark']
+const only = process.argv[2];
+const modes = only ? [only] : ["light", "dark"];
 
-let failures = 0
+let failures = 0;
 for (const mode of modes) {
-  const p = THEMES[mode]
+  const p = THEMES[mode];
   if (!p) {
-    console.log(`unknown theme "${mode}" — expected light or dark`)
-    process.exit(2)
+    console.log(`unknown theme "${mode}" — expected light or dark`);
+    process.exit(2);
   }
-  console.log(`\n${mode.toUpperCase()} MODE`)
-  let tightest = Infinity
+  console.log(`\n${mode.toUpperCase()} MODE`);
+  let tightest = Infinity;
   for (const [name, fgKey, bgKey, bar] of CHECKS) {
-    const fg = p[fgKey]
-    const bg = p[bgKey]
-    if (typeof fg !== 'string' || typeof bg !== 'string') {
-      console.log(`  FAIL  ${name.padEnd(36)} ${fgKey}=${fg} ${bgKey}=${bg}`)
-      console.log(`        a palette key is missing or is not a colour — the pair could not be checked`)
-      failures += 1
-      continue
+    const fg = p[fgKey];
+    const bg = p[bgKey];
+    if (typeof fg !== "string" || typeof bg !== "string") {
+      console.log(`  FAIL  ${name.padEnd(36)} ${fgKey}=${fg} ${bgKey}=${bg}`);
+      console.log(
+        `        a palette key is missing or is not a colour — the pair could not be checked`,
+      );
+      failures += 1;
+      continue;
     }
-    const r = contrast(fg, bg)
-    if (bar >= 4.5) tightest = Math.min(tightest, r)
-    const ok = r >= bar
-    if (!ok) failures += 1
+    const r = contrast(fg, bg);
+    if (bar >= 4.5) tightest = Math.min(tightest, r);
+    const ok = r >= bar;
+    if (!ok) failures += 1;
     console.log(
-      `  ${ok ? 'ok  ' : 'FAIL'}  ${name.padEnd(36)} ${r.toFixed(2).padStart(6)}:1  needs ${String(bar).padStart(4)}  ${grade(r).padEnd(13)} ${fg} on ${bg}`,
-    )
+      `  ${ok ? "ok  " : "FAIL"}  ${name.padEnd(36)} ${r.toFixed(2).padStart(6)}:1  needs ${String(bar).padStart(4)}  ${grade(r).padEnd(13)} ${fg} on ${bg}`,
+    );
   }
-  console.log(`  tightest text pair: ${tightest.toFixed(2)}:1`)
+  console.log(`  tightest text pair: ${tightest.toFixed(2)}:1`);
 }
 
 if (failures) {
-  console.log(`\n${failures} contrast pair(s) below their bar.`)
+  console.log(`\n${failures} contrast pair(s) below their bar.`);
   console.log(
-    'Fix the palette, not this file. If a pair genuinely cannot appear together, delete it\n' +
-      'from CHECKS with a note saying why — do not lower the bar.',
-  )
-  process.exit(1)
+    "Fix the palette, not this file. If a pair genuinely cannot appear together, delete it\n" +
+      "from CHECKS with a note saying why — do not lower the bar.",
+  );
+  process.exit(1);
 }
-console.log(`\nAll ${CHECKS.length} pairs pass in ${modes.join(' and ')}.`)
+console.log(`\nAll ${CHECKS.length} pairs pass in ${modes.join(" and ")}.`);

@@ -120,6 +120,9 @@ export default function AdminOrderDetailScreen() {
           <Text style={[styles.meta, { color: colors.textMuted }]}>Placed: {formatDateTime(order.createdAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Total: {formatCurrency(order.total)} · Subtotal {formatCurrency(order.subtotal)} · Delivery {formatCurrency(order.deliveryFee)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Address: {order.address}</Text>
+          {order.customerNote ? (
+            <Text style={[styles.meta, { color: colors.textMuted }]}>Customer note: {order.customerNote}</Text>
+          ) : null}
           <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: {order.paymentMethod}</Text>
         </View>
 

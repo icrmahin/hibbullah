@@ -30,6 +30,8 @@ export type Order = {
   total: number;
   paymentMethod: "CASH_ON_DELIVERY";
   address: string;
+  /** What the customer asked us to know about this delivery, when they left one. */
+  customerNote?: string;
   items: OrderItem[];
   timeline: { label: string; time: string; note?: string }[];
 };

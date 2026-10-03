@@ -248,12 +248,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    // Best effort, and while the session (and therefore the RLS write access to own
+    // rows) still exists: this device's push tokens belong to the account signing out,
+    // and leaving them behind would mean the next account on this phone keeps receiving
+    // the previous one's notifications. Failure is ignored on purpose — a token row left
+    // behind degrades routing, a sign-out that refuses to complete traps the user.
+    if (user?.id) {
+      try {
+        await supabase.from('push_tokens').delete().eq('user_id', user.id)
+      } catch {
+        // ignored — see above
+      }
+    }
     const { error } = await supabase.auth.signOut()
     if (error) throw new Error(error.message)
     setSession(null)
     setUser(null)
     setIsAdmin(false)
-  }, [])
+  }, [user])
 
   const refreshUser = useCallback(async () => {
     const { data: { user: currentUser } } = await supabase.auth.getUser()

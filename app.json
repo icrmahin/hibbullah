@@ -34,7 +34,13 @@
           "imageWidth": 88
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "color": "#123C35"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

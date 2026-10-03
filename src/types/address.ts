@@ -5,5 +5,7 @@ export type Address = {
   city: string;
   county?: string;
   postalCode?: string;
+  /** The mobile saved with the address. Absent on addresses from before it existed. */
+  phone?: string;
   isDefault?: boolean;
 };

@@ -173,6 +173,7 @@ async function cleanup() {
   }
   for (const id of [uuid(created.userId), uuid(created.outsiderId)].filter(Boolean)) {
     await step(`notifications ${id.slice(0, 8)}`, `delete from public.notifications where user_id = '${id}'`)
+    await step(`push_tokens ${id.slice(0, 8)}`, `delete from public.push_tokens where user_id = '${id}'`)
     await step(`audit_entries ${id.slice(0, 8)}`, `delete from public.audit_entries where actor_id = '${id}'`)
     await step(`auth.users ${id.slice(0, 8)}`, `delete from auth.users where id = '${id}'`)
   }
@@ -186,7 +187,7 @@ async function cleanup() {
 /** Notifications as the customer's own token sees them -- RLS decides. */
 async function myNotifications(token, userId) {
   const res = await api(
-    `/rest/v1/notifications?select=id,title,body,type,read&user_id=eq.${userId}&order=created_at.desc`,
+    `/rest/v1/notifications?select=id,title,body,type,read,reference_id&user_id=eq.${userId}&order=created_at.desc`,
     { token },
   )
   if (res.status !== 200) throw new Error(`fetch notifications: HTTP ${res.status} ${res.text.slice(0, 200)}`)
@@ -332,6 +333,13 @@ try {
   check(
     Boolean(placed) && placed.read === false,
     '  ...and it starts unread, so it counts towards the badge',
+  )
+  // The push a phone shows is only as good as where its tap lands, and the tap lands on
+  // `reference_id`. An order notification without it would open a generic list — the
+  // feature "tap opens the order" silently degrading into "tap opens somewhere".
+  check(
+    Boolean(placed) && placed.reference_id === created.orderId,
+    `  ...and it names the order it is about, so a tap can open exactly that order (reference_id = ${placed?.reference_id ?? 'null'})`,
   )
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -594,6 +602,46 @@ try {
     outsiderStill[0].n === 1,
     '  ...but RLS deleted nothing, so the other customer kept their notification',
   )
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  head('Push: the send trigger is attached, and the token registry is the device\'s own')
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Everything above writes rows; this is the plumbing that turns a row into a buzz on a
+  // closed phone. Read-only assertions except for the registration probes, which write
+  // rows this same script then removes (directly, or via the auth.users cascade).
+  const pushTrigger = await rows(
+    `select tgname from pg_trigger where tgname = 'trg_notifications_push' and tgrelid = 'public.notifications'::regclass`,
+  )
+  check(pushTrigger.length === 1, `the push send trigger is attached to notifications (${pushTrigger.length})`)
+  const tokenSecurity = await rows(
+    `select relrowsecurity from pg_class where oid = 'public.push_tokens'::regclass`,
+  )
+  check(tokenSecurity[0]?.relrowsecurity === true, 'push_tokens has row-level security enabled')
+
+  const ownToken = await api('/rest/v1/push_tokens', {
+    method: 'POST',
+    token,
+    body: { user_id: created.userId, expo_push_token: `ExponentPushToken[probe-${created.userId}]`, platform: 'android' },
+  })
+  check(
+    ownToken.status === 200 || ownToken.status === 201,
+    `a customer can register a token for THEMSELVES (HTTP ${ownToken.status}: ${ownToken.text.slice(0, 90)})`,
+  )
+  const foreignToken = await api('/rest/v1/push_tokens', {
+    method: 'POST',
+    token,
+    body: { user_id: created.outsiderId, expo_push_token: 'ExponentPushToken[probe-foreign]', platform: 'android' },
+  })
+  check(
+    foreignToken.status >= 400,
+    `registering a token for ANOTHER user is refused (HTTP ${foreignToken.status})`,
+  )
+  const foreignRows = await rows(
+    `select count(*)::int n from public.push_tokens where expo_push_token = 'ExponentPushToken[probe-foreign]'`,
+  )
+  check(foreignRows[0].n === 0, 'and no row was written for them')
+  // These probe tokens never leave the database: no trigger test sends to them, and the
+  // rows are removed with the account in cleanup().
 } catch (error) {
   console.error(`\nERROR: ${error.message}`)
   process.exitCode = 1

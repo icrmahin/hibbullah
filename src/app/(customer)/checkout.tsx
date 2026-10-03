@@ -7,6 +7,7 @@ import { useThemeColors } from "../../providers/ThemeProvider";
 import Screen from "../../components/common/Screen";
 import ScreenHeader from "../../components/common/ScreenHeader";
 import Button from "../../components/common/Button";
+import Input from "../../components/common/Input";
 import EmptyState from "../../components/common/EmptyState";
 import LoadingState from "../../components/common/LoadingState";
 import ResponsiveContainer from "../../components/common/ResponsiveContainer";
@@ -37,6 +38,7 @@ export default function CheckoutScreen() {
   const { isDesktop } = useResponsive();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [orderNote, setOrderNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -48,6 +50,10 @@ export default function CheckoutScreen() {
       setSelectedAddressId(defaultAddress.id);
     }
   }, [addresses, selectedAddressId]);
+
+  // Declared before `handleSubmit` reads it: the contact check and the fee below are both
+  // about the address the customer picked, and there is only one of it.
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? null;
 
   const handleSubmit = async () => {
     // `!selectedAddressId` used to be part of this guard. That made the address check
@@ -71,16 +77,20 @@ export default function CheckoutScreen() {
     }
 
     if (!isAdmin) {
-      const phone = user?.phone || "";
+      // The address now carries its own mobile — the number the customer typed for THIS
+      // delivery — so it satisfies the contact requirement by itself. Requiring the
+      // profile number too would send someone who gave us a number in the very form this
+      // order is about away to Account → Profile first.
+      const phone = user?.phone || selectedAddress?.phone || "";
       if (!phone || !/^\+8801[0-9]{9}$/.test(phone)) {
-        setError("Please add your Bangladeshi phone (+8801XXXXXXXXX) in Account → Profile before ordering.");
+        setError("Please add a Bangladeshi phone (+8801XXXXXXXXX) — in this address or your profile — before ordering.");
         return;
       }
     }
 
     setSubmitting(true);
     try {
-      await createOrder(selectedAddressId);
+      await createOrder(selectedAddressId, orderNote);
       setSuccess(true);
       // create_order deletes the cart server-side, so the local copy is now stale and the
       // cart badge would keep counting items the customer has already bought. Without
@@ -104,7 +114,7 @@ export default function CheckoutScreen() {
     const ok = await confirm({
       title: "Delete address",
       message: target
-        ? `Remove "${target.label}" — ${target.street}, ${target.city}?`
+        ? `Remove "${target.label}" — ${[target.street, target.city].filter(Boolean).join(", ")}?`
         : "Remove this saved location?",
       confirmLabel: "Delete",
       destructive: true,
@@ -161,10 +171,15 @@ export default function CheckoutScreen() {
             >
               <View style={styles.addressOptionContent}>
                 <Text style={[styles.addressLabel, { color: colors.text }]}>{addr.label}</Text>
+                {/* The city is optional now — a new-form address keeps its whole
+                    location in `street` — so it is only joined in when present, and the
+                    mobile rides along on the same line where the customer can see which
+                    number we'll call. */}
                 <Text style={[styles.addressDetail, { color: colors.textMuted }]} numberOfLines={2}>
-                  {addr.street}, {addr.city}
+                  {[addr.street, addr.city].filter(Boolean).join(", ")}
                   {addr.county ? `, ${addr.county}` : ""}
                   {addr.postalCode ? ` · ${addr.postalCode}` : ""}
+                  {addr.phone ? ` · ${addr.phone}` : ""}
                 </Text>
               </View>
               <View style={styles.addressActions}>
@@ -214,7 +229,8 @@ export default function CheckoutScreen() {
   // trust-destroying thing a checkout can do. `create_order` computes the same figure from
   // the same district and writes it onto the order row, so what is shown here is what gets
   // charged; verify:sql-sync fails if the two implementations of the rule ever drift.
-  const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? null;
+  // The customer picked address — one value, read by the contact check above and the fee
+  // below.
   const deliveryFee = deliveryFeeForDistrict(selectedAddress?.county);
   const pricedSummary = {
     ...summary,
@@ -261,6 +277,26 @@ export default function CheckoutScreen() {
     </View>
   );
 
+  // Optional, last, and one box: what the customer wants the rider to know. It travels
+  // with the order (create_order stores it on the row), so the admin's order screen reads
+  // it back exactly as typed.
+  const noteSection = (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>Add a note (optional)</Text>
+      <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
+        Anything we should know about this delivery.
+      </Text>
+      <Input
+        value={orderNote}
+        onChangeText={setOrderNote}
+        placeholder="e.g. Call before arriving"
+        multiline
+        numberOfLines={3}
+        maxLength={500}
+      />
+    </View>
+  );
+
   return (
     <Screen header={<ScreenHeader title="Checkout" onBack={() => goBack()} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]} showsVerticalScrollIndicator={false}>
@@ -270,6 +306,7 @@ export default function CheckoutScreen() {
               <View style={styles.formColumn}>
                 {addressSection}
                 {paymentBox}
+                {noteSection}
               </View>
               <View style={styles.summaryColumn}>
                 {summaryGroup}
@@ -296,6 +333,7 @@ export default function CheckoutScreen() {
               {addressSection}
               {summaryGroup}
               {paymentBox}
+              {noteSection}
               {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
               {success ? <Text style={[styles.success, { color: colors.success }]}>Order submitted — view delivery cycle.</Text> : null}
               {/* Compact thumb-reachable row */}

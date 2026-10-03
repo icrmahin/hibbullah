@@ -83,12 +83,12 @@ export function useCreateOrder() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const create = useCallback(async (addressId: string): Promise<string> => {
+  const create = useCallback(async (addressId: string, note?: string): Promise<string> => {
     if (!user) throw new Error('User not authenticated')
     setLoading(true)
     setError(null)
     try {
-      const orderId = await createOrder(user.id, addressId)
+      const orderId = await createOrder(user.id, addressId, note)
       return orderId
     } catch (err) {
       const message = normalizeError(err).message

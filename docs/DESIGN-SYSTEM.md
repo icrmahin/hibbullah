@@ -104,6 +104,9 @@ Uppercase only for small status badges (`StatusBadge`), never for section labels
   SemiBold 15. No local button styles in screens.
 - Inputs: `Input` / `SearchBar` / `Select` / `SearchableSelect`. Text is PJS 17, height 44.
 - Chips: `FilterChip` for filter rows. Selected = `primarySoft` fill + `accent` ink.
+- Count overlays: `CountBadge` — a 16px dot whose radius is derived from its size, text
+  centred on both axes, capped at `99+`. Header and tab-bar counts use it; a hand-rolled
+  badge (or a raw pill with a bare glyph in it) does not.
 - Icon buttons: use `IconButton` or a `Pressable` with a 36×36 hit target; icon size 18–20.
 
 ## 6. States

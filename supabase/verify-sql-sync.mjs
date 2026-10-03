@@ -546,6 +546,10 @@ const INTERNAL_ONLY = [
   'public.restock_order_lines',
   'public.approve_return_stock',
   'public.profit_since',
+  // Added with the push migration: the only reader of the push-token registry. It runs
+  // from a trigger on notifications, so any direct call would be an attempt to read which
+  // devices belong to a user whose notifications the caller cannot even write.
+  'public.push_notification_to_devices',
 ]
 
 // The LAST definition of each function across the migration set, for the same reason the

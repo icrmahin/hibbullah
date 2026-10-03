@@ -179,6 +179,7 @@ export function mapOrder(db: DbOrderRow | null | undefined): Order | null | unde
     total: Number(row.total ?? 0),
     paymentMethod: String(row.payment_method ?? row.paymentMethod ?? 'CASH_ON_DELIVERY'),
     address: String(row.address ?? ''),
+    customerNote: String(row.customer_note ?? row.customerNote ?? ''),
     items,
     timeline: (row.timeline as unknown[]) ?? [],
   } as Order
@@ -186,7 +187,7 @@ export function mapOrder(db: DbOrderRow | null | undefined): Order | null | unde
 
 export function mapAddress(db: DbRecord | null | undefined): Address | null | undefined {
   if (!db) return db as unknown as Address | null | undefined
-  const row = db as DbRecord & { id: string; label: string; street: string; city: string; county?: string | null; postal_code?: string | null; postalCode?: string | null; is_default?: boolean | null; isDefault?: boolean | null }
+  const row = db as DbRecord & { id: string; label: string; street: string; city: string; county?: string | null; postal_code?: string | null; postalCode?: string | null; phone?: string | null; is_default?: boolean | null; isDefault?: boolean | null }
   return {
     id: String(row.id),
     label: String(row.label),
@@ -194,6 +195,7 @@ export function mapAddress(db: DbRecord | null | undefined): Address | null | un
     city: String(row.city),
     county: (row.county ?? undefined) as string | undefined,
     postalCode: String(row.postal_code ?? row.postalCode ?? ''),
+    phone: String(row.phone ?? ''),
     isDefault: Boolean(row.is_default ?? row.isDefault ?? false),
   }
 }

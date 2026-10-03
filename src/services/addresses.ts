@@ -10,6 +10,7 @@ function toDbAddress(userId: string, address: Partial<Address>) {
   if (address.city !== undefined) db.city = address.city
   if (address.county !== undefined) db.county = address.county
   if (address.postalCode !== undefined) db.postal_code = address.postalCode
+  if (address.phone !== undefined) db.phone = address.phone
   if (address.isDefault !== undefined) db.is_default = address.isDefault
   if (userId) db.user_id = userId
   return db

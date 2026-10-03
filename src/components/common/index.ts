@@ -28,6 +28,7 @@ export { default as Card } from "./Card";
 export { default as Alert } from "./Alert";
 export { default as Badge } from "./Badge";
 export { default as StatusBadge } from "./StatusBadge";
+export { default as CountBadge } from "./CountBadge";
 export { default as LoadingState } from "./LoadingState";
 export { default as EmptyState } from "./EmptyState";
 export { default as ErrorState } from "./ErrorState";

@@ -7,6 +7,7 @@ import { fontFamily, fontSize } from "../../constants/typography";
 import { useNotifications } from "../../hooks/useNotifications";
 import Icon from "./Icon";
 import AppLogo from "./AppLogo";
+import CountBadge from "./CountBadge";
 import type { IconName } from "./Icon";
 
 const navLinks: { label: string; path: string; icon: IconName }[] = [
@@ -74,11 +75,7 @@ export default function CustomerDesktopHeader() {
             accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
           >
             <Icon name="notifications" size={18} color={colors.accent} />
-            {unreadCount > 0 ? (
-              <View style={[styles.badge, { backgroundColor: colors.danger }]}>
-                <Text style={[styles.badgeText, { color: colors.textInverse }]}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
-              </View>
-            ) : null}
+            <CountBadge count={unreadCount} tone="danger" />
           </Pressable>
         </View>
       </View>
@@ -103,6 +100,4 @@ const styles = StyleSheet.create({
   navLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.caption, lineHeight: fontSize.caption * 1.3 },
   rightSection: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   notificationButton: { width: 36, height: 36, borderRadius: radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative" },
-  badge: { position: "absolute", top: -2, right: -4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
-  badgeText: { fontFamily: fontFamily.pjsBold, fontSize: fontSize.tiny },
 });

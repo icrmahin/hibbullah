@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching requires setState inside effects */
 import { goBack } from '@/utils/navigation';
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../../providers/ThemeProvider";
@@ -14,47 +14,66 @@ import InlineAlert from "../../../components/common/Alert";
 import { useBottomInset } from "../../../hooks/useBottomInset";
 import spacing from "../../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
-import { resolveDistrict } from "../../../constants/districts";
-import { deliveryFeeForDistrict } from "../../../utils/deliveryFee";
-import { formatCurrency } from "../../../utils/currency";
 import { normalizeError } from "../../../utils/errorHandling";
+import { useAuth } from "../../../hooks/useAuth";
 
 import { useAddresses } from "../../../hooks/useAddresses";
+
+/**
+ * The district has a canonical form the server's fee rule compares against, and the
+ * number has a canonical form too: `+8801XXXXXXXXX`. The old form collected district and
+ * postal code to price a fee that has never needed either at input time (a missing
+ * district is the standard rate, decided in the database), so what is left is the number
+ * — accepted the way a customer will actually type it and stored in the one shape the
+ * checkout's own validation accepts.
+ */
+function normalizePhone(raw: string): string | null {
+  const digits = raw.replace(/[\s-]/g, "");
+  if (/^\+8801[0-9]{9}$/.test(digits)) return digits;
+  if (/^01[0-9]{9}$/.test(digits)) return `+880${digits}`;
+  return null;
+}
 
 export default function EditAddressScreen() {
   const colors = useThemeColors();
   const bottomInset = useBottomInset();
   const params = useLocalSearchParams<{ addressId?: string }>();
   const addressId = typeof params.addressId === 'string' ? params.addressId : undefined;
+  const { user } = useAuth();
   const { data: addresses, loading, create, update } = useAddresses();
-  const [street, setStreet] = useState("");
-  const [city, setCity] = useState("");
-  const [county, setCounty] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [label, setLabel] = useState("Home");
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const isEditing = !!addressId;
 
-  // The district is typed rather than picked, so it is resolved against the 64 known
-  // names on every keystroke. The canonical name that comes back is what gets stored,
-  // which is the only form the server's delivery-fee rule can match.
-  const district = useMemo(() => resolveDistrict(county), [county]);
-
   useEffect(() => {
     if (isEditing) {
       const found = addresses.find(a => a.id === addressId);
       if (found) {
-        setStreet(found.street);
-        setCity(found.city);
-        setCounty(found.county || "");
-        setPostalCode(found.postalCode || "");
-        setLabel(found.label);
+        // The whole location lives in this one box now. Older rows split it across
+        // `street` and `city`, so both are folded in here — and because saving writes the
+        // box back to `street` with an empty `city`, reopening the form shows exactly what
+        // was saved instead of re-splitting it.
+        setAddress(found.city ? `${found.street}, ${found.city}` : found.street);
+        setName(found.label);
+        setPhone(found.phone || "");
         setIsDefault(Boolean(found.isDefault));
       }
     }
   }, [addresses, addressId, isEditing]);
+
+  // A new address starts from what we already know about the customer: their name as the
+  // recipient, their profile number as the contact. Both are still editable — this only
+  // removes two things to retype.
+  useEffect(() => {
+    if (!isEditing && user) {
+      setName(prev => prev || user.name || "");
+      setPhone(prev => prev || user.phone || "");
+    }
+  }, [isEditing, user]);
 
   const handleSave = async () => {
     // Shown on the form, not in a dialog. Both of these used to be `Alert.alert(...)`,
@@ -63,35 +82,39 @@ export default function EditAddressScreen() {
     // second case is a real possibility here, not a hypothetical: the insert can be
     // refused, and there was no path by which the customer would ever learn that.
     setFormError(null);
-    if (!street.trim() || !city.trim()) {
-      setFormError("Please enter a street address and a city.");
+    const trimmedAddress = address.trim();
+    if (!name.trim() || !trimmedAddress) {
+      setFormError("Please enter the recipient's name and the delivery address.");
       return;
     }
-    // District is required because it decides the delivery fee, and it has to be a name
-    // the server recognises: the fee rule is a single comparison, so anything unrecognised
-    // is billed at the full ৳150 rate. A free-text field lets "Daka" or "ঢাকা" through
-    // silently and then charges a Dhaka customer ৳70 extra with nothing on screen saying
-    // why — so an unrecognised district is refused here, at the point the information
-    // exists, and the customer is told what was expected.
-    if (!county.trim()) {
-      setFormError("Please enter your district — it decides your delivery charge.");
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      setFormError("Enter a Bangladeshi mobile number, e.g. 01712345678.");
       return;
     }
-    if (!district) {
-      setFormError(
-        `“${county.trim()}” is not a district we recognise. Use the English name ` +
-          `(for example Dhaka, Chattogram, Bogura) or the Bangla name.`,
-      );
-      return;
-    }
-    const countyName = district.name;
 
     setSaving(true);
     try {
+      // `city` is sent empty on purpose: the form collects the location as one line, so
+      // `street` carries all of it. `county`/`postalCode` are deliberately NOT sent — the
+      // form no longer collects them, and omitting them leaves whatever an older address
+      // already had (including its reduced delivery rate) exactly as it was.
       if (isEditing && addressId) {
-        await update(addressId, { street: street.trim(), city: city.trim(), county: countyName, postalCode: postalCode.trim(), label: label.trim() || 'Home', isDefault });
+        await update(addressId, {
+          label: name.trim(),
+          street: trimmedAddress,
+          city: "",
+          phone: normalizedPhone,
+          isDefault,
+        });
       } else {
-        await create({ street: street.trim(), city: city.trim(), county: countyName, postalCode: postalCode.trim(), label: label.trim() || 'Home', isDefault });
+        await create({
+          label: name.trim(),
+          street: trimmedAddress,
+          city: "",
+          phone: normalizedPhone,
+          isDefault,
+        });
       }
       goBack();
     } catch (err) {
@@ -116,30 +139,26 @@ export default function EditAddressScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Input label="Street Address" value={street} onChangeText={setStreet} placeholder="House, road, area" />
-        <Input label="City / area" value={city} onChangeText={setCity} placeholder="e.g. Mirpur DOHS" />
+        <Input label="Name" value={name} onChangeText={setName} placeholder="Who receives this order?" />
         <Input
-          label="District"
-          value={county}
-          onChangeText={setCounty}
-          placeholder="e.g. Dhaka"
-          autoCapitalize="words"
-          autoCorrect={false}
+          label="Address"
+          value={address}
+          onChangeText={setAddress}
+          placeholder="House, road, area, city"
+          multiline
+          numberOfLines={3}
         />
-        {county.trim() ? (
-          district ? (
-            <Text style={[styles.feeHint, { color: colors.textMuted }]}>
-              Delivery to {district.name}:{" "}
-              {formatCurrency(deliveryFeeForDistrict(district.name))}
-            </Text>
-          ) : (
-            <Text style={[styles.feeHintWarn, { color: colors.danger }]}>
-              Not a district we recognise.
-            </Text>
-          )
-        ) : null}
-        <Input label="Postal Code" value={postalCode} onChangeText={setPostalCode} placeholder="e.g. 1205" keyboardType="numeric" />
-        <Input label="Label" value={label} onChangeText={setLabel} placeholder="e.g. Home, Office" />
+        <Input
+          label="Mobile"
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="01712345678"
+          keyboardType="phone-pad"
+          autoComplete="tel"
+        />
+        <Text style={[styles.hint, { color: colors.textMuted }]}>
+          This number is who we will call about the delivery.
+        </Text>
         <View style={[styles.switchRow, { gap: spacing.sm }]}>
           <Text style={[styles.switchLabel, { color: colors.text }]}>Set as default</Text>
           <Toggle value={isDefault} onValueChange={setIsDefault} accessibilityLabel="Set as default address" />
@@ -159,13 +178,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.normal,
   },
-  feeHint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-    marginTop: -spacing.xs,
-  },
-  feeHintWarn: {
+  hint: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
