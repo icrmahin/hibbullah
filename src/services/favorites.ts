@@ -32,7 +32,7 @@ async function fetchProductsByIds(productIds: string[]): Promise<Product[]> {
   if (error) throw error;
   const byId = new Map((data || []).map((row: any) => [row.id, mapProduct(row as unknown as Parameters<typeof mapProduct>[0]) as Product]));
   // preserve local order (recent first is stored order)
-  return productIds.map((id) => byId.get(id)).filter(Boolean) as Product[];
+  return productIds.map((id) => byId.get(id)).filter((p): p is Product => !!p && !p.isDeleted);
 }
 
 export async function syncLocalFavoritesToRemote(userId: string): Promise<number> {
@@ -72,7 +72,7 @@ export async function fetchFavorites(userId: string): Promise<Product[]> {
     }
     throw error;
   }
-  const remote = (data || []).map((row: any) => mapProduct(row.products)).filter(Boolean) as Product[];
+  const remote = (data || []).map((row: any) => mapProduct(row.products)).filter((p): p is Product => !!p && !p.isDeleted);
   // One-time migration: if local buffer exists, sync in background without blocking UI
   const localIds = await getLocalIds(userId);
   if (localIds.length > 0) {

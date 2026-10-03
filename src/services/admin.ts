@@ -319,7 +319,7 @@ export async function fetchAdminProducts(
   const rows = (fallback.data || []) as unknown as Parameters<typeof mapProduct>[0][]
   const products = rows
     .map((row) => mapProduct(row))
-    .filter(Boolean) as Product[]
+    .filter((p): p is Product => !!p && !p.isDeleted)
   if (products.length === 0) return { data: [], total: 0, hasMore: false, cursor: null }
   console.warn(
     `[fetchAdminProducts] RPC returned 0 rows but direct query found ${products.length}; showing direct results (likely category/manufacturer join or RLS).`,

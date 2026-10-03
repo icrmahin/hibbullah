@@ -19,6 +19,7 @@ interface DbProduct {
   image_url?: string
   secondary_image_url?: string
   is_active: boolean
+  is_deleted?: boolean | null
   is_featured?: boolean
   batch_number?: string
   expiry_date?: string
@@ -44,6 +45,7 @@ function mapDbProductToProduct(db: DbProduct): Product {
     primaryImage: db.image_url,
     secondaryImage: db.secondary_image_url,
     isActive: db.is_active,
+    isDeleted: Boolean(db.is_deleted ?? false),
     isFeatured: db.is_featured,
     batchNumber: db.batch_number,
     expiryDate: db.expiry_date,

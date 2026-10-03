@@ -126,6 +126,7 @@ create table public.products (
   image_url text,
   secondary_image_url text,
   is_active boolean not null default true,
+  is_deleted boolean not null default false,
   is_featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -156,6 +157,7 @@ create trigger trg_products_check_discount
 create index idx_products_category on public.products (category_id);
 create index idx_products_manufacturer on public.products (manufacturer_id);
 create index idx_products_active on public.products (is_active);
+create index idx_products_is_deleted on public.products (is_deleted);
 create index idx_products_featured on public.products (is_featured);
 create index idx_products_name on public.products using gin (name gin_trgm_ops);
 create index idx_products_brand on public.products using gin (brand gin_trgm_ops);
@@ -3357,6 +3359,7 @@ returns table (
   image_url text,
   secondary_image_url text,
   is_active boolean,
+  is_deleted boolean,
   is_featured boolean,
   created_at timestamptz,
   updated_at timestamptz,
@@ -3390,6 +3393,7 @@ as $$
     p.image_url,
     p.secondary_image_url,
     p.is_active,
+    p.is_deleted,
     p.is_featured,
     p.created_at,
     p.updated_at,
@@ -3399,7 +3403,8 @@ as $$
   from public.products p
   join public.categories c on c.id = p.category_id
   join public.manufacturers m on m.id = p.manufacturer_id
-  where (p_category is null or p.category_id = p_category)
+  where (coalesce(p.is_deleted, false) = false)
+    and (p_category is null or p.category_id = p_category)
     and (p_manufacturer is null or p.manufacturer_id = p_manufacturer)
     and (
       p_status is null
@@ -3474,6 +3479,7 @@ returns table (
   image_url text,
   secondary_image_url text,
   is_active boolean,
+  is_deleted boolean,
   is_featured boolean,
   created_at timestamptz,
   updated_at timestamptz,
@@ -3535,7 +3541,8 @@ as $$
     from public.products p
     join public.categories c on c.id = p.category_id
     join public.manufacturers m on m.id = p.manufacturer_id
-    where (p_category is null or p.category_id = p_category)
+    where (coalesce(p.is_deleted, false) = false)
+      and (p_category is null or p.category_id = p_category)
       and (p_manufacturer is null or p.manufacturer_id = p_manufacturer)
       and (
         p_status is null
@@ -3586,6 +3593,7 @@ as $$
     mt.image_url,
     mt.secondary_image_url,
     mt.is_active,
+    mt.is_deleted,
     mt.is_featured,
     mt.created_at,
     mt.updated_at,

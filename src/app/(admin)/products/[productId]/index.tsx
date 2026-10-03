@@ -216,7 +216,7 @@ export default function AdminProductDetailScreen() {
       <Modal
         visible={deleteConfirm}
         title="Delete product?"
-        message={`"${product?.name ?? "This product"}" will be permanently removed from the catalog.`}
+        message={`"${product?.name ?? "This product"}" will be removed from the catalog. If it has order history, the orders are kept but the product stays hidden.`}
         actionLabel={deleting ? "Deleting..." : "Delete product"}
         onAction={handleDelete}
         onClose={() => setDeleteConfirm(false)}

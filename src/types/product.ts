@@ -18,6 +18,8 @@ export type Product = {
   /** Secondary product image — app-level field, stored alongside primary */
   secondaryImage?: string;
   isActive: boolean;
+  /** Soft-deleted (hidden from admin + customer lists, row kept for order history). */
+  isDeleted: boolean;
   isFeatured?: boolean;
   batchNumber?: string;
   expiryDate?: string;

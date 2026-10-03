@@ -37,6 +37,8 @@ interface DbProductRow extends DbRecord {
   secondaryImage?: string | null
   is_active?: boolean | null
   isActive?: boolean | null
+  is_deleted?: boolean | null
+  isDeleted?: boolean | null
   is_featured?: boolean | null
   isFeatured?: boolean | null
   batch_number?: string | null
@@ -72,6 +74,7 @@ export function mapProduct(db: DbProductRow | null | undefined): Product | null 
     primaryImage: (row.image_url ?? row.primaryImage ?? row.image ?? undefined) as string | undefined,
     secondaryImage: (row.secondary_image_url ?? row.secondaryImage ?? undefined) as string | undefined,
     isActive: Boolean(row.is_active ?? row.isActive ?? true),
+    isDeleted: Boolean(row.is_deleted ?? row.isDeleted ?? false),
     isFeatured: Boolean(row.is_featured ?? row.isFeatured ?? false),
     batchNumber: (row.batch_number ?? row.batchNumber ?? undefined) as string | undefined,
     expiryDate: (row.expiry_date ?? row.expiryDate ?? undefined) as string | undefined,

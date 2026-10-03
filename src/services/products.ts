@@ -41,7 +41,10 @@ export interface SearchResult {
 function mapRows(rows: unknown[] | null): Product[] {
   return (rows || [])
     .map((row) => mapProduct(row as unknown as Parameters<typeof mapProduct>[0]))
-    .filter(Boolean) as Product[]
+    // Soft-deleted rows stay in the database for order history but must not
+    // appear in any list (admin or customer). The RPCs already exclude them;
+    // this covers direct-table reads (e.g. the admin fallback below).
+    .filter((p): p is Product => !!p && !p.isDeleted)
 }
 
 function toOptionalNumber(value: unknown): number | undefined {
@@ -176,7 +179,11 @@ export async function fetchProductById(productId: string): Promise<Product | nul
     throw error
   }
 
-  return mapProduct(data as unknown as Parameters<typeof mapProduct>[0]) as Product
+  const product = mapProduct(data as unknown as Parameters<typeof mapProduct>[0]) as Product | null
+  // A soft-deleted product keeps its row for order history but no longer
+  // exists as far as any UI is concerned.
+  if (product?.isDeleted) return null
+  return product
 }
 
 export async function fetchCategories(query?: string): Promise<Category[]> {
@@ -456,6 +463,7 @@ export type ProductUpdate = Partial<
     Product,
     | 'id'
     | 'createdAt'
+    | 'isDeleted'
     | 'originalPrice'
     | 'discountPercent'
     | 'costPrice'
@@ -591,32 +599,65 @@ export async function updateProduct(productId: string, input: ProductUpdate): Pr
   return updated
 }
 
+/**
+ * Shown when a write affected no rows.
+ *
+ * PostgREST answers a DELETE or UPDATE that matched nothing with 200 and an empty array,
+ * not with an error — and RLS filtering the row out looks exactly like that. The screen
+ * would otherwise navigate away as though the action succeeded while the row sat there
+ * unchanged, which reads to the admin as "I pressed it and nothing happened". Throwing
+ * keeps the dialog open and puts a reason on screen instead.
+ */
+const noRowsMessage = (action: string) =>
+  `Could not ${action} — this session does not have permission to change it. Sign out and back in as an administrator, then try again.`
+
 export async function deleteProduct(productId: string): Promise<void> {
-  // Soft delete if referenced by orders — preserve history (PM-01)
+  // Soft delete if referenced by orders — preserve history (PM-01). The row
+  // stays, but is_deleted hides it from admin and customer lists alike.
   const { data: ref, error: refError } = await supabase.from('order_items').select('id').eq('product_id', productId).limit(1)
   if (refError) throw refError
   if (ref && ref.length > 0) {
-    const { error } = await supabase.from('products').update({ is_active: false }).eq('id', productId)
+    // `.select()` asks PostgREST for the affected rows, so a policy that filtered this
+    // one out comes back as `[]` rather than as a silent success.
+    const { data: deactivated, error } = await supabase
+      .from('products')
+      .update({ is_active: false, is_deleted: true })
+      .eq('id', productId)
+      .select('id')
     if (error) throw error
+    if (!deactivated?.length) throw new Error(noRowsMessage('deactivate this product'))
     return
   }
   const { error: invError } = await supabase.from('inventory_items').delete().eq('product_id', productId)
   if (invError) throw invError
-  const { error } = await supabase.from('products').delete().eq('id', productId)
+  const { data: deleted, error } = await supabase.from('products').delete().eq('id', productId).select('id')
   if (error) throw error
+  // A DELETE that matched no rows is not an error to PostgREST — it answers 200 with an
+  // empty array. Without this check a session RLS does not treat as an administrator gets
+  // "success", navigates back to the list, and the product is still there: the exact
+  // "I pressed delete and nothing happened" failure. Fail loudly instead.
+  if (!deleted?.length) throw new Error(noRowsMessage('delete this product'))
   // Only now that the row is gone: a hard-deleted product must not keep its
   // images in Cloudinary.
   await deleteCloudinaryAsset({ scope: 'product', productId })
 }
 
 export async function deactivateProduct(productId: string): Promise<void> {
-  const { error } = await supabase.from('products').update({ is_active: false }).eq('id', productId)
+  const { data, error } = await supabase
+    .from('products')
+    .update({ is_active: false })
+    .eq('id', productId)
+    .select('id')
   if (error) throw error
+  // Same silent no-op as delete: a policy that hides the row yields [] with no error, so
+  // the toggle would appear to flip and then read back unchanged.
+  if (!data?.length) throw new Error(noRowsMessage('deactivate this product'))
 }
 
 export async function activateProduct(productId: string): Promise<void> {
-  const { error } = await supabase.from('products').update({ is_active: true }).eq('id', productId)
+  const { data, error } = await supabase.from('products').update({ is_active: true }).eq('id', productId).select('id')
   if (error) throw error
+  if (!data?.length) throw new Error(noRowsMessage('activate this product'))
 }
 
 export async function fetchProductInventory(productId: string): Promise<{ id: string; batchNumber: string; quantity: number; status: string; expiryDate?: string }[]> {
