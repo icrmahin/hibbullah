@@ -1,0 +1,11 @@
+# Local native build residue inside dependencies.
+# Any local Gradle/Xcode compile (expo run:android, Android Studio, gradlew)
+# writes build outputs INTO node_modules/<package>/android/build etc.
+# EAS cloud builders always start from a fresh `npm ci` and never have these
+# folders, so they must not affect the fingerprint — otherwise the local
+# runtime version never matches the cloud one and the build fails.
+node_modules/**/android/build/**/*
+node_modules/**/android/.cxx/**/*
+node_modules/**/android/.gradle/**/*
+node_modules/**/ios/build/**/*
+node_modules/**/ios/Pods/**/*
