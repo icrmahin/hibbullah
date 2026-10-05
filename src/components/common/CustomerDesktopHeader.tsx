@@ -54,8 +54,9 @@ export default function CustomerDesktopHeader() {
             return (
               <Pressable
                 key={item.label}
-                style={({ pressed }) => [styles.navItem, active && { backgroundColor: colors.primarySoft }, pressed && { opacity: 0.7 }]}
+                style={[styles.navItem, active && { backgroundColor: colors.primarySoft }]}
                 onPress={() => router.replace(item.path as never)}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
                 accessibilityRole="button"
                 accessibilityLabel={item.label}
                 accessibilityState={{ selected: active }}
@@ -71,6 +72,7 @@ export default function CustomerDesktopHeader() {
           <Pressable
             style={[styles.notificationButton, { backgroundColor: colors.background, borderColor: colors.borderSoft }]}
             onPress={() => router.push("/(customer)/account/notifications" as never)}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             accessibilityRole="button"
             accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
           >
@@ -96,8 +98,8 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginRight: spacing.xl },
   brandName: { fontFamily: fontFamily.semiBold, fontSize: fontSize.body, lineHeight: fontSize.body * 1.3 },
   navLinks: { flexDirection: "row", alignItems: "center", gap: spacing.xs, flex: 1 },
-  navItem: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, minHeight: 32 },
+  navItem: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, minHeight: 32, overflow: "hidden" },
   navLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.caption, lineHeight: fontSize.caption * 1.3 },
   rightSection: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  notificationButton: { width: 36, height: 36, borderRadius: radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative" },
+  notificationButton: { width: 36, height: 36, borderRadius: radius.pill, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" },
 });

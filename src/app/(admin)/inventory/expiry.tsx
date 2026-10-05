@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { goBack } from '@/utils/navigation';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -59,6 +60,7 @@ export default function ExpiryManagementScreen() {
   return (
     <Screen header={<ScreenHeader title="Expiry" subtitle="Monitor expiring batches" onBack={onBack} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware>
         {batches.length === 0 ? (
           <EmptyState
             title="Nothing expiring"
@@ -74,13 +76,14 @@ export default function ExpiryManagementScreen() {
             </View>
           ))
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { paddingVertical: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,

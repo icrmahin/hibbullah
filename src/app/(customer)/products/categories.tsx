@@ -38,13 +38,14 @@ export default function CustomerCategoriesScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
         renderItem={({ item }) => (
           <Pressable
-            style={({ pressed }) => [styles.row, { backgroundColor: colors.backgroundAlt }, pressed && styles.pressed]}
+            style={[styles.row, { backgroundColor: colors.backgroundAlt }]}
             onPress={() =>
               router.push({
                 pathname: "/(customer)/products/category/[categoryId]",
                 params: { categoryId: item.id },
               })
             }
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             accessibilityRole="button"
             accessibilityLabel={`Browse ${item.name}`}
           >
@@ -122,6 +123,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.sm,
     minHeight: 60,
+    overflow: "hidden",
   },
   iconWrap: {
     width: ICON_WRAP_SIZE,
@@ -136,5 +138,4 @@ const styles = StyleSheet.create({
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.normal,
   },
-  pressed: { opacity: 0.7 },
 });

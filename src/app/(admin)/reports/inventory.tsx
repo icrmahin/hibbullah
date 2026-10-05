@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { goBack } from '@/utils/navigation';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import { useThemeColors } from '../../../providers/ThemeProvider';
@@ -69,6 +70,7 @@ export default function AdminInventoryReportScreen() {
   return (
     <Screen header={<ScreenHeader title="Inventory report" subtitle="Stock movement summary" onBack={onBack} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           {rows.map((r, index) => (
             <React.Fragment key={r.label}>
@@ -80,13 +82,14 @@ export default function AdminInventoryReportScreen() {
             </React.Fragment>
           ))}
         </View>
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { paddingVertical: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,

@@ -8,7 +8,8 @@ import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
 import SearchBar from "../../../components/common/SearchBar";
 import Icon from "../../../components/common/Icon";
-import FilterChip from "../../../components/common/FilterChip";
+import CountBadge from "../../../components/common/CountBadge";
+import Chip from "../../../components/common/Chip";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
 import EmptyState from "../../../components/common/EmptyState";
@@ -110,17 +111,12 @@ export default function CustomerHomeScreen() {
           onPress={() => router.push("/(customer)/account/notifications")}
           style={styles.headerAction}
           hitSlop={8}
+          android_ripple={{ color: colors.ripple.primary, borderless: false }}
           accessibilityRole="button"
           accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
         >
           <Icon name="notifications" size={20} color={colors.accent} />
-          {unreadCount > 0 ? (
-            <View style={[styles.headerBadge, { backgroundColor: colors.danger }]}>
-              <Text style={[styles.headerBadgeText, { color: colors.textInverse }]}>
-                {unreadCount > 99 ? "99+" : String(unreadCount)}
-              </Text>
-            </View>
-          ) : null}
+          <CountBadge count={unreadCount} tone="danger" />
         </Pressable>
       }
     />
@@ -163,7 +159,7 @@ export default function CustomerHomeScreen() {
         >
           {categories.length > 0 ? (
             categories.map((category) => (
-              <FilterChip
+              <Chip
                 key={category.id}
                 label={category.name}
                 icon="category"
@@ -192,10 +188,10 @@ export default function CustomerHomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.discoveryControls}
         >
-          <FilterChip label="All" selected={activeTab === "all"} onPress={() => selectTab("all")} />
-          <FilterChip label="Trending" selected={activeTab === "trending"} onPress={() => selectTab("trending")} />
-          <FilterChip label="Discount" selected={activeTab === "discount"} onPress={() => selectTab("discount")} />
-          <FilterChip label="New" selected={activeTab === "new"} onPress={() => selectTab("new")} />
+          <Chip label="All" selected={activeTab === "all"} onPress={() => selectTab("all")} />
+          <Chip label="Trending" selected={activeTab === "trending"} onPress={() => selectTab("trending")} />
+          <Chip label="Discount" selected={activeTab === "discount"} onPress={() => selectTab("discount")} />
+          <Chip label="New" selected={activeTab === "new"} onPress={() => selectTab("new")} />
         </ScrollView>
 
         {loading && activeProducts.length === 0 ? (
@@ -262,22 +258,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.lg,
-  },
-  headerBadge: {
-    position: "absolute",
-    top: 2,
-    right: 0,
-    minWidth: 16,
-    height: 16,
-    paddingHorizontal: 3,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBadgeText: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.tiny,
-    lineHeight: fontSize.tiny * lineHeight.tight,
+    overflow: "hidden",
+    position: "relative",
   },
   sectionHeader: {
     flexDirection: "row",

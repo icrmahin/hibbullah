@@ -1,8 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
-import { useThemeColors } from "../../providers/ThemeProvider";
-import spacing from "../../constants/spacing";
-import typography, { fontFamily } from "../../constants/typography";
-import { formatCurrency } from "../../utils/currency";
+import Price from "./Price";
 
 export default function ProductPrice({
   price,
@@ -11,22 +7,5 @@ export default function ProductPrice({
   price: number;
   originalPrice?: number;
 }) {
-  const colors = useThemeColors();
-  return (
-    <View style={styles.row} accessibilityLabel={`Price ${formatCurrency(price)}`}>
-      <Text style={[styles.price, { color: colors.text }]}>{formatCurrency(price)}</Text>
-      {originalPrice && originalPrice > price ? (
-        <Text style={[styles.original, { color: colors.textMuted }]}>{formatCurrency(originalPrice)}</Text>
-      ) : null}
-    </View>
-  );
+  return <Price price={price} originalPrice={originalPrice} size="card" />;
 }
-
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
-  price: { fontFamily: fontFamily.pjsBold, fontSize: typography.headline },
-  original: {
-    fontSize: typography.caption1,
-    textDecorationLine: "line-through",
-  },
-});

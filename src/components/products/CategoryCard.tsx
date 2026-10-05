@@ -23,6 +23,9 @@ export default function CategoryCard({
         },
       ]}
       onPress={onPress}
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
+      accessibilityRole="button"
+      accessibilityLabel={category.name}
     >
       <Text style={[styles.name, { color: colors.text }]}>{category.name}</Text>
       <Text style={[styles.meta, { color: colors.textMuted }]}>{category.productCount ?? 0} products</Text>
@@ -35,7 +38,8 @@ const styles = StyleSheet.create({
     borderRadius: sizes.cardRadius,
     borderWidth: 1,
     padding: spacing.lg,
+    overflow: "hidden",
   },
   name: { fontFamily: fontFamily.soraSemiBold, fontSize: typography.body },
-  meta: { fontSize: typography.caption, marginTop: 4 },
+  meta: { fontSize: typography.caption, marginTop: spacing.xs },
 });

@@ -32,6 +32,7 @@ export default function Tabs({ tabs, activeKey, onChange, fullWidth = false, sty
           <Pressable
             key={tab.key}
             onPress={() => onChange(tab.key)}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             style={[
               styles.tab,
               active && styles.tabActive,
@@ -47,7 +48,7 @@ export default function Tabs({ tabs, activeKey, onChange, fullWidth = false, sty
             <Text style={[
               styles.label,
               active && styles.labelActive,
-              { color: active ? colors.white : colors.textMuted },
+              { color: active ? colors.textInverse : colors.textMuted },
             ]} numberOfLines={1}>
               {tab.label}
             </Text>
@@ -76,6 +77,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     gap: spacing.xs,
     borderWidth: 1,
+    overflow: "hidden",
   },
   tabFull: { flex: 1 },
   tabActive: {},

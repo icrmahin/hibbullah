@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { goBack } from '@/utils/navigation';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -50,6 +51,7 @@ export default function InventoryBatchesScreen() {
   return (
     <Screen header={<ScreenHeader title="Batches" subtitle="Track each batch independently" onBack={onBack} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware>
         {batches.length === 0 ? (
           <EmptyState title="No batches" message="Product batches will appear here." />
         ) : (
@@ -67,13 +69,14 @@ export default function InventoryBatchesScreen() {
             </View>
           ))
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { paddingVertical: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,

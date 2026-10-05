@@ -20,7 +20,7 @@ import { formatCurrency, getSalePrice } from "../../utils/currency";
 import { randomUuid } from "../../utils/uuid";
 import { isEmpty, parseDiscountPercent } from "../../utils/validation";
 import Button from "../common/Button";
-import FilterChip from "../common/FilterChip";
+import Chip from "../common/Chip";
 import ImageUpload from "../common/ImageUpload";
 import Input from "../common/Input";
 import type { SelectOption } from "../common/SearchableSelect";
@@ -677,7 +677,7 @@ export default function ProductForm({
               </Text>
               <View style={styles.chipRow}>
                 {SOLD_AS.map((option) => (
-                  <FilterChip
+                  <Chip
                     key={option.value}
                     label={option.label}
                     selected={unit === option.value}

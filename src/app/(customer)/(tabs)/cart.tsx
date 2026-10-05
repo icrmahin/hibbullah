@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import CartItemRow from "../../../components/cart/CartItem";
+import CartSummary from "../../../components/cart/CartSummary";
 import Button from "../../../components/common/Button";
 import EmptyState from "../../../components/common/EmptyState";
 import ErrorState from "../../../components/common/ErrorState";
@@ -16,7 +17,6 @@ import { useBottomInset } from "../../../hooks/useBottomInset";
 import { useCart } from "../../../hooks/useCart";
 import { formatCurrency } from "../../../utils/currency";
 import { normalizeError } from "../../../utils/errorHandling";
-import { radius } from "../../../constants/sizes";
 import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 
 export default function CustomerCartScreen() {
@@ -78,39 +78,18 @@ export default function CustomerCartScreen() {
     );
   }
 
-  // One money block for both layouts: this used to be the same box copy-pasted into the
-  // desktop and the mobile branch, two of everything that had to change in step.
-  //
-  // It is not `CartSummary` because this box has two rows that component cannot draw —
-  // the delivery row and the note underneath it saying the fee is flat and Dhaka-only.
+  // One money block for both layouts: the four money rows are the shared
+  // `CartSummary` (the same block checkout renders), wrapped here with the
+  // cart's own title and the flat-fee note. Discount reads in text colour
+  // with its minus sign everywhere — the one place it was success-green now
+  // matches checkout and order detail.
   const summaryCard = (
-    <View style={[styles.summaryBox, { backgroundColor: colors.backgroundAlt }]}>
+    <View style={styles.summaryWrap}>
       <Text style={[styles.summaryTitle, { color: colors.text }]}>Summary</Text>
-      <View style={styles.summaryRow}>
-        <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Subtotal</Text>
-        <Text style={[styles.summaryValue, { color: colors.text }]}>
-          {formatCurrency(summary.subtotal)}
-        </Text>
-      </View>
-      <View style={styles.summaryRow}>
-        <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Discount</Text>
-        <Text style={[styles.summaryValue, { color: colors.success }]}>
-          -{formatCurrency(summary.discount)}
-        </Text>
-      </View>
-      <View style={styles.summaryRow}>
-        <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Delivery</Text>
-        <Text style={[styles.summaryValue, { color: colors.text }]}>
-          {formatCurrency(summary.deliveryFee)}
-        </Text>
-      </View>
+      <CartSummary summary={summary} />
       <Text style={[styles.summaryNote, { color: colors.textMuted }]}>
         Flat {formatCurrency(config.deliveryFees.insideDhaka)} delivery · Dhaka only for now.
       </Text>
-      <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: colors.borderSoft }]}>
-        <Text style={[styles.totalText, { color: colors.text }]}>Total</Text>
-        <Text style={[styles.totalText, { color: colors.text }]}>{formatCurrency(summary.total)}</Text>
-      </View>
     </View>
   );
 
@@ -180,7 +159,7 @@ const styles = StyleSheet.create({
   summaryColumn: { flex: 1, gap: spacing.md },
   mobileStack: { gap: spacing.lg },
   itemsList: { gap: spacing.md },
-  summaryBox: { borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm },
+  summaryWrap: { gap: spacing.sm },
   summaryTitle: {
     fontFamily: fontFamily.soraSemiBold,
     fontSize: fontSize.subhead,
@@ -188,28 +167,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     marginBottom: spacing.xs,
   },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  summaryLabel: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-  },
-  summaryValue: {
-    fontFamily: fontFamily.pjsMedium,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-  },
   summaryNote: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
-  },
-  totalRow: { marginTop: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1 },
-  totalText: {
-    fontFamily: fontFamily.soraSemiBold,
-    fontSize: fontSize.subhead,
-    lineHeight: fontSize.subhead * lineHeight.tight,
-    letterSpacing: -0.2,
   },
   actionsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xs },
 });

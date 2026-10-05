@@ -3,8 +3,10 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { goBack } from '@/utils/navigation';
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
+import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import Button from "../../../components/common/Button";
 import Input from "../../../components/common/Input";
+import { radius } from "../../../constants/sizes";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
 import { useThemeColors } from "../../../providers/ThemeProvider";
@@ -112,8 +114,10 @@ export default function InventoryAdjustmentScreen() {
 
   return (
     <Screen header={<ScreenHeader title="Stock adjustment" subtitle="Record stock changes" onBack={onBack} />}>
+      <>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
-        <View style={styles.form}>
+        <ResponsiveContainer sidebarAware maxWidth={720}>
+        <View style={[styles.form, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.hint, { color: colors.textMuted }]}>
             Find Product ID in Products → open product → copy ID.
           </Text>
@@ -123,6 +127,17 @@ export default function InventoryAdjustmentScreen() {
           <Input label="Reason" value={reason} onChangeText={setReason} placeholder="e.g. Restock, damaged, audit correction" />
           <Input label="Quantity" value={quantity} onChangeText={setQuantity} keyboardType="numeric" placeholder="e.g. 10" />
         </View>
+        </ResponsiveContainer>
+      </ScrollView>
+      <View
+        style={[
+          styles.footer,
+          {
+            borderTopColor: colors.borderSoft,
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
         {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
         {success ? <Text style={[styles.success, { color: colors.success }]}>Adjustment saved. Stock updated via trigger.</Text> : null}
         <Button
@@ -132,17 +147,22 @@ export default function InventoryAdjustmentScreen() {
           disabled={saving}
           fullWidth
         />
-      </ScrollView>
+      </View>
+      </>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
     gap: spacing.lg,
   },
-  form: { gap: spacing.md },
+  form: {
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
   hint: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
@@ -159,5 +179,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
     textAlign: 'center',
+  },
+  footer: {
+    padding: spacing.lg,
+    gap: spacing.sm,
+    borderTopWidth: 1,
   },
 });

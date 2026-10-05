@@ -10,7 +10,6 @@ export type { IconName } from "./Icon";
 // Actions
 export { default as Button } from "./Button";
 export { default as IconButton } from "./IconButton";
-export { default as FilterChip } from "./FilterChip";
 export { default as Chip } from "./Chip";
 
 // Inputs
@@ -32,6 +31,7 @@ export { default as StatusBadge } from "./StatusBadge";
 export { default as UpdateBanner } from "./UpdateBanner";
 export { default as CountBadge } from "./CountBadge";
 export { default as LoadingState } from "./LoadingState";
+export { default as StateView } from "./StateView";
 export { default as EmptyState } from "./EmptyState";
 export { default as ErrorState } from "./ErrorState";
 
@@ -45,6 +45,7 @@ export { default as ListItem } from "./ListItem";
 
 // Overlay
 export { default as Modal } from "./Modal";
+export { default as Dialog } from "./Dialog";
 export { default as ConfirmDialog } from "./ConfirmDialog";
 export type { ConfirmOptions } from "./ConfirmDialog";
 

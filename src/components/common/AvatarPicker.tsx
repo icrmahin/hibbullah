@@ -72,12 +72,12 @@ export default function AvatarPicker({
 
           <View style={styles.buttons}>
             <Pressable
-              style={({ pressed }) => [
+              style={[
                 styles.button,
                 { backgroundColor: colors.primarySoft, borderColor: colors.borderSoft },
-                pressed && styles.pressed,
               ]}
               onPress={() => setMenuOpen((open) => !open)}
+              android_ripple={{ color: colors.ripple.primary, borderless: false }}
               accessibilityRole="button"
               accessibilityLabel={hasImage ? "Change profile picture" : "Add profile picture"}
               disabled={uploading}
@@ -90,12 +90,12 @@ export default function AvatarPicker({
 
             {hasImage ? (
               <Pressable
-                style={({ pressed }) => [
+                style={[
                   styles.button,
                   { backgroundColor: colors.redSoft, borderColor: colors.danger },
-                  pressed && styles.pressed,
                 ]}
                 onPress={onRemove}
+                android_ripple={{ color: colors.ripple.danger, borderless: false }}
                 accessibilityRole="button"
                 accessibilityLabel="Remove profile picture"
                 disabled={uploading}
@@ -111,12 +111,20 @@ export default function AvatarPicker({
       {/* Rendered outside the clipped avatar circle so the menu is never cut off. */}
       {menuOpen ? (
         <View style={[styles.menu, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderSoft }]}>
-          <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]} onPress={() => void choose("library")}>
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => void choose("library")}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
+          >
             <Icon name="photo-library" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Choose from library</Text>
           </Pressable>
           <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
-          <Pressable style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]} onPress={() => void choose("camera")}>
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => void choose("camera")}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
+          >
             <Icon name="camera-alt" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Take photo</Text>
           </Pressable>
@@ -159,11 +167,12 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
+    overflow: "hidden",
   },
   buttonText: { fontFamily: fontFamily.pjsBold, fontSize: typography.caption },
   menu: {
@@ -177,9 +186,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
+    overflow: "hidden",
   },
   menuText: { fontFamily: fontFamily.pjsSemiBold, fontSize: typography.bodySmall },
   hairline: { height: 1 },
-  pressed: { opacity: 0.6 },
   error: { fontSize: typography.caption },
 });

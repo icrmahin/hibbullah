@@ -36,6 +36,12 @@ export const darkBrand = {
   primary: "#8FB8A8",
   /** FILL, pressed — a deeper sage. 7.12:1 against `textInverse`. */
   primaryDark: "#77A597",
+  /**
+   * The lighter sage — hover or pressed state on the accent ink itself.
+   * Mirrors `sageLight`; kept as its own key so the palette keeps parity
+   * with light mode's `primaryLight` (see the composite note below).
+   */
+  primaryLight: "#A8CBBD",
   /** INK — links, icons, focus rings, selected borders. 8.3:1 on a card. */
   accent: "#8FB8A8",
   /** The accent as a very soft fill — a selected row, an icon tile. */
@@ -92,7 +98,11 @@ export const darkSurface = {
   DEFAULT: "#131615",
   /** Heavier than light mode's 0.4: a modal on near-black needs more separation. */
   overlay: "rgba(0, 0, 0, 0.72)",
-  disabled: "#131615",
+  /**
+   * Visibly lighter than both page and card — a disabled fill must read as
+   * inactive. Reuses the existing border tone rather than inventing a grey.
+   */
+  disabled: "#262B29",
 } as const;
 
 // The status colours are used two ways, and the two want opposite lightnesses.

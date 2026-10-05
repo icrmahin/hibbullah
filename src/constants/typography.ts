@@ -37,27 +37,28 @@ export const fontSize = {
   tiny: 10,
 } as const;
 
-// ─── Semantic typography tokens ──────────────────────────
-export const semanticType = {
-  display: { fontFamily: fontFamily.soraBold, fontSize: fontSize.largeTitle },
-  h1: { fontFamily: fontFamily.soraBold, fontSize: fontSize.title1 },
-  h2: { fontFamily: fontFamily.soraSemiBold, fontSize: fontSize.title2 },
-  h3: { fontFamily: fontFamily.soraSemiBold, fontSize: fontSize.title3 },
-  title: { fontFamily: fontFamily.soraMedium, fontSize: fontSize.body },
-  body: { fontFamily: fontFamily.pjsRegular, fontSize: fontSize.bodySmall },
-  bodyMedium: { fontFamily: fontFamily.pjsMedium, fontSize: fontSize.bodySmall },
-  label: { fontFamily: fontFamily.pjsRegular, fontSize: fontSize.footnote },
-  caption: { fontFamily: fontFamily.pjsRegular, fontSize: fontSize.caption },
-  micro: { fontFamily: fontFamily.pjsRegular, fontSize: fontSize.micro },
-  tiny: { fontFamily: fontFamily.pjsMedium, fontSize: fontSize.tiny },
-  button: { fontFamily: fontFamily.pjsSemiBold, fontSize: fontSize.footnote },
-  navigation: { fontFamily: fontFamily.pjsSemiBold, fontSize: fontSize.tiny },
-  table: { fontFamily: fontFamily.pjsRegular, fontSize: fontSize.footnote },
-  metric: { fontFamily: fontFamily.pjsBold, fontSize: fontSize.title2 },
+// ─── Line heights ────────────────────────────────────────
+export const lineHeight = {
+  tight: 1.2,
+  normal: 1.4,
+  relaxed: 1.6,
 } as const;
 
-// ─── Legacy aliases ──────────────────────────────────────
-export const legacyFontSizes = {
+// ─── Letter spacing ──────────────────────────────────────
+export const letterSpacing = {
+  tight: -0.2,
+  normal: 0,
+  wide: 0.4,
+  wider: 0.8,
+  widest: 1.2,
+} as const;
+
+// ─── Composite ───────────────────────────────────────────
+// The one canonical type scale: every key below is read somewhere in the
+// app, and nothing outside this file defines a font size. `fontFamily` and
+// `fontSize` above are the primitives; this object is the scale screens use.
+export const typography = {
+  fontFamily,
   largeTitle: fontSize.largeTitle,
   title1: fontSize.title1,
   title2: fontSize.title2,
@@ -77,32 +78,8 @@ export const legacyFontSizes = {
   h3: fontSize.title3,
   caption: fontSize.caption,
   label: fontSize.micro,
-} as const;
-
-// ─── Line heights ────────────────────────────────────────
-export const lineHeight = {
-  tight: 1.2,
-  normal: 1.4,
-  relaxed: 1.6,
-} as const;
-
-// ─── Letter spacing ──────────────────────────────────────
-export const letterSpacing = {
-  tight: -0.2,
-  normal: 0,
-  wide: 0.4,
-  wider: 0.8,
-  widest: 1.2,
-} as const;
-
-// ─── Composite ───────────────────────────────────────────
-export const typography = {
-  fontFamily,
-  ...legacyFontSizes,
   lineHeight,
   letterSpacing,
-  letterSpacingDisplay: letterSpacing.normal,
-  letterSpacingBody: letterSpacing.normal,
 } as const;
 
 export default typography;

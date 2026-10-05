@@ -7,6 +7,7 @@ import spacing from "../../../constants/spacing";
 import { fontFamily, fontSize, letterSpacing, lineHeight } from "../../../constants/typography";
 import { radius } from "../../../constants/sizes";
 import Icon from "../../../components/common/Icon";
+import StatusBadge from "../../../components/common/StatusBadge";
 import Avatar from "../../../components/common/Avatar";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
@@ -120,12 +121,12 @@ export default function AccountScreen() {
       >
         {/* The single profile entry: tap the card to open the editor. */}
         <Pressable
-          style={({ pressed }) => [
+          style={[
             styles.profileCard,
             { backgroundColor: colors.backgroundAlt },
-            pressed && styles.pressed,
           ]}
           onPress={() => router.push("/(customer)/account/profile")}
+          android_ripple={{ color: colors.ripple.primary, borderless: false }}
           accessibilityRole="button"
           accessibilityLabel="Edit your profile"
         >
@@ -138,9 +139,7 @@ export default function AccountScreen() {
               <Text style={[styles.profileName, { color: colors.text }]} numberOfLines={1}>
                 {user?.name || "User"}
               </Text>
-              <View style={[styles.statusChip, { backgroundColor: colors.successSoft, borderColor: colors.successBorder }]}>
-                <Text style={[styles.statusChipText, { color: colors.success }]}>{statusText}</Text>
-              </View>
+              <StatusBadge label={statusText} tone="success" />
             </View>
             <Text style={[styles.profileEmail, { color: colors.textMuted }]} numberOfLines={1}>
               {user?.email || ""}
@@ -157,12 +156,12 @@ export default function AccountScreen() {
         {/* Admin Dashboard — stays in Settings as main dashboard */}
         {isAdmin ? (
           <Pressable
-            style={({ pressed }) => [
+            style={[
               styles.adminCard,
               { backgroundColor: colors.backgroundAlt },
-              pressed && styles.pressed,
             ]}
             onPress={() => router.push("/(admin)")}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             accessibilityRole="button"
             accessibilityLabel="Open admin dashboard"
           >
@@ -188,7 +187,8 @@ export default function AccountScreen() {
                 {section.items.map((item, index) => (
                   <View key={item.label}>
                     <Pressable
-                      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+                      style={styles.row}
+                      android_ripple={{ color: colors.ripple.primary, borderless: false }}
                       onPress={() => {
                         if (item.toggle) {
                           handleDarkModeToggle(!isDark);
@@ -237,6 +237,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
+    overflow: "hidden",
   },
   avatar: {
     position: "relative",
@@ -250,24 +251,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 2,
   },
-  profileInfo: { flex: 1, gap: 2 },
+  profileInfo: { flex: 1, gap: spacing.xxs },
   nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
   profileName: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.tight,
-  },
-  statusChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-  },
-  statusChipText: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.tiny,
-    lineHeight: fontSize.tiny * lineHeight.tight,
-    letterSpacing: 0.3,
   },
   profileEmail: {
     fontFamily: fontFamily.pjsRegular,
@@ -281,6 +270,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
+    overflow: "hidden",
   },
   adminIconContainer: {
     width: ADMIN_ICON_SIZE,
@@ -299,7 +289,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   adminArrow: {
     width: ADMIN_ARROW_SIZE,
@@ -343,6 +333,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     minHeight: 44,
+    overflow: "hidden",
   },
   rowIcon: {
     width: ROW_ICON_SIZE,
@@ -358,5 +349,4 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.subhead * lineHeight.normal,
   },
   divider: { height: 1 },
-  pressed: { opacity: 0.6, transform: [{ scale: 0.99 }] },
 });

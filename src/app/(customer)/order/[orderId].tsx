@@ -6,6 +6,7 @@ import { useThemeColors } from '../../../providers/ThemeProvider';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
 import StatusBadge from '../../../components/common/StatusBadge';
+import CartSummary from '../../../components/cart/CartSummary';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import EmptyState from '../../../components/common/EmptyState';
@@ -121,13 +122,17 @@ export default function CustomerOrderDetailScreen() {
             <Text style={[styles.meta, { color: colors.textMuted }]}>Note: {order.customerNote}</Text>
           ) : null}
           <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: Cash on Delivery</Text>
-          <View style={[styles.totals, { borderTopColor: colors.borderSoft }]}>
-            <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Subtotal</Text><Text style={[styles.value, { color: colors.text }]}>{formatCurrency(order.subtotal)}</Text></View>
-            <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Discount</Text><Text style={[styles.value, { color: colors.text }]}>-{formatCurrency(order.discount)}</Text></View>
-            <View style={styles.row}><Text style={[styles.label, { color: colors.textMuted }]}>Delivery</Text><Text style={[styles.value, { color: colors.text }]}>{formatCurrency(order.deliveryFee)}</Text></View>
-            <View style={[styles.row, styles.totalRow, { borderTopColor: colors.borderSoft }]}><Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text><Text style={[styles.totalValue, { color: colors.text }]}>{formatCurrency(order.total)}</Text></View>
-          </View>
         </View>
+        {/* The four money rows are the shared CartSummary — same arithmetic language as
+            cart and checkout. A record, not a second copy of the rows. */}
+        <CartSummary
+          summary={{
+            subtotal: order.subtotal,
+            discount: order.discount,
+            deliveryFee: order.deliveryFee,
+            total: order.total,
+          }}
+        />
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Products</Text>
           {order.items.length === 0 ? (
@@ -215,7 +220,6 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.caption * lineHeight.normal,
     marginTop: spacing.sm,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md, gap: spacing.md },
   itemName: {
     flex: 1,
@@ -249,29 +253,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
     marginTop: spacing.xs,
-  },
-  // Hairline inside the card, never a border around it.
-  totals: { marginTop: spacing.md, borderTopWidth: 1, paddingTop: spacing.md, gap: spacing.xs },
-  label: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-  },
-  value: {
-    fontFamily: fontFamily.pjsMedium,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-  },
-  totalRow: { marginTop: spacing.sm, borderTopWidth: 1, paddingTop: spacing.sm },
-  totalLabel: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.subhead,
-    lineHeight: fontSize.subhead * lineHeight.normal,
-  },
-  totalValue: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.subhead,
-    lineHeight: fontSize.subhead * lineHeight.normal,
   },
   // A selectable control inside the return card: 1px hairline, primarySoft when selected.
   returnItem: {

@@ -147,7 +147,7 @@ export default function AdminProductDetailScreen() {
   return (
     <Screen header={<ScreenHeader title={product?.name ?? "Product"} subtitle="Product overview" onBack={onBack} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
-        <ResponsiveContainer sidebarAware maxWidth={isDesktop ? 960 : 1320}>
+        <ResponsiveContainer sidebarAware maxWidth={960}>
           <View style={[styles.imageIsland, { backgroundColor: colors.backgroundAlt }]}>
             <ProductImage uri={product.image} recyclingKey={product.id} style={isDesktop ? styles.imageDesktop : styles.image} />
           </View>

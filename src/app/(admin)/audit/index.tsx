@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
+import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import EmptyState from "../../../components/common/EmptyState";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
@@ -143,6 +144,7 @@ export default function AuditLogScreen() {
           { paddingBottom: bottomInset },
         ]}
       >
+        <ResponsiveContainer sidebarAware>
         {entries.length === 0 ? (
           <EmptyState
             title="No audit entries"
@@ -176,13 +178,14 @@ export default function AuditLogScreen() {
             ))}
           </>
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { paddingVertical: spacing.lg, gap: spacing.md },
   note: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.footnote,

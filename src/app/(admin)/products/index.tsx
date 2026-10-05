@@ -1,15 +1,15 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { goToAdminProduct } from "@/utils/navigation";
 import AdminProductCard from "../../../components/admin/AdminProductCard";
 import type { Product } from "../../../types/product";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
-import Icon from "../../../components/common/Icon";
+import HeaderAction from "../../../components/common/HeaderAction";
 import EmptyState from "../../../components/common/EmptyState";
-import FilterChip from "../../../components/common/FilterChip";
+import Chip from "../../../components/common/Chip";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import SearchableSelect from "../../../components/common/SearchableSelect";
 import SearchBar from "../../../components/common/SearchBar";
@@ -146,7 +146,7 @@ export default function AdminProductsScreen() {
         <Text style={[styles.filterLabel, { color: colors.textMuted }]}>Status</Text>
         <View style={styles.chipRow}>
           {STATUS_FILTERS.map((filter) => (
-            <FilterChip
+            <Chip
               key={filter.value}
               label={filter.label}
               selected={status === filter.value}
@@ -158,7 +158,7 @@ export default function AdminProductsScreen() {
         <Text style={[styles.filterLabel, { color: colors.textMuted }]}>Stock</Text>
         <View style={styles.chipRow}>
           {STOCK_FILTERS.map((filter) => (
-            <FilterChip
+            <Chip
               key={filter.value}
               label={filter.label}
               selected={stockFilter === filter.value}
@@ -208,18 +208,7 @@ export default function AdminProductsScreen() {
           title="Products"
           subtitle={`${time} · catalog`}
           action={
-            <Pressable
-              onPress={() => router.push("/(admin)/products/add")}
-              style={({ pressed }) => [
-                styles.addButton,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Add product"
-            >
-              <Icon name="add" size={16} color={colors.textInverse} />
-              <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Add</Text>
-            </Pressable>
+            <HeaderAction label="Add" icon="add" onPress={() => router.push("/(admin)/products/add")} accessibilityLabel="Add product" />
           }
         />
       }
@@ -286,21 +275,6 @@ const styles = StyleSheet.create({
   // No horizontal padding: ResponsiveContainer below supplies the page gutter, so the
   // 16px margin exists exactly once.
   container: { flex: 1 },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    height: 32,
-    borderRadius: radius.pill,
-  },
-  // The colour comes from the palette at the call site — this is a `StyleSheet`, outside
-  // React, so it cannot reach `useThemeColors()`. Was `color: "#fff"`.
-  addButtonText: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-  },
   listHeader: { gap: spacing.md, paddingBottom: spacing.sm },
   // A white card, not an island: no border, no shadow — the page colour does the framing.
   filtersIsland: {

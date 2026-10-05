@@ -61,8 +61,9 @@ export default function AdminDrawer({ visible, onClose }: { visible: boolean; on
             {MENU_ITEMS.map((item) => (
               <Pressable
                 key={item.label}
-                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: colors.primarySoft }]}
+                style={styles.menuItem}
                 onPress={() => navigate(item.path)}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${item.label}`}
               >
@@ -78,8 +79,9 @@ export default function AdminDrawer({ visible, onClose }: { visible: boolean; on
           <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
 
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: colors.background }]}
+            style={styles.menuItem}
             onPress={() => navigate(SHOP_ITEM.path)}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             accessibilityRole="button"
             accessibilityLabel="Back to shop"
           >
@@ -133,6 +135,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radius.lg,
     minHeight: 44,
+    overflow: "hidden",
   },
   iconTile: {
     width: 28,

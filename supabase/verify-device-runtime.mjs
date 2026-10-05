@@ -704,9 +704,12 @@ const code = new Map(allFiles.map((f) => [f, stripComments(readFileSync(f, 'utf8
   // before the touch reaches its target, so the card would swallow the presses meant for
   // Delete and Cancel. That failure looks exactly like the one being fixed here, so a
   // check that only demanded "some responder guard" would pass the broken version.
+  // Since the Phase 2 consolidation, `Modal` and `ConfirmDialog` are thin wrappers
+  // that render the shared `Dialog` shell: the guard lives in `Dialog.tsx`, so the
+  // responder check follows it there, and each wrapper must render `<Dialog` so the
+  // guarantee actually reaches the screen.
   const DIALOGS = [
-    ['modal', join(SRC, 'components', 'common', 'Modal.tsx')],
-    ['confirm-dialog', join(SRC, 'components', 'common', 'ConfirmDialog.tsx')],
+    ['dialog-shell', join(SRC, 'components', 'common', 'Dialog.tsx')],
   ]
 
   for (const [name, file] of DIALOGS) {
@@ -749,6 +752,23 @@ const code = new Map(allFiles.map((f) => [f, stripComments(readFileSync(f, 'utf8
       for (const o of offenders) fail('dialog-card-responder', o)
     } else {
       pass('dialog-card-responder', `${name}'s card claims the responder without stealing button presses`)
+    }
+  }
+
+  for (const [name, file] of [
+    ['modal', join(SRC, 'components', 'common', 'Modal.tsx')],
+    ['confirm-dialog', join(SRC, 'components', 'common', 'ConfirmDialog.tsx')],
+  ]) {
+    const src = code.get(file) ?? ''
+    if (!src) {
+      fail('dialog-card-responder', `${file} does not exist`)
+    } else if (!/<Dialog[\s>]/.test(src)) {
+      fail(
+        'dialog-card-responder',
+        `${name} no longer renders the shared Dialog shell, so nothing guarantees its card keeps the responder guard.`,
+      )
+    } else {
+      pass('dialog-card-responder', `${name} renders the shared Dialog shell`)
     }
   }
 }

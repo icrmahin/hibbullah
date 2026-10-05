@@ -69,14 +69,6 @@ export const layout = {
   thumbnail: 60,
 } as const;
 
-// ─── Container padding (responsive) ──────────────────────
-export const containerPadding = {
-  xs: 10,
-  sm: 14,
-  md: 18,
-  lg: 22,
-} as const;
-
 // ─── Max widths ──────────────────────────────────────────
 export const maxWidth = {
   sm: 540,
@@ -92,10 +84,6 @@ export const opacity = {
   disabled: 0.5,
   /** 0.82 — pressed state */
   pressed: 0.82,
-  /** 0.4 — overlay / modal backdrop */
-  overlay: 0.4,
-  /** 0.6 — muted text / secondary pressed */
-  muted: 0.6,
 } as const;
 
 // ─── Animation durations (ms) ────────────────────────────
@@ -132,7 +120,6 @@ export const sizes = {
   avatar: layout.avatar,
   productImage: layout.productImage,
   thumbnail: layout.thumbnail,
-  containerPadding,
   maxWidth,
 } as const;
 

@@ -54,6 +54,7 @@ export default function ForgotPasswordScreen() {
       <Pressable
         onPress={() => router.replace("/(auth)/login")}
         hitSlop={8}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
         accessibilityRole="button"
         accessibilityLabel="Back to sign in"
         style={styles.back}
@@ -125,6 +126,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.lg,
+    overflow: "hidden",
   },
   brand: {
     alignItems: "center",

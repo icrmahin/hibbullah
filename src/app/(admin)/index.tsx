@@ -6,6 +6,7 @@ import Sparkline from "../../components/admin/Sparkline";
 import StockDonut from "../../components/admin/StockDonut";
 import Screen from "../../components/common/Screen";
 import ScreenHeader from "../../components/common/ScreenHeader";
+import HeaderAction from "../../components/common/HeaderAction";
 import EmptyState from "../../components/common/EmptyState";
 import ResponsiveContainer from "../../components/common/ResponsiveContainer";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -140,22 +141,7 @@ export default function AdminDashboardScreen() {
           title="Dashboard"
           subtitle={`${time} · live`}
           action={
-            <Pressable
-              onPress={() => open("/(admin)/products/add")}
-              style={({ pressed }) => [
-                styles.addPill,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Add product"
-            >
-              {/* Was `color="#fff"`. The pill's fill is `colors.primary`, which is a dark
-                  brand-cast surface in dark mode and a deep teal in light — so a fixed white
-                  glyph is right in light mode and wrong in dark, where the label colour for a
-                  fill is near-black. `textInverse` is the palette's name for exactly that. */}
-              <Icon name="add" size={16} color={colors.textInverse} />
-              <Text style={[styles.addText, { color: colors.textInverse }]}>Add</Text>
-            </Pressable>
+            <HeaderAction label="Add" icon="add" onPress={() => open("/(admin)/products/add")} accessibilityLabel="Add product" />
           }
         />
       }
@@ -172,7 +158,8 @@ export default function AdminDashboardScreen() {
               {/* Sales — primary */}
               <Pressable
                 onPress={() => open("/(admin)/orders")}
-                style={({ pressed }) => [styles.heroCard, { backgroundColor: colors.backgroundAlt }, pressed && styles.pressed]}
+                style={[styles.heroCard, { backgroundColor: colors.backgroundAlt }]}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
               >
                 <View style={styles.heroTop}>
                   <View style={[styles.heroIcon, { backgroundColor: colors.primarySoft }]}>
@@ -192,7 +179,8 @@ export default function AdminDashboardScreen() {
                   number they stop trusting. */}
               <Pressable
                 onPress={() => open("/(admin)/orders")}
-                style={({ pressed }) => [styles.heroCard, { backgroundColor: colors.backgroundAlt }, pressed && styles.pressed]}
+                style={[styles.heroCard, { backgroundColor: colors.backgroundAlt }]}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
               >
                 <View style={styles.heroTop}>
                   <View style={[styles.heroIcon, { backgroundColor: colors.successSoft }]}>
@@ -242,7 +230,8 @@ export default function AdminDashboardScreen() {
               {/* Orders */}
               <Pressable
                 onPress={() => open("/(admin)/orders")}
-                style={({ pressed }) => [styles.heroCard, { backgroundColor: colors.backgroundAlt }, pressed && styles.pressed]}
+                style={[styles.heroCard, { backgroundColor: colors.backgroundAlt }]}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
               >
                 <View style={styles.heroTop}>
                   <View style={[styles.heroIcon, { backgroundColor: colors.warningSoft }]}>
@@ -261,7 +250,8 @@ export default function AdminDashboardScreen() {
               {/* Stock */}
               <Pressable
                 onPress={() => open("/(admin)/products")}
-                style={({ pressed }) => [styles.heroCard, { backgroundColor: colors.backgroundAlt }, pressed && styles.pressed]}
+                style={[styles.heroCard, { backgroundColor: colors.backgroundAlt }]}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
               >
                 <View style={styles.heroTop}>
                   <View style={[styles.heroIcon, { backgroundColor: colors.background }]}>
@@ -292,7 +282,8 @@ export default function AdminDashboardScreen() {
                 ) : (
                   fixNow.map((it, idx) => (
                     <View key={it.id}>
-                      <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={it.onPress}>
+                      <Pressable style={styles.row}
+                  android_ripple={{ color: colors.ripple.primary, borderless: false }} onPress={it.onPress}>
                         <View style={[styles.rowIcon, { backgroundColor: colors.primarySoft }]}>
                           <Icon name={it.icon} size={16} color={colors.accent} />
                         </View>
@@ -347,7 +338,8 @@ export default function AdminDashboardScreen() {
               </View>
               {recentLowPreview(lowStockBatches).map((p: any, idx: number, arr: any[]) => (
                 <View key={p.id}>
-                  <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => goToAdminProduct(p.productId)}>
+                  <Pressable style={styles.row}
+                  android_ripple={{ color: colors.ripple.primary, borderless: false }} onPress={() => goToAdminProduct(p.productId)}>
                     <View style={styles.rowMain}>
                       <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{p.productName}</Text>
                       <Text style={[styles.rowSub, { color: colors.textMuted }]} numberOfLines={1}>Batch {p.batchNumber} · {p.quantity} left</Text>
@@ -368,7 +360,8 @@ export default function AdminDashboardScreen() {
               </View>
               {recentOrders.length === 0 ? <EmptyState title="No orders" message="New orders will appear here." /> : recentOrders.slice(0, 4).map((o: any, i: number) => (
                 <View key={o.id}>
-                  <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => openOrder(o.id)}>
+                  <Pressable style={styles.row}
+                  android_ripple={{ color: colors.ripple.primary, borderless: false }} onPress={() => openOrder(o.id)}>
                     <View style={styles.rowMain}>
                       <Text style={[styles.rowTitle, { color: colors.text }]}>{o.orderNumber} · {formatCurrency(o.total)}</Text>
                       <Text style={[styles.rowSub, { color: colors.textMuted }]}>{o.customerName} · {formatShortDate(o.createdAt)}</Text>
@@ -395,7 +388,7 @@ const styles = StyleSheet.create({
   stateScroll: { flexGrow: 1 },
   page: { gap: spacing.md },
   heroGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  heroCard: { flexGrow: 1, flexBasis: "46%", minHeight: 92, borderRadius: radius.lg, padding: spacing.md, gap: spacing.xxs },
+  heroCard: { flexGrow: 1, flexBasis: "46%", minHeight: 92, borderRadius: radius.lg, padding: spacing.md, gap: spacing.xxs, overflow: "hidden" },
   heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   heroIcon: { width: 26, height: 26, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   heroLabel: {
@@ -474,7 +467,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
   },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, minHeight: 44 },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, minHeight: 44, overflow: "hidden" },
   rowIcon: { width: 28, height: 28, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   rowMain: { flex: 1, gap: spacing.xxs },
   rowTitle: {
@@ -503,19 +496,6 @@ const styles = StyleSheet.create({
   },
   cmdSep: { width: 1, height: 20 },
   cockpit: { borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
-  addPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    height: 32,
-    borderRadius: radius.pill,
-  },
-  addText: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-  },
   cockpitHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cockpitTitle: {
     fontFamily: fontFamily.soraSemiBold,
@@ -536,5 +516,4 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.subhead * lineHeight.tight,
     letterSpacing: letterSpacing.tight,
   },
-  pressed: { opacity: 0.7, transform: [{ scale: 0.99 }] },
 });

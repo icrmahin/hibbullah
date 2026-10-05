@@ -7,8 +7,8 @@ import { radius } from "../../constants/sizes";
 import type { Product } from "../../types/product";
 import ProductImage from "./ProductImage";
 import DiscountBadge from "./DiscountBadge";
+import Price from "./Price";
 import Icon from "../common/Icon";
-import { formatCurrency } from "../../utils/currency";
 import { useCart } from "../../providers/CartProvider";
 import { useFavorites } from "../../providers/FavoritesProvider";
 
@@ -46,7 +46,6 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
   const { addItem } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [adding, setAdding] = useState(false);
-  const [pressed, setPressed] = useState(false);
   const fav = isFavorite(product.id);
 
   const outOfStock = product.stock === 0;
@@ -94,7 +93,6 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
         compact && styles.compact,
         {
           backgroundColor: colors.backgroundAlt,
-          opacity: pressed ? 0.92 : 1,
         },
       ]}
     >
@@ -112,6 +110,7 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
         */}
         <Pressable
           onPress={() => onPress?.(product)}
+          android_ripple={{ color: colors.ripple.primary, borderless: false }}
           style={StyleSheet.absoluteFill}
           accessibilityRole="button"
           accessibilityLabel={`View ${product.name} details`}
@@ -140,15 +139,15 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
           onPress={handleAdd}
           disabled={outOfStock}
           hitSlop={6}
+          android_ripple={{ color: outOfStock ? colors.ripple.neutral : colors.ripple.onPrimary, borderless: false }}
           accessibilityRole="button"
           accessibilityLabel={outOfStock ? `${product.name} is out of stock` : `Add ${product.name} to cart`}
-          style={({ pressed: down }) => [
+          style={[
             styles.addFab,
             {
               backgroundColor: outOfStock ? colors.backgroundAlt : colors.primary,
               borderColor: outOfStock ? colors.borderLight : colors.borderSoft,
-              opacity: outOfStock ? 0.7 : down ? 0.85 : 1,
-              transform: [{ scale: down && !outOfStock ? 0.94 : 1 }],
+              opacity: outOfStock ? 0.7 : 1,
             },
           ]}
         >
@@ -165,14 +164,14 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
         <Pressable
           onPress={handleFav}
           hitSlop={6}
+          android_ripple={{ color: colors.ripple.neutral, borderless: false }}
           accessibilityRole="button"
           accessibilityLabel={fav ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`}
-          style={({ pressed: down }) => [
+          style={[
             styles.favPill,
             {
               backgroundColor: fav ? colors.danger : colors.backgroundAlt,
               borderColor: fav ? colors.danger : colors.borderLight,
-              opacity: down ? 0.85 : 1,
             },
           ]}
         >
@@ -186,8 +185,7 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
 
       <Pressable
         onPress={() => onPress?.(product)}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
         style={styles.contentPressable}
         accessibilityRole="button"
         accessibilityLabel={`View ${product.name} details`}
@@ -209,28 +207,12 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
             becomes two — so the cards in a row came out different heights and the grid looked
             broken rather than ragged. Truncating is the lesser cost.
           */}
-          {/*
-            Two things on this line now, where there used to be three. What you pay first
-            and largest; what it used to cost struck through beside it, and only when it is
-            genuinely higher. The percentage moved to the corner of the photograph, so the
-            row fits at 167px without truncating and both figures stay whole.
-          */}
-          <View style={styles.priceRow}>
-            <Text
-              style={[
-                styles.price,
-                { color: showsOriginal ? colors.accent : colors.text },
-              ]}
-              numberOfLines={1}
-            >
-              {formatCurrency(product.price)}
-            </Text>
-            {showsOriginal ? (
-              <Text style={[styles.original, { color: colors.textMuted }]} numberOfLines={1}>
-                {formatCurrency(original as number)}
-              </Text>
-            ) : null}
-          </View>
+          <Price
+            price={product.price}
+            originalPrice={showsOriginal ? original : undefined}
+            style={styles.priceRow}
+            numberOfLines={1}
+          />
         </View>
       </Pressable>
     </View>
@@ -271,6 +253,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     zIndex: 2,
   },
   /**
@@ -287,6 +270,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     zIndex: 2,
   },
   content: {
@@ -309,26 +293,7 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.micro * lineHeight.normal,
   },
   priceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
     marginTop: spacing.xxs,
-  },
-  /**
-   * One step above the product name, because on a card whose whole job is "what does this
-   * cost" the price is the figure people scan for. The name stays the largest piece of
-   * *text* through its weight and its reserved two lines; the price wins on size alone.
-   */
-  price: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.body,
-    lineHeight: fontSize.body * lineHeight.tight,
-  },
-  original: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.tiny,
-    textDecorationLine: "line-through",
-    flexShrink: 1,
   },
 });
 

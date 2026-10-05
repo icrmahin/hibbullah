@@ -15,7 +15,7 @@ import { useAddresses } from '../../../hooks/useAddresses';
 import { useBottomInset } from '../../../hooks/useBottomInset';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { normalizeError } from '../../../utils/errorHandling';
-import { radius } from '../../../constants/sizes';
+import { opacity as opacityToken, radius } from '../../../constants/sizes';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 
 export default function CustomerAddressesScreen() {
@@ -166,5 +166,5 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.caption * lineHeight.normal,
     textAlign: 'center',
   },
-  pressed: { opacity: 0.6 },
+  pressed: { opacity: opacityToken.pressed },
 });

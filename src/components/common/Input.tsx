@@ -36,7 +36,8 @@ export default function Input({
             borderColor: focused ? colors.accent : error ? colors.danger : colors.border,
             backgroundColor: colors.backgroundAlt,
           },
-          focused && styles.inputRowFocused,
+          // Focus is the accent border alone (same 1px width): widening the
+          // border on focus used to shift the layout by a pixel.
           !!error && styles.inputRowError,
           props.editable === false && styles.inputRowDisabled,
         ]}
@@ -87,7 +88,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
   },
-  inputRowFocused: { borderWidth: 2 },
   inputRowError: {},
   inputRowDisabled: { opacity: opacityToken.disabled },
   input: {

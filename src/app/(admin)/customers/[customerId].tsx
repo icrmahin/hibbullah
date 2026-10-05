@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/utils/navigation';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -89,6 +90,7 @@ export default function AdminCustomerDetailScreen() {
   return (
     <Screen header={<ScreenHeader title={customer?.name ?? "Customer"} subtitle="Customer overview" onBack={onBack} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware maxWidth={960}>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           {details.map((field, index) => (
             <View
@@ -104,13 +106,14 @@ export default function AdminCustomerDetailScreen() {
             </View>
           ))}
         </View>
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.lg },
+  container: { paddingVertical: spacing.lg, gap: spacing.lg },
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,

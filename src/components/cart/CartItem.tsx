@@ -35,6 +35,7 @@ export default function CartItemRow({
         <Pressable
           onPress={onRemove}
           hitSlop={8}
+          android_ripple={{ color: colors.ripple.danger, borderless: false }}
           accessibilityRole="button"
           accessibilityLabel={`Remove ${item.product.name} from cart`}
           style={[styles.deleteBtn, { backgroundColor: colors.dangerSoft }]}
@@ -67,5 +68,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
 });

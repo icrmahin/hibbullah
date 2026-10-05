@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -64,6 +65,7 @@ export default function AdminReturnsScreen() {
   return (
     <Screen header={<ScreenHeader title="Returns" subtitle="Customer return requests" />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware>
         {returns.length === 0 ? (
           <EmptyState title="No returns" message="Return requests will appear here." />
         ) : (
@@ -112,13 +114,14 @@ export default function AdminReturnsScreen() {
             </View>
           ))
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { paddingVertical: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,

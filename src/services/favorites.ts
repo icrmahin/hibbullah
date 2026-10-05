@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 import { mapProduct } from "../lib/mappers";
+import { PRODUCT_PUBLIC_COLUMNS } from "./products";
 import type { Product } from "../types/product";
 
 const LOCAL_KEY_PREFIX = "@favorites:";
@@ -28,7 +29,7 @@ async function setLocalIds(userId: string, ids: string[]) {
 
 async function fetchProductsByIds(productIds: string[]): Promise<Product[]> {
   if (productIds.length === 0) return [];
-  const { data, error } = await supabase.from("products").select("*").in("id", productIds);
+  const { data, error } = await supabase.from("products").select(PRODUCT_PUBLIC_COLUMNS).in("id", productIds);
   if (error) throw error;
   const byId = new Map((data || []).map((row: any) => [row.id, mapProduct(row as unknown as Parameters<typeof mapProduct>[0]) as Product]));
   // preserve local order (recent first is stored order)

@@ -177,6 +177,7 @@ export default function CheckoutScreen() {
             <Pressable
               key={addr.id}
               onPress={() => setSelectedAddressId(addr.id)}
+              android_ripple={{ color: colors.ripple.primary, borderless: false }}
               style={[
                 styles.addressOption,
                 { backgroundColor: active ? colors.primarySoft : colors.backgroundAlt, borderColor: active ? colors.accent : colors.borderLight },
@@ -200,6 +201,7 @@ export default function CheckoutScreen() {
                 <Pressable
                   onPress={() => handleDeleteAddress(addr.id)}
                   hitSlop={8}
+                  android_ripple={{ color: colors.ripple.danger, borderless: false }}
                   style={[styles.deleteBtn, { backgroundColor: colors.dangerSoft }]}
                   accessibilityLabel={`Delete ${addr.label}`}
                 >
@@ -399,8 +401,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     gap: spacing.sm,
+    overflow: "hidden",
   },
-  addressOptionContent: { flex: 1, gap: 2 },
+  addressOptionContent: { flex: 1, gap: spacing.xxs },
   addressLabel: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.footnote,
@@ -418,6 +421,7 @@ const styles = StyleSheet.create({
     borderRadius: DELETE_BTN_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   emptyHint: {
     fontFamily: fontFamily.pjsRegular,

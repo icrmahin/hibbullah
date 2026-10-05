@@ -12,6 +12,7 @@ import ErrorState from "../../../components/common/ErrorState";
 import ProductImage from "../../../components/products/ProductImage";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import QuantitySelector from "../../../components/cart/QuantitySelector";
+import Price from "../../../components/products/Price";
 import spacing from "../../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 import { radius } from "../../../constants/sizes";
@@ -19,7 +20,6 @@ import { useResponsive } from "../../../hooks/useResponsive";
 import { useBottomInset } from "../../../hooks/useBottomInset";
 import { useCart } from "../../../hooks/useCart";
 import { useProduct } from "../../../hooks/useProducts";
-import { formatCurrency } from "../../../utils/currency";
 import { normalizeError } from "../../../utils/errorHandling";
 
 export default function ProductDetailScreen() {
@@ -94,10 +94,7 @@ export default function ProductDetailScreen() {
   const details = (
     <>
       <Text style={[styles.name, { color: colors.text }]}>{product.name}</Text>
-      <View style={styles.priceRow}>
-        <Text style={[styles.price, { color: colors.text }]}>{formatCurrency(product.price)}</Text>
-        {product.originalPrice ? <Text style={[styles.original, { color: colors.textMuted }]}>{formatCurrency(product.originalPrice)}</Text> : null}
-      </View>
+      <Price price={product.price} originalPrice={product.originalPrice ?? undefined} size="large" />
       {/*
         No stock readout here. This row used to carry a badge reading "In stock"
         or "Out of stock" plus a low-stock hint, and both are gone: the pharmacy
@@ -183,18 +180,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.title2,
     lineHeight: fontSize.title2 * lineHeight.tight,
     letterSpacing: -0.2,
-  },
-  priceRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
-  price: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.title2,
-    lineHeight: fontSize.title2 * lineHeight.tight,
-  },
-  original: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-    textDecorationLine: "line-through",
   },
   quantityRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.sm },
   qtyLabel: {

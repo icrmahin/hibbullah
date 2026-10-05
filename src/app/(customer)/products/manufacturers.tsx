@@ -38,10 +38,9 @@ export default function CustomerManufacturersScreen() {
         contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
         renderItem={({ item }) => (
           <Pressable
-            style={({ pressed }) => [
+            style={[
               styles.card,
               { backgroundColor: colors.backgroundAlt },
-              pressed && styles.pressed,
             ]}
             onPress={() =>
               router.push({
@@ -49,6 +48,7 @@ export default function CustomerManufacturersScreen() {
                 params: { manufacturerId: item.id },
               })
             }
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             accessibilityRole="button"
             accessibilityLabel={`Browse ${item.name}`}
           >
@@ -125,8 +125,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.sm,
     minHeight: 56,
+    overflow: "hidden",
   },
-  cardTextWrap: { flex: 1, gap: 2 },
+  cardTextWrap: { flex: 1, gap: spacing.xxs },
   cardText: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.subhead,
@@ -137,5 +138,4 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
   },
-  pressed: { opacity: 0.6 },
 });

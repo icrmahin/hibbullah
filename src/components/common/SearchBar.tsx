@@ -68,18 +68,18 @@ export default function SearchBar({
     return (
       <Pressable
         onPress={onPress}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
         accessibilityRole="search"
         accessibilityLabel={props.accessibilityLabel ?? placeholder}
         // The field's own styles sit on the Pressable, so the responder is also the thing
         // that is sized and painted. There is no inner view for a touch to land on
         // instead, which is what left the previous version tappable only at the icon.
-        style={({ pressed }) => [
+        style={[
           styles.wrapper,
           {
             backgroundColor: colors.backgroundAlt,
             borderColor: colors.borderLight,
           },
-          pressed && styles.pressed,
         ]}
       >
         <Icon name="search" size={20} color={colors.textMuted} />
@@ -122,6 +122,7 @@ export default function SearchBar({
       {value ? (
         <Pressable
           onPress={() => onChangeText("")}
+          android_ripple={{ color: colors.ripple.primary, borderless: false }}
           style={[styles.clearButton, { backgroundColor: colors.primarySoft }]}
           accessibilityRole="button"
           accessibilityLabel="Clear search"
@@ -141,6 +142,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: spacing.lg,
     height: layout.inputHeight,
+    overflow: "hidden",
   },
   input: {
     flex: 1,
@@ -156,8 +158,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-  },
-  pressed: {
-    opacity: 0.7,
+    overflow: "hidden",
   },
 });

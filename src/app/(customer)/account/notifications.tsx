@@ -211,7 +211,8 @@ export default function CustomerNotificationsScreen() {
               <Pressable
                 key={notification.id}
                 onPress={() => handleMarkRead(notification.id)}
-                style={({ pressed }) => pressed && styles.pressed}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
+                style={{ borderRadius: radius.lg, overflow: "hidden" }}
                 accessibilityRole="button"
                 accessibilityLabel={notification.title}
               >
@@ -346,7 +347,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.footnote,
     lineHeight: fontSize.footnote * lineHeight.normal,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
-  pressed: { opacity: 0.85 },
 });

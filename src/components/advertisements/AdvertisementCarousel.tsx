@@ -185,9 +185,10 @@ function AdvertisementCard({ advertisement, cardWidth }: { advertisement: Advert
   return (
     <Pressable
       onPress={open}
-      style={({ pressed }) => [
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
+      style={[
         styles.card,
-        { width: cardWidth, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight, opacity: pressed ? 0.92 : 1 },
+        { width: cardWidth, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
       ]}
       accessibilityRole="link"
       accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}

@@ -19,12 +19,8 @@ export const spacing = {
   xxl: 24,
   /** 32px */
   xxxl: 32,
-  /** 40px */
-  huge: 40,
   /** 48px */
   massive: 48,
-  /** 16px — alias for common gutter */
-  gutter: 16,
 } as const;
 
 export default spacing;

@@ -129,13 +129,13 @@ export default function CustomerSearchScreen() {
                     <Pressable
                       key={term}
                       onPress={() => setQuery(term)}
-                      style={({ pressed }) => [
+                      android_ripple={{ color: colors.ripple.primary, borderless: false }}
+                      style={[
                         styles.suggestion,
                         {
                           backgroundColor: colors.primarySoft,
                           borderColor: colors.borderLight,
                         },
-                        pressed && styles.pressed,
                       ]}
                       accessibilityRole="button"
                       accessibilityLabel={`Search for ${term}`}
@@ -208,6 +208,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   suggestionText: {
     fontFamily: fontFamily.pjsSemiBold,
@@ -215,5 +216,4 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.footnote * lineHeight.normal,
   },
   footer: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xs },
-  pressed: { opacity: 0.6 },
 });

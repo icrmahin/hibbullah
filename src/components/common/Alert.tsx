@@ -3,6 +3,8 @@ import { useThemeColors } from "../../providers/ThemeProvider";
 import { radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
+import Icon from "./Icon";
+import type { IconName } from "./Icon";
 
 type AlertVariant = "success" | "warning" | "danger" | "info";
 
@@ -33,6 +35,7 @@ export default function Alert({
   };
 
   const p = palette[variant];
+  const glyph: IconName = variant === "success" ? "check" : variant === "warning" ? "warning" : variant === "danger" ? "close" : "info";
 
   return (
     <View
@@ -41,9 +44,7 @@ export default function Alert({
     >
       <View style={styles.row}>
         <View style={[styles.iconCircle, { backgroundColor: p.fg }]}>
-          <Text style={[styles.iconText, { color: colors.textInverse }]}>
-            {variant === "success" ? "✓" : variant === "warning" ? "!" : variant === "danger" ? "✕" : "i"}
-          </Text>
+          <Icon name={glyph} size={12} color={colors.textInverse} />
         </View>
         <View style={styles.content}>
           {title ? (
@@ -77,14 +78,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 1,
   },
-  iconText: {
-    // The icon sits on a filled circle of the status colour, so the glyph has to be the
-    // label colour for a fill — which is white in light mode and near-black in dark,
-    // because dark mode's status fills are light. See `textInverse`.
-    fontSize: fontSize.micro,
-    fontFamily: fontFamily.bold,
-  },
-  content: { flex: 1, gap: 2 },
+  content: { flex: 1, gap: spacing.xs },
   title: {
     fontFamily: fontFamily.semiBold,
     fontSize: fontSize.bodySmall,

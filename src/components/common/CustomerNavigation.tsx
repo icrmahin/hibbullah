@@ -56,7 +56,7 @@ export default function CustomerNavigation() {
           return (
             <Pressable
               key={item.label}
-              style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+              style={styles.item}
               onPress={() => router.replace(item.path as never)}
               android_ripple={{ color: colors.ripple.primary }}
               accessibilityRole="button"
@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
     gap: 2,
     minHeight: 44,
     paddingHorizontal: 2,
+    overflow: "hidden",
   },
   iconContainer: {
     width: 32,
@@ -113,5 +114,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     lineHeight: 11,
   },
-  pressed: { opacity: 0.7 },
 });

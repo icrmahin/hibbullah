@@ -19,15 +19,15 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
   const isPending = order.status === "PENDING";
   return (
     <Pressable
-      style={({ pressed }) => [
+      style={[
         styles.card,
         {
           backgroundColor: colors.backgroundAlt,
           borderColor: colors.borderSoft,
-          opacity: pressed ? 0.88 : 1,
         },
       ]}
       onPress={() => onPress?.(order)}
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
       accessibilityRole="button"
       accessibilityLabel={`Order ${order.orderNumber}, ${order.status}, ${formatCurrency(order.total)}`}
     >
@@ -57,7 +57,7 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
         <View style={[styles.tlDot, { backgroundColor: order.status === "DELIVERED" ? colors.success : colors.borderLight }]} />
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { borderTopColor: colors.borderSoft }]}>
         <Text style={[styles.total, { color: colors.text }]}>{formatCurrency(order.total)}</Text>
         <View style={[styles.chevronPill, { backgroundColor: colors.background, borderColor: colors.borderLight }]}>
           <Icon name="chevron-right" size={16} color={colors.textMuted} />
@@ -73,6 +73,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing.lg,
     gap: spacing.xs,
+    overflow: "hidden",
   },
   headerRow: {
     flexDirection: "row",
@@ -110,7 +111,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: "transparent",
   },
   total: {
     fontFamily: fontFamily.pjsBold,

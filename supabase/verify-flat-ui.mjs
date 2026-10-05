@@ -289,14 +289,19 @@ function lineOf(file, needle) {
   const offenders = [];
 
   for (const [file, src] of code) {
-    const fills = [...src.matchAll(/backgroundColor:\s*colors\.primary\b/g)];
+    // Either side of the pairing may sit behind one ternary — see the label note
+    // below. Anything deeper keeps the original direct-pairing semantics.
+    const fills = [...src.matchAll(/backgroundColor:\s*(?:[A-Za-z_$][\w$]* \? )?colors\.primary\b/g)];
 
     for (const fill of fills) {
       const rest = src.slice(fill.index);
       const next = rest.slice(1).search(/backgroundColor:/);
       const scope = next === -1 ? rest : rest.slice(0, next + 1);
 
-      const bad = /color:\s*colors\.white\b/.exec(scope);
+      // The label may sit behind one ternary (`selected ? colors.white : muted` is
+      // the same defect wearing a conditional) — anything else keeps the original
+      // direct-pairing semantics.
+      const bad = /color:\s*(?:[A-Za-z_$][\w$]* \? )?colors\.white\b/.exec(scope);
       if (bad) {
         offenders.push(
           `${file}:${lineOf(file, bad[0])} a hardcoded colors.white label inside the element ` +

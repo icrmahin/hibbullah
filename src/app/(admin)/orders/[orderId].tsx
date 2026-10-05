@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/utils/navigation';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import Button from '../../../components/common/Button';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
@@ -110,6 +111,7 @@ export default function AdminOrderDetailScreen() {
   return (
     <Screen header={<ScreenHeader title={order.orderNumber} subtitle="Review order details" onBack={onBack} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware maxWidth={960}>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.customer, { color: colors.text }]}>{order.customerName}</Text>
           <StatusBadge label={order.status} tone={toneForStatus(order.status)} />
@@ -145,6 +147,7 @@ export default function AdminOrderDetailScreen() {
             </View>
           ))}
         </View>
+        </ResponsiveContainer>
       </ScrollView>
 
       <View style={[styles.footer, { borderTopColor: colors.borderSoft, backgroundColor: colors.background }]}>
@@ -170,7 +173,7 @@ export default function AdminOrderDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.lg },
+  container: { paddingVertical: spacing.lg, gap: spacing.lg },
   card: { borderRadius: radius.lg, padding: spacing.lg },
   // The customer's name is a name, not a heading: Sora at name scale, one step above the
   // section titles below it.

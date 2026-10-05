@@ -98,15 +98,15 @@ export default function ImageUpload({
     )
   ) : compact ? (
     <Pressable
-      style={({ pressed }) => [
+      style={[
         styles.compactEmpty,
         {
           borderColor: error ? colors.danger : colors.borderLight,
           backgroundColor: colors.background,
         },
-        pressed && styles.pressed,
       ]}
       onPress={() => setMenuOpen((open) => !open)}
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
       accessibilityRole="button"
       accessibilityLabel={`${label}: add an optional image`}
       disabled={uploading}
@@ -147,15 +147,15 @@ export default function ImageUpload({
     </Pressable>
   ) : (
     <Pressable
-      style={({ pressed }) => [
+      style={[
         styles.emptyState,
         {
           borderColor: error ? colors.danger : colors.borderLight,
           backgroundColor: colors.background,
         },
-        pressed && styles.pressed,
       ]}
       onPress={() => setMenuOpen((open) => !open)}
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
       accessibilityRole="button"
       accessibilityLabel={`${label}: choose an image`}
       disabled={uploading}
@@ -181,12 +181,12 @@ export default function ImageUpload({
       <View style={styles.actions}>
         {uri ? (
           <Pressable
-            style={({ pressed }) => [
+            style={[
               styles.action,
               { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
-              pressed && styles.pressed,
             ]}
             onPress={() => setMenuOpen((open) => !open)}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
             accessibilityRole="button"
             accessibilityLabel={`${label}: replace the image`}
             disabled={uploading}
@@ -197,12 +197,12 @@ export default function ImageUpload({
         ) : null}
         {uri ? (
           <Pressable
-            style={({ pressed }) => [
+            style={[
               styles.action,
               { backgroundColor: colors.redSoft, borderColor: colors.danger },
-              pressed && styles.pressed,
             ]}
             onPress={onRemove}
+            android_ripple={{ color: colors.ripple.danger, borderless: false }}
             accessibilityRole="button"
             accessibilityLabel={`${label}: remove the image`}
             disabled={uploading}
@@ -227,16 +227,18 @@ export default function ImageUpload({
           ]}
         >
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+            style={styles.menuItem}
             onPress={() => void choose("library")}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
           >
             <Icon name="photo-library" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Choose from library</Text>
           </Pressable>
           <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} />
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+            style={styles.menuItem}
             onPress={() => void choose("camera")}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
           >
             <Icon name="camera-alt" size={18} color={colors.accent} />
             <Text style={[styles.menuText, { color: colors.text }]}>Take photo</Text>
@@ -285,11 +287,12 @@ const styles = StyleSheet.create({
   action: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: radius.sm,
     borderWidth: 1,
+    overflow: "hidden",
   },
   actionText: {
     fontFamily: fontFamily.pjsSemiBold,
@@ -303,6 +306,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
+    overflow: "hidden",
   },
   emptyText: {
     fontFamily: fontFamily.pjsSemiBold,
@@ -324,6 +328,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   // Icon on the left, Optional on the right: fixed-width content, so this row can never
   // squeeze anything. `stretch` gives it the full inner width to spread across, and the
@@ -386,12 +391,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
+    overflow: "hidden",
   },
   menuText: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: typography.bodySmall,
   },
-  pressed: { opacity: 0.6 },
   hairline: { height: 1 },
   error: { fontSize: typography.caption },
 });

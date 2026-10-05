@@ -27,6 +27,7 @@ const SEARCH_BAR = 'src/components/common/SearchBar.tsx'
 const BUTTON = 'src/components/common/Button.tsx'
 const MODAL = 'src/components/common/Modal.tsx'
 const CONFIRM_DIALOG = 'src/components/common/ConfirmDialog.tsx'
+const DIALOG = 'src/components/common/Dialog.tsx'
 const CARD = 'src/components/products/ProductCard.tsx'
 const CUSTOMER_CART = 'src/app/(customer)/products/[productId].tsx'
 const ADMIN_CATALOG = 'src/app/(admin)/products/index.tsx'
@@ -188,8 +189,8 @@ const cases = [
     SEARCH_BAR,
     (s) =>
       s.replace(
-        'styles.wrapper,\n          {\n            backgroundColor: colors.backgroundAlt,\n            borderColor: colors.borderLight,\n          },\n          pressed && styles.pressed,',
-        '{ flex: 1 },\n          pressed && styles.pressed,',
+        'styles.wrapper,\n          {\n            backgroundColor: colors.backgroundAlt,\n            borderColor: colors.borderLight,\n          },',
+        '{ flex: 1 },',
       ),
   ],
   [
@@ -214,20 +215,20 @@ const cases = [
   ],
   [
     'strip the card back to a bare View, so reading the dialog closes it',
-    MODAL,
-    (s) => s.replace('          onStartShouldSetResponder={() => true}\n', ''),
+    DIALOG,
+    (s) => s.replace('        <View onStartShouldSetResponder={() => true} style=', '        <View style='),
   ],
   [
     // Passes a naive "does it have some responder guard" check while making the dialog
     // unanswerable: capture swallows the presses meant for Delete and Cancel.
     'guard the dialog card with the capture-phase variant',
-    MODAL,
+    DIALOG,
     (s) => s.replace('onStartShouldSetResponder={() => true}', 'onStartShouldSetResponderCapture={() => true}'),
   ],
   [
     'rely on stopPropagation to keep a card tap from dismissing',
-    CONFIRM_DIALOG,
-    (s) => s.replace('          onStartShouldSetResponder={() => true}\n', '          onPress={(e) => e.stopPropagation()}\n'),
+    DIALOG,
+    (s) => s.replace('        <View onStartShouldSetResponder={() => true} style=', '        <View onPress={(e) => e.stopPropagation()} style='),
   ],
 ]
 

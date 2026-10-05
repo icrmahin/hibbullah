@@ -7,6 +7,18 @@ import type { Product } from '../types/product'
 import type { Category } from '../types/category'
 import type { Manufacturer } from '../types/manufacturer'
 
+/**
+ * Every product column the client may read, i.e. all of them except cost_price.
+ * `cost_price` is revoked at the column level for anon/authenticated (see migration
+ * 20261006000000), and Postgres expands `select *` before checking privileges — so a
+ * single `*` anywhere on this table fails the whole query with 42501, even when the
+ * caller wants none of the forbidden column. Every direct read of `products` must use
+ * this list instead of `*`. (The browse/search RPCs select explicit columns already.)
+ */
+export const PRODUCT_PUBLIC_COLUMNS =
+  'id,name,brand,generic_name,manufacturer_id,category_id,description,price,original_price,' +
+  'discount_percent,stock,unit,image_url,secondary_image_url,is_active,is_featured,created_at,updated_at,is_deleted'
+
 const DEFAULT_PAGE_SIZE = 24
 const MAX_PAGE_SIZE = 100
 
@@ -170,7 +182,7 @@ export async function searchProducts(query: string, limit = 10): Promise<Product
 export async function fetchProductById(productId: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from('products')
-    .select('*, categories(name, slug), manufacturers(name)')
+    .select(`${PRODUCT_PUBLIC_COLUMNS},categories(name, slug),manufacturers(name)`)
     .eq('id', productId)
     .single()
 
@@ -180,6 +192,17 @@ export async function fetchProductById(productId: string): Promise<Product | nul
   }
 
   const product = mapProduct(data as unknown as Parameters<typeof mapProduct>[0]) as Product | null
+  // Cost is revoked at the column level for anon/authenticated, so it never arrives
+  // in the row above — for anyone. Admins get it back through the allowlisted
+  // definer RPC below; customers fail that call and keep `costPrice: undefined`,
+  // exactly as before. Best-effort on purpose: a missing cost must never fail
+  // a product view, and sending nothing on edit leaves the stored value alone.
+  try {
+    const { data: cost } = await supabase.rpc('admin_product_cost', { p_product_id: productId })
+    if (product && typeof cost === 'number') product.costPrice = cost
+  } catch {
+    // Not an admin (or RPC unavailable): cost stays hidden. Nothing else changes.
+  }
   // A soft-deleted product keeps its row for order history but no longer
   // exists as far as any UI is concerned.
   if (product?.isDeleted) return null

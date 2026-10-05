@@ -57,10 +57,9 @@ function SidebarItem({
 }) {
   return (
     <Pressable
-      style={({ pressed }) => [
+      style={[
         styles.navItem,
         active && { backgroundColor: colors.primarySoft },
-        pressed && { opacity: 0.7 },
       ]}
       onPress={() => router.replace(item.path as never)}
       android_ripple={{ color: colors.ripple.primary }}
@@ -151,8 +150,9 @@ function AdminIdentity() {
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.identity, pressed && styles.identityPressed]}
+      style={styles.identity}
       onPress={() => router.push("/(customer)/account/profile" as never)}
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
       accessibilityRole="button"
       accessibilityLabel={`Your profile, signed in as ${label}`}
     >
@@ -222,6 +222,7 @@ const styles = StyleSheet.create({
     borderRadius: sizes.borderRadius.md,
     minHeight: 40,
     marginBottom: 2,
+    overflow: "hidden",
   },
   iconTile: {
     width: 30,
@@ -250,8 +251,8 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     padding: spacing.sm,
     borderRadius: sizes.borderRadius.md,
+    overflow: "hidden",
   },
-  identityPressed: { opacity: 0.7 },
   identityText: { flex: 1, gap: 1 },
   identityName: {
     fontFamily: fontFamily.semiBold,

@@ -3,6 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { goToAdminProduct } from "@/utils/navigation";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
+import HeaderAction from "../../../components/common/HeaderAction";
+import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useAdminInventory } from "../../../hooks/useAdmin";
 import { useBottomInset } from "../../../hooks/useBottomInset";
@@ -31,18 +33,7 @@ export default function AdminInventoryScreen() {
   // The compact header pill every admin screen shares — not a full-height Button, which
   // sat proud of the 44px header row.
   const headerAction = (
-    <Pressable
-      onPress={() => router.push("/(admin)/inventory/adjustment")}
-      style={({ pressed }) => [
-        styles.headerAction,
-        { backgroundColor: colors.primarySoft },
-        pressed && styles.pressed,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel="Adjust stock"
-    >
-      <Text style={[styles.headerActionText, { color: colors.accent }]}>Adjust</Text>
-    </Pressable>
+    <HeaderAction label="Adjust" tone="soft" onPress={() => router.push("/(admin)/inventory/adjustment")} accessibilityLabel="Adjust stock" />
   );
 
   if (loading) {
@@ -63,6 +54,7 @@ export default function AdminInventoryScreen() {
   return (
     <Screen header={<ScreenHeader title="Inventory" subtitle="Stock overview" action={headerAction} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware>
         {items.length === 0 ? (
           <EmptyState title="No inventory" message="No stock batches found." />
         ) : (
@@ -73,6 +65,7 @@ export default function AdminInventoryScreen() {
               accessibilityLabel={`Open ${item.productName}`}
               disabled={!item.productId}
               onPress={() => goToAdminProduct(item.productId)}
+              android_ripple={{ color: colors.ripple.primary, borderless: false }}
               style={[styles.row, { backgroundColor: colors.backgroundAlt }]}
             >
               <View style={styles.rowMain}>
@@ -86,6 +79,7 @@ export default function AdminInventoryScreen() {
             </Pressable>
           ))
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
@@ -93,22 +87,9 @@ export default function AdminInventoryScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
     gap: spacing.md,
   },
-  headerAction: {
-    height: 34,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.pill,
-  },
-  headerActionText: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-  },
-  pressed: { opacity: 0.7 },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -116,6 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.sm,
+    overflow: "hidden",
   },
   rowMain: { flex: 1, gap: spacing.xxs },
   rowStats: { alignItems: 'flex-end', gap: spacing.xs },

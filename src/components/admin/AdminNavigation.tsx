@@ -49,9 +49,8 @@ export default function AdminNavigation() {
           return (
             <Pressable
               key={item.label}
-              style={({ pressed }) => [
+              style={[
                 styles.item,
-                pressed && styles.pressed,
               ]}
               onPress={() => router.replace(item.path as never)}
               android_ripple={{ color: colors.ripple.primary }}
@@ -84,7 +83,7 @@ export default function AdminNavigation() {
         })}
 
           <Pressable
-            style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+            style={styles.item}
             onPress={() => setDrawerOpen(true)}
             android_ripple={{ color: colors.ripple.primary }}
             accessibilityRole="button"
@@ -123,6 +122,7 @@ const styles = StyleSheet.create({
     gap: 2,
     minHeight: 40,
     paddingHorizontal: 4,
+    overflow: "hidden",
   },
   pill: {
     width: 32,
@@ -137,5 +137,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     lineHeight: 11,
   },
-  pressed: { opacity: 0.6 },
 });

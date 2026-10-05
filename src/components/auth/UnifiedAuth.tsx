@@ -193,6 +193,7 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
           accessibilityRole="button"
           accessibilityState={{ selected: isSignIn }}
           onPress={() => switchMode("signin")}
+          android_ripple={{ color: colors.ripple.primary, borderless: false }}
           style={[styles.toggleOption, isSignIn && { backgroundColor: colors.primary }]}
         >
           <Text
@@ -213,6 +214,7 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
           accessibilityRole="button"
           accessibilityState={{ selected: !isSignIn }}
           onPress={() => switchMode("signup")}
+          android_ripple={{ color: colors.ripple.primary, borderless: false }}
           style={[styles.toggleOption, !isSignIn && { backgroundColor: colors.primary }]}
         >
           <Text
@@ -403,6 +405,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: spacing.xs,
+    overflow: "hidden",
   },
   toggleText: {
     fontFamily: fontFamily.pjsSemiBold,

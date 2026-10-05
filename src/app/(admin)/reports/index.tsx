@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import Icon from '../../../components/common/Icon';
@@ -77,6 +78,7 @@ export default function AdminReportsScreen() {
   return (
     <Screen header={<ScreenHeader title="Reports" subtitle="High-level performance" />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           {reports.map((r, index) => (
             <React.Fragment key={r.label}>
@@ -92,7 +94,8 @@ export default function AdminReportsScreen() {
               <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
               <Pressable
                 onPress={() => router.push(link.href)}
-                style={({ pressed }) => [styles.navRow, pressed && styles.pressed]}
+                android_ripple={{ color: colors.ripple.primary, borderless: false }}
+                style={styles.navRow}
                 accessibilityRole="button"
                 accessibilityLabel={link.label}
               >
@@ -102,13 +105,14 @@ export default function AdminReportsScreen() {
             </React.Fragment>
           ))}
         </View>
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
+  container: { paddingVertical: spacing.lg, gap: spacing.md },
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,
@@ -139,11 +143,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+    overflow: "hidden",
   },
   navLabel: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.normal,
   },
-  pressed: { opacity: 0.7 },
 });

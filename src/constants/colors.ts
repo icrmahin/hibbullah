@@ -75,7 +75,12 @@ export const surface = {
   background: "#F6F7F4",
   DEFAULT: "#FFFFFF",
   overlay: "rgba(0, 0, 0, 0.4)",
-  disabled: "#F6F7F4",
+  /**
+   * One step darker than the page — a disabled fill must read as inactive,
+   * not vanish into the background the way it did when this matched it.
+   * Reuses the existing border-light tone rather than inventing a new grey.
+   */
+  disabled: "#E2E7E5",
 } as const;
 
 // ─── Status ──────────────────────────────────────────────

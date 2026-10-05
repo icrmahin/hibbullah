@@ -24,8 +24,10 @@ export default function QuantitySelector({
     <View style={[styles.row, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
       <Pressable
         onPress={() => onChange(Math.max(min, value - 1))}
+        disabled={atMin}
         style={styles.control}
         hitSlop={6}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
         accessibilityRole="button"
         accessibilityLabel="Decrease quantity"
         accessibilityState={{ disabled: atMin }}
@@ -41,8 +43,10 @@ export default function QuantitySelector({
       </Text>
       <Pressable
         onPress={() => onChange(Math.min(max, value + 1))}
+        disabled={atMax}
         style={styles.control}
         hitSlop={6}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
         accessibilityRole="button"
         accessibilityLabel="Increase quantity"
         accessibilityState={{ disabled: atMax }}
@@ -69,6 +73,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
+    overflow: "hidden",
   },
   value: {
     minWidth: 32,

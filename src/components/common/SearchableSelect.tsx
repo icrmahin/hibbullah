@@ -121,12 +121,12 @@ export default function SearchableSelect({
       <Pressable
         onPress={() => !disabled && setOpen(true)}
         disabled={disabled}
-        style={({ pressed }) => [
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
+        style={[
           styles.trigger,
           { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
           !!error && { borderColor: colors.danger },
           disabled && styles.triggerDisabled,
-          pressed && !disabled && { opacity: opacityToken.pressed },
         ]}
         accessibilityRole="button"
         accessibilityState={{ disabled, expanded: open }}
@@ -149,7 +149,7 @@ export default function SearchableSelect({
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={close}>
           {/* Tapping inside must not close the sheet. */}
           <Pressable
-            style={[styles.sheet, { backgroundColor: colors.backgroundAlt }]}
+            style={[styles.sheet, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}
             onPress={() => {}}
           >
             <View style={styles.sheetHeader}>
@@ -192,10 +192,10 @@ export default function SearchableSelect({
                           onSelect(item.value);
                           close();
                         }}
-                        style={({ pressed }) => [
+                        android_ripple={{ color: colors.ripple.primary, borderless: false }}
+                        style={[
                           styles.option,
                           isSelected && { backgroundColor: colors.primarySoft },
-                          pressed && { opacity: opacityToken.pressed },
                         ]}
                         accessibilityRole="radio"
                         accessibilityState={{ selected: isSelected }}
@@ -248,6 +248,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
+    overflow: "hidden",
   },
   triggerDisabled: { opacity: opacityToken.disabled },
   triggerText: {
@@ -264,12 +265,16 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "center",
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   sheet: {
     borderRadius: radius.xl,
+    borderWidth: 1,
     padding: spacing.lg,
     gap: spacing.md,
+    maxWidth: 420,
+    width: "100%",
+    alignSelf: "center",
   },
   sheetHeader: {
     flexDirection: "row",
@@ -277,9 +282,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   sheetTitle: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.callout,
-    lineHeight: fontSize.callout * lineHeight.normal,
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
   },
   listWrap: { maxHeight: LIST_MAX_HEIGHT },
   option: {
@@ -291,6 +296,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     minHeight: layout.touch,
+    overflow: "hidden",
   },
   optionTextWrap: { flex: 1, gap: 2 },
   optionText: {

@@ -23,6 +23,9 @@ export default function ManufacturerCard({
         },
       ]}
       onPress={onPress}
+      android_ripple={{ color: colors.ripple.primary, borderless: false }}
+      accessibilityRole="button"
+      accessibilityLabel={manufacturer.name}
     >
       <Text style={[styles.name, { color: colors.text }]}>{manufacturer.name}</Text>
       <Text style={[styles.meta, { color: colors.textMuted }]}>
@@ -37,7 +40,8 @@ const styles = StyleSheet.create({
     borderRadius: sizes.cardRadius,
     borderWidth: 1,
     padding: spacing.lg,
+    overflow: "hidden",
   },
   name: { fontFamily: fontFamily.soraSemiBold, fontSize: typography.body },
-  meta: { fontSize: typography.caption, marginTop: 4 },
+  meta: { fontSize: typography.caption, marginTop: spacing.xs },
 });

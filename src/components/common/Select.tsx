@@ -42,12 +42,12 @@ export default function Select({
       <Pressable
         onPress={() => !disabled && setOpen(true)}
         disabled={disabled}
-        style={({ pressed }) => [
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
+        style={[
           styles.trigger,
           { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
-          !!error && styles.triggerError,
+          !!error && { borderColor: colors.danger },
           disabled && styles.triggerDisabled,
-          pressed && !disabled && { opacity: opacityToken.pressed },
         ]}
         accessibilityRole="button"
         accessibilityState={{ disabled, expanded: open }}
@@ -65,7 +65,7 @@ export default function Select({
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={() => setOpen(false)}>
-          <View style={[styles.sheet, { backgroundColor: colors.backgroundAlt }]}>
+          <View style={[styles.sheet, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>{label || placeholder}</Text>
             {options.map((opt) => (
               <Pressable
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
+    overflow: "hidden",
   },
-  triggerError: { borderColor: "red" },
   triggerDisabled: { opacity: opacityToken.disabled },
   triggerText: {
     flex: 1,
@@ -126,17 +126,22 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "center",
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   sheet: {
     borderRadius: radius.xl,
+    borderWidth: 1,
     padding: spacing.lg,
+    gap: spacing.md,
+    maxWidth: 420,
+    width: "100%",
+    alignSelf: "center",
   },
   sheetTitle: {
-    fontFamily: fontFamily.semiBold,
-    fontSize: fontSize.callout,
-    lineHeight: fontSize.callout * lineHeight.normal,
-    marginBottom: spacing.md,
+    fontFamily: fontFamily.soraSemiBold,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
+    marginBottom: spacing.sm,
   },
   option: {
     flexDirection: "row",

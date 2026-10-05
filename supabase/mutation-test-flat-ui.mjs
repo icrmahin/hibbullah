@@ -45,7 +45,7 @@ const MUTATIONS = [
   {
     rule: "no-pill-radius",
     what: "bring the pill radius back at a call site",
-    file: "src/components/common/ConfirmDialog.tsx",
+    file: "src/components/common/Dialog.tsx",
     // The real regression: someone hardcodes 999 rather than using the token.
     apply: (s) => s.replace("borderRadius: radius.xl", "borderRadius: 999"),
   },
@@ -88,9 +88,9 @@ const MUTATIONS = [
   {
     rule: "fill-label-token",
     what: "hardcode a white label on the accent fill — the 2.19:1 regression",
-    file: "src/app/(admin)/index.tsx",
-    // Every occurrence, not the first. This file uses `textInverse` in three places and the
-    // one that matters is the label *inside* the `colors.primary` fill; replacing only the
+    file: "src/components/common/HeaderAction.tsx",
+    // Every occurrence, not the first. The header action uses `textInverse` for the
+    // icon and the label inside the `colors.primary` fill; replacing only the
     // first would change a different element and prove nothing.
     apply: (s) => s.replaceAll("colors.textInverse", "colors.white"),
   },

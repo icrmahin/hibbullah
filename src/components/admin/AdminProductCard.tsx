@@ -4,6 +4,7 @@ import { radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import type { Product } from "../../types/product";
+import config from "../../constants/config";
 import ProductImage from "../products/ProductImage";
 import ProductPrice from "../products/ProductPrice";
 import StatusBadge from "../common/StatusBadge";
@@ -17,8 +18,9 @@ export default function AdminProductCard({
   onPress?: (product: Product) => void;
 }) {
   const colors = useThemeColors();
-  const available = product.isActive && product.stock > 0;
-  const stockKey = !product.isActive ? "INACTIVE" : product.stock === 0 ? "OUT_OF_STOCK" : product.stock < 10 ? "LOW" : "ACTIVE";
+  // Same threshold as the product detail screen (`config.lowStockThreshold`) — two
+  // screens disagreeing about what "low" means is a data bug wearing a UI costume.
+  const stockKey = !product.isActive ? "INACTIVE" : product.stock === 0 ? "OUT_OF_STOCK" : product.stock < config.lowStockThreshold ? "LOW" : "ACTIVE";
 
   return (
     <Pressable
@@ -49,7 +51,7 @@ export default function AdminProductCard({
                 ? "Inactive"
                 : product.stock === 0
                   ? "Out of stock"
-                  : product.stock < 10
+                  : product.stock < config.lowStockThreshold
                     ? "Low stock"
                     : "Active"
             }
@@ -64,10 +66,12 @@ export default function AdminProductCard({
         </Text>
         <View style={styles.footer}>
           <ProductPrice price={product.price} originalPrice={product.originalPrice} />
+          {/* Neutral ink: the badge above already carries the stock status, so
+              colouring the count too would signal by colour alone. */}
           <Text
             style={[
               styles.stock,
-              { color: available ? colors.success : colors.danger },
+              { color: colors.textMuted },
             ]}
           >
             {product.stock} units

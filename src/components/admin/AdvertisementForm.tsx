@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
+import { radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
-import { fontFamily, fontSize, lineHeight, letterSpacing } from "../../constants/typography";
+import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import Button from "../common/Button";
 import ConfirmDialog from "../common/ConfirmDialog";
+import Toggle from "../common/Toggle";
 import ImageUpload from "../common/ImageUpload";
 import Input from "../common/Input";
 import SearchableSelect from "../common/SearchableSelect";
@@ -217,11 +219,15 @@ export default function AdvertisementForm({
   );
 
   return (
-    <ScrollView
-      contentContainerStyle={[styles.form, { paddingBottom: bottomInset }]}
-      keyboardShouldPersistTaps="handled"
-    >
-      {section("Banner")}
+    <>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* One white card like the product form: the page colour does the framing. */}
+        <View style={[styles.form, { backgroundColor: colors.backgroundAlt }]}>
+          {section("Banner")}
       <ImageUpload
         label="Banner image"
         variant="full"
@@ -352,67 +358,81 @@ export default function AdvertisementForm({
             Off keeps the banner and its wording, but nobody sees it
           </Text>
         </View>
-        <Switch
+        <Toggle
           value={isActive}
           onValueChange={setIsActive}
-          trackColor={{ false: colors.border, true: colors.primarySoft }}
-          thumbColor={isActive ? colors.accent : colors.textMuted}
           accessibilityLabel="Showing now"
         />
       </View>
+        </View>
+      </ScrollView>
 
-      {formError ? (
-        <Text style={[styles.formError, { color: colors.danger }]} accessibilityRole="alert">
-          {formError}
-        </Text>
-      ) : null}
+      <View
+        style={[
+          styles.footer,
+          {
+            borderTopColor: colors.borderSoft,
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
+        {formError ? (
+          <Text style={[styles.formError, { color: colors.danger }]} accessibilityRole="alert">
+            {formError}
+          </Text>
+        ) : null}
 
-      <Button
-        title={submitLabel}
-        fullWidth
-        loading={saving}
-        disabled={imageUploading}
-        onPress={() => void handleSubmit()}
-        style={styles.submit}
-      />
-      {onDelete ? (
         <Button
-          title="Delete banner"
-          variant="danger"
+          title={submitLabel}
           fullWidth
-          loading={deleting}
-          disabled={saving}
-          onPress={() => setConfirmingDelete(true)}
+          loading={saving}
+          disabled={imageUploading}
+          onPress={() => void handleSubmit()}
         />
-      ) : null}
+        {onDelete ? (
+          <Button
+            title="Delete banner"
+            variant="danger"
+            fullWidth
+            loading={deleting}
+            disabled={saving}
+            onPress={() => setConfirmingDelete(true)}
+          />
+        ) : null}
 
-      <ConfirmDialog
-        visible={confirmingDelete}
-        title="Delete this banner?"
-        message={`${title.trim() || "This banner"} will be removed from the shop. This cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Keep it"
-        destructive
-        onConfirm={() => void handleDelete()}
-        onCancel={() => setConfirmingDelete(false)}
-      />
-    </ScrollView>
+        <ConfirmDialog
+          visible={confirmingDelete}
+          title="Delete this banner?"
+          message={`${title.trim() || "This banner"} will be removed from the shop. This cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Keep it"
+          destructive
+          onConfirm={() => void handleDelete()}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  container: {
+    padding: spacing.lg,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 720,
+  },
   form: {
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
   sectionLabel: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.micro,
     lineHeight: fontSize.micro * lineHeight.normal,
     marginTop: spacing.sm,
-    textTransform: "uppercase",
-    letterSpacing: letterSpacing.wide,
   },
   switchRow: {
     flexDirection: "row",
@@ -437,5 +457,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
   },
-  submit: { marginTop: spacing.sm },
+  footer: {
+    padding: spacing.lg,
+    gap: spacing.sm,
+    borderTopWidth: 1,
+  },
 });

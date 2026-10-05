@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { mapOrder, mapProduct } from '../lib/mappers'
 import { AppError, AppErrorType, supabaseErrorToAppError } from '../lib/errors'
-import { listProducts } from './products'
+import { listProducts, PRODUCT_PUBLIC_COLUMNS } from './products'
 import type { ProductCursor } from './products'
 import config from '../constants/config'
 import type { Product } from '../types/product'
@@ -150,8 +150,8 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
   ] = await Promise.all([
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'PENDING'),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'PROCESSING'),
-    supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true),
-    supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true).lt('stock', 10),
+    supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true).lt('stock', 10),
     supabase
       .from('orders')
       .select('id, order_number, customer_name, total')
@@ -332,7 +332,7 @@ export async function fetchAdminProducts(
   const limit = Math.min(Math.max(filters?.limit ?? 24, 1), 100)
   const fallback = await supabase
     .from('products')
-    .select('*, categories(name, slug), manufacturers(name)')
+    .select(`${PRODUCT_PUBLIC_COLUMNS},categories(name, slug),manufacturers(name)`)
     .order('created_at', { ascending: false })
     .limit(limit + 1)
   if (fallback.error) return { data: [], total: 0, hasMore: false, cursor: null }

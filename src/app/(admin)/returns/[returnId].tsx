@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { goBack } from '@/utils/navigation';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
+import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -132,6 +133,7 @@ export default function AdminReturnDetailScreen() {
   return (
     <Screen header={<ScreenHeader title={`Return ${item.id.slice(0, 8)}`} subtitle="Return request" onBack={onBack} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware maxWidth={960}>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           {details.map((field) => (
             <View
@@ -158,6 +160,7 @@ export default function AdminReturnDetailScreen() {
         ) : item.status === 'APPROVED' ? (
           <Button title="Mark processed" onPress={() => handleUpdate('PROCESSED')} loading={updating === 'PROCESSED'} disabled={!!updating} fullWidth />
         ) : null}
+        </ResponsiveContainer>
       </ScrollView>
       <ConfirmDialog {...confirmDialogProps} />
     </Screen>
@@ -165,7 +168,7 @@ export default function AdminReturnDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.lg },
+  container: { paddingVertical: spacing.lg, gap: spacing.lg },
   card: {
     borderRadius: radius.lg,
     padding: spacing.lg,

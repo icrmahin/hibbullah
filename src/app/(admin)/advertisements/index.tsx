@@ -4,6 +4,8 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
+import HeaderAction from "../../../components/common/HeaderAction";
+import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import EmptyState from "../../../components/common/EmptyState";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
@@ -75,7 +77,7 @@ function AdvertisementRow({ ad, onToggle }: AdvertisementRowProps) {
           router.push({ pathname: "/(admin)/advertisements/[adId]", params: { adId: ad.id } })
         }
         android_ripple={{ color: colors.ripple.primary }}
-        style={({ pressed }) => [styles.rowMain, { opacity: pressed ? 0.92 : 1 }]}
+        style={styles.rowMain}
         accessibilityRole="button"
         accessibilityLabel={`Edit banner ${ad.title}`}
       >
@@ -115,7 +117,6 @@ function AdvertisementRow({ ad, onToggle }: AdvertisementRowProps) {
 }
 
 export default function AdminAdvertisementsScreen() {
-  const colors = useThemeColors();
   const bottomInset = useBottomInset();
   const { data, loading, error, reload } = useAdvertisements("admin");
   // Patched rows between the toggle and the next focus-driven reload.
@@ -146,23 +147,13 @@ export default function AdminAdvertisementsScreen() {
           title="Advertisements"
           subtitle={subtitle}
           action={
-            <Pressable
-              onPress={() => router.push("/(admin)/advertisements/add")}
-              style={({ pressed }) => [
-                styles.addButton,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Add advertisement"
-            >
-              <Icon name="add" size={16} color={colors.textInverse} />
-              <Text style={[styles.addButtonText, { color: colors.textInverse }]}>Add</Text>
-            </Pressable>
+            <HeaderAction label="Add" icon="add" onPress={() => router.push("/(admin)/advertisements/add")} accessibilityLabel="Add advertisement" />
           }
         />
       }
     >
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
+        <ResponsiveContainer sidebarAware>
         {data.length === 0 ? (
           <EmptyState
             title="No banners yet"
@@ -177,6 +168,7 @@ export default function AdminAdvertisementsScreen() {
             />
           ))
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </Screen>
   );
@@ -198,6 +190,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     minHeight: 64,
+    overflow: "hidden",
   },
   thumb: {
     width: 72,
@@ -225,18 +218,5 @@ const styles = StyleSheet.create({
   pause: {
     paddingHorizontal: spacing.sm,
     alignItems: "flex-end",
-  },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-  },
-  addButtonText: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
   },
 });
