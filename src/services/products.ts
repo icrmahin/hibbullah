@@ -298,13 +298,19 @@ export async function createManufacturer(input: { name: string; country?: string
 export type CreateProductInput = {
   name: string
   brand: string
-  genericName: string
+  /**
+   * Optional. The "same medicine, any brand" box was removed from the form, so a medicine
+   * saved without one stores an empty string rather than failing — `generic_name` is
+   * `not null`, and a field the owner was never shown is not a reason to refuse the save.
+   */
+  genericName?: string
   manufacturerId: string
   categoryId: string
   description: string
   price: number
   stock: number
-  unit: string
+  /** Optional. The column defaults to `'pack'`. */
+  unit?: string
   isActive: boolean
   /**
    * Optional. The form generates one up front so it can upload the product
@@ -329,10 +335,11 @@ export type CreateProductInput = {
  * create_product RPC. Before this, a failure on the inventory insert left a
  * product row with stock 0 and the form still on screen.
  *
- * Normalizes the two inputs Postgres is strict about, so a normal form state
- * can never come back as an RPC 400:
- * - discount without an original price is rejected by the check_discount
- *   trigger, so it is coerced to 0 (the form also blocks it with a message).
+ * Guards the inputs Postgres is strict about, so a normal form state can never come
+ * back as an RPC 400:
+ * - a discount and the price it comes off are a pair, which the check_discount
+ *   trigger enforces; they are refused here with a message instead of arriving as a
+ *   constraint violation.
  * - p_expiry_date is cast to date by PostgREST before the function runs, so a
  *   non-YYYY-MM-DD value is a 400 with no row written; it is validated here.
  */
@@ -341,15 +348,38 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
 
   const name = input.name?.trim()
   const brand = input.brand?.trim()
-  const genericName = input.genericName?.trim()
+  // The generic-name field is gone from the form, so a new medicine may arrive without
+  // one. `generic_name` is `not null`, so an absent value is stored as an empty string
+  // rather than turned into a refused save; an edited medicine keeps whatever it had,
+  // because the update path leaves an undefined key alone.
+  const genericName = input.genericName?.trim() ?? ''
   if (!name) throw new Error('Product name is required.')
   if (!brand) throw new Error('Brand is required.')
-  if (!genericName) throw new Error('Generic name is required.')
   if (!input.manufacturerId) throw new Error('Select a manufacturer.')
   if (!input.categoryId) throw new Error('Select a category.')
 
   const price = Number(input.price)
-  if (!Number.isFinite(price) || price <= 0) throw new Error('Enter a valid price.')
+  if (!Number.isFinite(price) || price < 0) throw new Error('Enter a valid price.')
+
+  // The pricing triple: `price` is what the customer hands over after the discount,
+  // `originalPrice` is the figure the discount came off, `discountPercent` is the
+  // percentage. The form derives all three from one customer price and one percentage, so
+  // everything here is a check rather than a computation — the pairing is what the
+  // `check_discount` trigger enforces, and the range is what the column holds. A 100%
+  // discount is a free item, and the only way a price of 0 is meant to happen.
+  const originalRaw = input.originalPrice ?? null
+  const originalPrice = originalRaw != null ? Number(originalRaw) : null
+  if (originalPrice != null && (!Number.isFinite(originalPrice) || originalPrice <= 0))
+    throw new Error('Enter a valid original price.')
+  const discountRaw = input.discountPercent ?? null
+  const discountPercent = discountRaw != null ? Number(discountRaw) : 0
+  if (!Number.isInteger(discountPercent) || discountPercent < 0 || discountPercent > 100)
+    throw new Error('Discount must be a whole number from 0 to 100.')
+  // Refused rather than coerced to zero: silently dropping a discount the owner typed is
+  // worse than an error they can read. The form always sends the pair together.
+  if (discountPercent > 0 && originalPrice == null)
+    throw new Error('A discount needs the price it comes off.')
+  if (price <= 0 && discountPercent !== 100) throw new Error('Enter a valid price.')
 
   // A product with no cost price is stored with no cost price.
   //
@@ -367,23 +397,15 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   // reason that field exists.
   const costInput = input.costPrice != null ? Number(input.costPrice) : NaN
   const costPrice = Number.isFinite(costInput) ? costInput : null
-  if (costPrice !== null && (costPrice < 0 || costPrice > price))
-    throw new Error('Cost cannot exceed selling price.')
+  // Against the price before the discount — the figure the form labels "customer price",
+  // and the one the owner compares what they paid against. A discount is a choice; a cost
+  // above that shelf price is a loss whatever the discount does to the final number.
+  const shelfPrice = originalPrice ?? price
+  if (costPrice !== null && (costPrice < 0 || costPrice > shelfPrice))
+    throw new Error('Cost cannot exceed the customer price.')
 
   const stock = Number(input.stock ?? 0)
   if (!Number.isInteger(stock) || stock < 0) throw new Error('Enter a valid whole-number stock.')
-
-  // Discount is only meaningful against an original price. Coerce rather than
-  // send an invalid pairing the trigger would reject with a 400.
-  const originalRaw = input.originalPrice ?? null
-  const originalPrice = originalRaw != null ? Number(originalRaw) : null
-  if (originalPrice != null && (!Number.isFinite(originalPrice) || originalPrice <= 0))
-    throw new Error('Enter a valid original price.')
-  const discountRaw = input.discountPercent ?? null
-  const discountNum = discountRaw != null ? Number(discountRaw) : 0
-  if (!Number.isFinite(discountNum) || discountNum < 0 || discountNum > 99)
-    throw new Error('Discount must be 0-99%.')
-  const discountPercent = originalPrice == null ? 0 : discountNum
 
   const batchNumber = input.batchNumber?.trim() || null
 
@@ -432,8 +454,8 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
  */
 function toFriendlyCreateError(error: { message?: string; code?: string }): Error {
   const message = error.message ?? ''
-  if (/discount_percent must be 0/i.test(message))
-    return new Error('Add an original price when a discount is set, or leave discount empty.')
+  if (/discount_percent/i.test(message) && /check constraint/i.test(message))
+    return new Error('The discount has to be a whole number from 1 to 100, or empty.')
   if (/invalid input syntax for type date/i.test(message))
     return new Error('Expiry date must be YYYY-MM-DD (e.g. 2027-05-12).')
   if (/violates foreign key constraint/i.test(message)) {
@@ -566,9 +588,12 @@ export async function updateProduct(productId: string, input: ProductUpdate): Pr
         const { error } = await supabase.from('inventory_items').update(patch).eq('id', batches[0].id)
         if (error) throw error
       } else if (input.stock > 0) {
+        // `batch_number` is deliberately absent. The column carries a default that
+        // generates the short identifier in the database — the same function
+        // `create_product` calls — so formatting one here would be a second copy of a
+        // format the backend owns. There is no client-side batch generator left.
         const { error } = await supabase.from('inventory_items').insert({
           product_id: productId,
-          batch_number: `BATCH-${productId.slice(0, 8).toUpperCase()}-001`,
           quantity: input.stock,
           expiry_date: expiry,
         })

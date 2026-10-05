@@ -329,9 +329,15 @@ function lineOf(file, needle) {
   const ALLOWED_ACCENT_FILLS = new Set([
     join(SRC, "app", "(admin)", "products", "index.tsx"),
     join(SRC, "app", "(admin)", "index.tsx"),
+    // The same header "Add" button as the product list: a filled pill in the header slot
+    // whose label goes through textInverse. Advertisements was added to the list by the
+    // Advertisements manager, not by decoration creeping in.
+    join(SRC, "app", "(admin)", "advertisements", "index.tsx"),
     join(SRC, "components", "admin", "ProductForm.tsx"),
     join(SRC, "components", "auth", "UnifiedAuth.tsx"),
-    join(SRC, "components", "products", "ProductHeroSlider.tsx"),
+    // ProductHeroSlider.tsx was here: its "Shop now" pill was an accent fill. The slider
+    // is gone — the homepage banner now comes from `advertisements` — so the fifth
+    // entry left with it rather than sitting here naming a file that no longer exists.
   ]);
 
   const offenders = [];

@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/set-state-in-effect -- seeding the input from a route param requires setState inside an effect */
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { goBack } from "@/utils/navigation";
+import { goBack, goToProduct } from "@/utils/navigation";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import Screen from "../../components/common/Screen";
 import ScreenHeader from "../../components/common/ScreenHeader";
@@ -102,12 +102,7 @@ export default function CustomerSearchScreen() {
           <View style={styles.gridItem}>
             <ProductCard
               product={item}
-              onPress={(product) =>
-                router.push({
-                  pathname: "/(customer)/products/[productId]",
-                  params: { productId: product.id },
-                })
-              }
+              onPress={(product) => goToProduct(product.id)}
             />
           </View>
         )}

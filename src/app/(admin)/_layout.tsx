@@ -31,10 +31,16 @@ export default function AdminLayout() {
       <View style={styles.content}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
+          {/*
+            `products` only. It has its own `products/_layout.tsx`, which makes the whole
+            directory ONE child of this navigator — so `products/add`,
+            `products/[productId]` and `products/[productId]/edit` belong to the *nested*
+            stack and declaring them here can never match (Expo Router warns
+            "No route named ... exists in nested children"). The groups below have no
+            layout of their own, which is why their names are spelled out in full and
+            resolve.
+          */}
           <Stack.Screen name="products" />
-          <Stack.Screen name="products/[productId]" />
-          <Stack.Screen name="products/[productId]/edit" />
-          <Stack.Screen name="products/add" />
           <Stack.Screen name="inventory" />
           <Stack.Screen name="inventory/batches" />
           <Stack.Screen name="inventory/expiry" />
@@ -49,6 +55,14 @@ export default function AdminLayout() {
           <Stack.Screen name="returns" />
           <Stack.Screen name="returns/[returnId]" />
           <Stack.Screen name="audit" />
+          {/*
+            Same shape as `orders`: no `_layout.tsx` inside the directory, so these three
+            are direct children of this stack and are declared in full. `advertisements`
+            covers the list because `child.route === name + "/index"` matches.
+          */}
+          <Stack.Screen name="advertisements" />
+          <Stack.Screen name="advertisements/add" />
+          <Stack.Screen name="advertisements/[adId]" />
         </Stack>
       </View>
       {isMobile && <AdminNavigation />}

@@ -16,9 +16,11 @@ import type { ProductUpdate } from "../../services/products";
 import type { Category } from "../../types/category";
 import type { Manufacturer } from "../../types/manufacturer";
 import type { Product } from "../../types/product";
+import { formatCurrency, getSalePrice } from "../../utils/currency";
 import { randomUuid } from "../../utils/uuid";
-import { isEmpty } from "../../utils/validation";
+import { isEmpty, parseDiscountPercent } from "../../utils/validation";
 import Button from "../common/Button";
+import FilterChip from "../common/FilterChip";
 import ImageUpload from "../common/ImageUpload";
 import Input from "../common/Input";
 import type { SelectOption } from "../common/SearchableSelect";
@@ -28,12 +30,15 @@ import SearchableSelect from "../common/SearchableSelect";
  * The payload the form produces. It is a create payload, so the required fields
  * are present, and it doubles as a partial update because the same type is what
  * `updateProduct` takes.
+ *
+ * `genericName` is deliberately absent: the "same medicine, any brand" box is gone from the
+ * form, so a new medicine stores an empty generic and an edited one keeps whatever it
+ * already had (`undefined` in an update means "leave it alone").
  */
 export type ProductFormInput = ProductUpdate & {
   id?: string;
   name: string;
   brand: string;
-  genericName: string;
   manufacturerId: string;
   categoryId: string;
   description: string;
@@ -71,7 +76,21 @@ type ProductFormProps = {
 };
 
 /**
- * Fields whose blank value is meaningful.
+ * The three ways a medicine is sold, as a selector rather than a free-text box.
+ *
+ * The value written back is lowercase because `products.unit` defaults to `'pack'` and
+ * `create_product` coalesces to that same string, so a medicine saved through this control
+ * is stored exactly like one saved before it existed. The label is capitalised because it
+ * is a word a person reads, not a value a column holds.
+ */
+const SOLD_AS = [
+  { label: "Pack", value: "pack" },
+  { label: "Bottle", value: "bottle" },
+  { label: "Box", value: "box" },
+] as const;
+
+/**
+ * Fields whose blank value is meaningful — `costPrice`, `stock` and `expiryDate`.
  *
  * On edit, an untouched blank field must leave the stored value alone. The
  * previous form always sent every field, so clearing the cost-price box silently
@@ -79,17 +98,13 @@ type ProductFormProps = {
  * — the admin retyped a price, hit save, and lost data they never touched.
  * Tracking which fields the admin actually edited is what makes "leave blank to
  * keep" true, and it is also what lets the same form be used for a partial save.
+ *
+ * `expiryDate` is on the list because `products` has no expiry column at all: the date
+ * lives on `inventory_items`, so the box starts empty on every edit. Sending it unasked
+ * would have written a null over a real batch expiry. `unit` is not on it — the box holds
+ * exactly what is stored, so writing it back is a no-op rather than a reset.
  */
-const OPTIONAL_NUMERIC_FIELDS = [
-  "costPrice",
-  "originalPrice",
-  "discountPercent",
-  "stock",
-  "batchNumber",
-  "expiryDate",
-] as const;
-
-type OptionalField = (typeof OPTIONAL_NUMERIC_FIELDS)[number];
+type OptionalField = "costPrice" | "stock" | "expiryDate";
 
 export default function ProductForm({
   product,
@@ -115,22 +130,33 @@ export default function ProductForm({
 
   const [name, setName] = useState(product?.name ?? "");
   const [brand, setBrand] = useState(product?.brand ?? "");
-  const [genericName, setGenericName] = useState(product?.genericName ?? "");
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? "");
   const [manufacturerId, setManufacturerId] = useState(
     product?.manufacturerId ?? "",
   );
   const [unit, setUnit] = useState(product?.unit ?? "pack");
   const [description, setDescription] = useState(product?.description ?? "");
-  const [price, setPrice] = useState(product ? String(product.price) : "");
+  /**
+   * The customer price, *before* any discount — the box the discount is a percentage of.
+   *
+   * When a discount is stored, `original_price` holds the number that was typed here and
+   * `price` holds what was left after the percentage. Reading `original_price` back into
+   * this box is what makes a second save start from the same figure, so the discount is
+   * recomputed rather than taken off a price that already had it taken off.
+   */
+  const [price, setPrice] = useState(() => {
+    if (!product) return "";
+    const discounted =
+      (product.discountPercent ?? 0) > 0 && product.originalPrice != null;
+    return String(discounted ? product.originalPrice : product.price);
+  });
   const [costPrice, setCostPrice] = useState(
     product?.costPrice != null ? String(product.costPrice) : "",
   );
-  const [originalPrice, setOriginalPrice] = useState(
-    product?.originalPrice ? String(product.originalPrice) : "",
-  );
   const [discountPercent, setDiscountPercent] = useState(
-    product?.discountPercent ? String(product.discountPercent) : "",
+    product && (product.discountPercent ?? 0) > 0
+      ? String(product.discountPercent)
+      : "",
   );
   const [stock, setStock] = useState(product ? String(product.stock) : "");
   const [primaryImage, setPrimaryImage] = useState<string | null>(
@@ -139,27 +165,9 @@ export default function ProductForm({
   const [secondaryImage, setSecondaryImage] = useState<string | null>(
     product?.secondaryImage ?? null,
   );
-  const [batchNumber, setBatchNumber] = useState(product?.batchNumber ?? "");
   const [expiryDate, setExpiryDate] = useState(product?.expiryDate ?? "");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured ?? false);
-  // Optional extras live behind one toggle so adding a medicine is three short
-  // steps. On edit it opens by itself when any extra already has a value.
-  const [showMore, setShowMore] = useState(
-    Boolean(
-      product?.costPrice ||
-      product?.originalPrice ||
-      product?.discountPercent ||
-      product?.batchNumber ||
-      product?.expiryDate ||
-      product?.secondaryImage ||
-      product?.description ||
-      product?.isFeatured,
-    ),
-  );
-  const [showAdvanced, setShowAdvanced] = useState(
-    Boolean(product?.batchNumber || product?.expiryDate),
-  );
 
   // Only options created *inline* are held in state. The fetched lists are used
   // straight from the props.
@@ -174,9 +182,9 @@ export default function ProductForm({
   const [addedCats, setAddedCats] = useState<Category[]>([]);
   const [addedMans, setAddedMans] = useState<Manufacturer[]>([]);
 
-  const [touched, setTouched] = useState<
-    Partial<Record<OptionalField, boolean>>
-  >({});
+  const [touched, setTouched] = useState<Partial<Record<OptionalField, boolean>>>(
+    {},
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -197,9 +205,9 @@ export default function ProductForm({
   const [addingCategory, setAddingCategory] = useState(false);
   const [manufacturerAddOpen, setManufacturerAddOpen] = useState(false);
   const [newManufacturerName, setNewManufacturerName] = useState("");
-  const [newManufacturerError, setNewManufacturerError] = useState<
-    string | null
-  >(null);
+  const [newManufacturerError, setNewManufacturerError] = useState<string | null>(
+    null,
+  );
   const [addingManufacturer, setAddingManufacturer] = useState(false);
 
   // The fetched list, plus anything created inline this session. A newly created option
@@ -218,51 +226,46 @@ export default function ProductForm({
     return [...byId.values()].map((m) => ({ label: m.name, value: m.id }));
   }, [manufacturers, addedMans]);
 
+  /**
+   * What the discount box currently says, parsed once for validation, for the price the
+   * customer will pay, and for the preview line under the field. A box that does not parse
+   * reads as "no discount" for those two and is caught by `validate` before the save runs,
+   * so an unparsable value can never reach the database.
+   */
+  const parsedDiscount = parseDiscountPercent(discountPercent);
+  const discountValue = parsedDiscount.ok ? parsedDiscount.percent : 0;
+  const customerPrice = Number(price);
+  const discountedPrice =
+    discountValue > 0 && Number.isFinite(customerPrice) && customerPrice > 0
+      ? getSalePrice(customerPrice, discountValue)
+      : null;
+
   const validate = useMemo(() => {
     const next: Record<string, string> = {};
 
     if (isEmpty(name)) next.name = "Write the medicine name.";
-    if (isEmpty(brand)) next.brand = "Write the brand.";
-    if (isEmpty(genericName)) next.genericName = "Write the generic name.";
+    if (isEmpty(brand)) next.brand = "Write the brand name.";
     if (!categoryId) next.categoryId = "Select a category.";
     if (!manufacturerId) next.manufacturerId = "Select the company.";
-    if (isEmpty(unit)) next.unit = "Write how it is sold (strip, bottle, box).";
 
     const priceNum = Number(price);
     if (isEmpty(price)) next.price = "Write the selling price.";
     else if (Number.isNaN(priceNum) || priceNum <= 0)
       next.price = "Write a valid price.";
 
+    const discount = parseDiscountPercent(discountPercent);
+    if (!discount.ok) next.discountPercent = discount.message;
+
     const costNum = costPrice ? Number(costPrice) : NaN;
     if (costPrice) {
       if (Number.isNaN(costNum) || costNum < 0)
         next.costPrice = "Enter a valid cost price.";
+      // Against the customer price, not the discounted one: a discount is a choice, and a
+      // cost above the shelf price is a loss either way.
       else if (!isEmpty(price) && !Number.isNaN(priceNum) && costNum > priceNum)
         next.costPrice =
           "That is more than the customer price, so check the two numbers.";
     }
-
-    const originalNum = originalPrice ? Number(originalPrice) : NaN;
-    if (originalPrice && (Number.isNaN(originalNum) || originalNum <= 0))
-      next.originalPrice = "Enter a valid original price.";
-
-    const discountNum = discountPercent ? Number(discountPercent) : NaN;
-    if (discountPercent) {
-      if (Number.isNaN(discountNum))
-        next.discountPercent = "Enter a valid discount.";
-      else if (discountNum < 0 || discountNum > 99)
-        next.discountPercent = "Discount must be 0-99%.";
-      // The database rejects discount > 0 without an original price
-      // (check_discount trigger → RPC 400), so block it here with a message
-      // instead of a failed upload.
-      else if (!originalPrice)
-        next.discountPercent =
-          "Add the old price too, so customers see the discount.";
-    }
-
-    // PostgREST casts p_expiry_date to date before create_product runs, so
-    // anything that is not YYYY-MM-DD is a 400 with no row written. Date.parse
-    // accepts slashes and other spellings Postgres rejects, hence the strict check.
 
     // Stock is required when creating, optional when editing (leave it alone
     // unless the admin actually changed it).
@@ -276,6 +279,11 @@ export default function ProductForm({
         next.stock = "Write a whole number.";
     }
 
+    // Optional: only checked when something was typed, so an empty box never blocks a save
+    // and never reaches the RPC. PostgREST casts p_expiry_date to date before
+    // create_product runs, so anything that is not YYYY-MM-DD is a 400 with no row written.
+    // Date.parse accepts slashes and other spellings Postgres rejects, hence the strict
+    // check.
     if (expiryDate) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate.trim()))
         next.expiryDate =
@@ -284,20 +292,23 @@ export default function ProductForm({
         next.expiryDate = "That is not a real date. Write it as 2027-05-12.";
     }
 
+    // The primary photo is the one thing this form will not save without. The second one
+    // stays optional and is never asked for.
+    if (!primaryImage)
+      next.primaryImage = "Add a photo of the medicine — it is how customers find it.";
+
     return next;
   }, [
     name,
     brand,
-    genericName,
     categoryId,
     manufacturerId,
-    unit,
     price,
     costPrice,
-    originalPrice,
     discountPercent,
     stock,
     expiryDate,
+    primaryImage,
     isEditing,
     touched.stock,
   ]);
@@ -308,7 +319,7 @@ export default function ProductForm({
     if (Object.keys(validation).length > 0) {
       // The save button sits at the bottom, far from the fields: say plainly
       // what is missing so the owner does not hunt for it.
-      setSubmitError("Please fill the * fields above.");
+      setSubmitError("Please fix the fields marked above.");
       return;
     }
 
@@ -320,20 +331,31 @@ export default function ProductForm({
       const untouchedStock =
         isEditing && !touched.stock ? product?.stock : undefined;
 
+      // The whole pricing story comes from two boxes. The percentage is applied to the
+      // customer price the admin typed, never to the number it produced, so opening a
+      // discounted medicine and saving it untouched writes the same three columns again
+      // rather than compounding them.
+      const percent = discountValue;
+
       const payload: ProductFormInput = {
         name: name.trim(),
         brand: brand.trim(),
-        genericName: genericName.trim(),
         manufacturerId,
         categoryId,
         description: description.trim(),
-        price: Number(price),
+        price:
+          percent > 0 ? getSalePrice(customerPrice, percent) : customerPrice,
         stock: untouchedStock ?? Number(stock),
-        unit: unit.trim(),
+        unit: unit.trim() || "pack",
         primaryImage,
         secondaryImage,
         isActive,
         isFeatured,
+        // All three travel together so the pairing the database enforces holds whatever
+        // the admin changed: a discount carries the price it came off, and clearing it
+        // clears both rather than leaving a struck-through price with nothing struck.
+        originalPrice: percent > 0 ? customerPrice : null,
+        discountPercent: percent > 0 ? percent : null,
       };
 
       if (!isEditing) payload.id = productId;
@@ -342,14 +364,6 @@ export default function ProductForm({
       // touched them, `null` when they were cleared on purpose.
       if (!isEditing || touched.costPrice)
         payload.costPrice = costPrice ? Number(costPrice) : null;
-      if (!isEditing || touched.originalPrice)
-        payload.originalPrice = originalPrice ? Number(originalPrice) : null;
-      if (!isEditing || touched.discountPercent)
-        payload.discountPercent = discountPercent
-          ? Number(discountPercent)
-          : null;
-      if (!isEditing || touched.batchNumber)
-        payload.batchNumber = batchNumber.trim() || null;
       if (!isEditing || touched.expiryDate)
         payload.expiryDate = expiryDate.trim() || null;
 
@@ -526,28 +540,32 @@ export default function ProductForm({
   const busy = saving || uploadingSlot !== null;
 
   /**
-   * What this product earns, said in the owner's terms rather than as a margin.
+   * What this product earns, said in the owner's terms rather than as a percentage.
    *
    * Hoisted out of the JSX because two things need the same numbers: the sentence, and
    * whether to render it in the danger colour. Doing it inside an inline IIFE is what made
    * the first attempt reach for `c` and `p` in the `style` prop, where they are not in
    * scope — the two halves of one fact drifting into two places.
    *
-   * A cost at or above the selling price is not a small margin, it is a loss on every pack,
-   * and it is the most expensive mistake this form allows. It is said in words and shown in
+   * A cost at or above the price is not a small earning, it is a loss on every pack, and
+   * it is the most expensive mistake this form allows. It is said in words and shown in
    * the danger colour, rather than rendered as a negative percentage under the word
    * "margin" as it was before.
    */
-  const priceNum = Number(price);
   const costNum = costPrice ? Number(costPrice) : NaN;
-  const hasBothPrices =
-    Number.isFinite(priceNum) && priceNum > 0 && Number.isFinite(costNum);
-  const sellingAtALoss = hasBothPrices && costNum >= priceNum;
-  const earningHint = !hasBothPrices
+  // What the customer actually hands over, which is what an earning is earned on: a
+  // discounted medicine does not earn the figure before the discount.
+  const effectivePrice = discountedPrice ?? customerPrice;
+  const hasPrice = Number.isFinite(effectivePrice) && effectivePrice >= 0;
+  const hasCost = Number.isFinite(costNum);
+  const sellingAtALoss = hasPrice && hasCost && costNum > effectivePrice;
+  const earningHint = !hasPrice || !hasCost
     ? "Add what you pay for it and this product starts counting towards your earnings."
     : sellingAtALoss
       ? "You are paying more for this than you are selling it for."
-      : `You make ৳ ${(priceNum - costNum).toFixed(2)} on each pack · ${(((priceNum - costNum) / priceNum) * 100).toFixed(0)}% of the selling price`;
+      : effectivePrice === 0
+        ? "This one is free, so it earns nothing on each pack."
+        : `You make ৳ ${(effectivePrice - costNum).toFixed(2)} on each pack · ${(((effectivePrice - costNum) / effectivePrice) * 100).toFixed(0)}% of the selling price`;
 
   return (
     <>
@@ -566,7 +584,7 @@ export default function ProductForm({
           <View style={styles.row}>
             <View style={styles.field}>
               <Input
-                label="Medicine name *"
+                label="Medicine name"
                 hint="With strength, e.g. Napa Extra 500 mg"
                 value={name}
                 onChangeText={setName}
@@ -575,44 +593,8 @@ export default function ProductForm({
               />
             </View>
             <View style={styles.field}>
-              <Input
-                label="Brand on the box *"
-                hint="e.g. Napa"
-                value={brand}
-                onChangeText={setBrand}
-                error={errors.brand}
-                placeholder="e.g. Napa"
-              />
-            </View>
-          </View>
-
-          <View style={styles.row}>
-            <View style={styles.field}>
-              <Input
-                label="Same medicine, any brand *"
-                hint="e.g. Paracetamol — customers search by this"
-                value={genericName}
-                onChangeText={setGenericName}
-                error={errors.genericName}
-                placeholder="e.g. Paracetamol"
-              />
-            </View>
-            <View style={styles.field}>
-              <Input
-                label="Sold as *"
-                hint="strip, bottle, box"
-                value={unit}
-                onChangeText={setUnit}
-                error={errors.unit}
-                placeholder="strip, bottle, box"
-              />
-            </View>
-          </View>
-
-          <View style={styles.row}>
-            <View style={styles.field}>
               <SearchableSelect
-                label="Category *"
+                label="Category"
                 value={categoryId || undefined}
                 options={categoryOptions}
                 onSelect={setCategoryId}
@@ -637,32 +619,72 @@ export default function ProductForm({
                 )}
               />
             </View>
+          </View>
+
+          {/*
+            Two boxes under one title. The database keeps them apart — `brand` is text and
+            `manufacturer_id` is a key that has to exist — so they are gathered here rather
+            than collapsed into a single string, which would either have had to be parsed
+            back apart or have dropped the company entirely.
+          */}
+          <View style={styles.group}>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>
+              Brand Name / Manufacturer
+            </Text>
+            <View style={styles.row}>
+              <View style={styles.field}>
+                <Input
+                  value={brand}
+                  onChangeText={setBrand}
+                  error={errors.brand}
+                  placeholder="Brand, e.g. Napa"
+                  accessibilityLabel="Brand name"
+                />
+              </View>
+              <View style={styles.field}>
+                <SearchableSelect
+                  value={manufacturerId || undefined}
+                  options={manufacturerOptions}
+                  onSelect={setManufacturerId}
+                  onSearch={onSearchManufacturers}
+                  loading={manufacturersLoading}
+                  searchPlaceholder="Search companies"
+                  emptyMessage="No companies match. Add one below."
+                  placeholder="Company, e.g. Square"
+                  error={errors.manufacturerId}
+                  footer={addFooter(
+                    manufacturerAddOpen,
+                    () => setManufacturerAddOpen((v) => !v),
+                    "New company",
+                    "Hide",
+                    "New company name",
+                    "e.g. Square",
+                    newManufacturerName,
+                    setNewManufacturerName,
+                    newManufacturerError,
+                    handleAddManufacturer,
+                    addingManufacturer,
+                  )}
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.row}>
             <View style={styles.field}>
-              <SearchableSelect
-                label="Made by (company) *"
-                value={manufacturerId || undefined}
-                options={manufacturerOptions}
-                onSelect={setManufacturerId}
-                onSearch={onSearchManufacturers}
-                loading={manufacturersLoading}
-                searchPlaceholder="Search companies"
-                emptyMessage="No companies match. Add one below."
-                placeholder="e.g. Square"
-                error={errors.manufacturerId}
-                footer={addFooter(
-                  manufacturerAddOpen,
-                  () => setManufacturerAddOpen((v) => !v),
-                  "New company",
-                  "Hide",
-                  "New company name",
-                  "e.g. Square",
-                  newManufacturerName,
-                  setNewManufacturerName,
-                  newManufacturerError,
-                  handleAddManufacturer,
-                  addingManufacturer,
-                )}
-              />
+              <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                Sold as
+              </Text>
+              <View style={styles.chipRow}>
+                {SOLD_AS.map((option) => (
+                  <FilterChip
+                    key={option.value}
+                    label={option.label}
+                    selected={unit === option.value}
+                    onPress={() => setUnit(option.value)}
+                  />
+                ))}
+              </View>
             </View>
           </View>
 
@@ -671,8 +693,8 @@ export default function ProductForm({
           <View style={styles.row}>
             <View style={styles.field}>
               <Input
-                label="Customer price *"
-                hint="What the customer pays"
+                label="Customer price"
+                hint="What the customer pays, before any discount"
                 value={price}
                 onChangeText={setPrice}
                 keyboardType="decimal-pad"
@@ -680,6 +702,24 @@ export default function ProductForm({
                 placeholder="e.g. 120"
               />
             </View>
+            <View style={styles.field}>
+              <Input
+                label="Discount"
+                hint="10 or 10% — both mean 10% off"
+                value={discountPercent}
+                onChangeText={setDiscountPercent}
+                error={errors.discountPercent}
+                placeholder="Optional"
+              />
+            </View>
+          </View>
+          {discountedPrice != null ? (
+            <Text style={[styles.hint, { color: colors.textMuted }]}>
+              {`Customer pays ${formatCurrency(discountedPrice)} after ${discountValue}% off`}
+            </Text>
+          ) : null}
+
+          <View style={styles.row}>
             <View style={styles.field}>
               <Input
                 label="Admin price"
@@ -694,22 +734,9 @@ export default function ProductForm({
                 placeholder="e.g. 100"
               />
             </View>
-          </View>
-          {costPrice || price ? (
-            <Text
-              style={[
-                styles.hint,
-                { color: sellingAtALoss ? colors.danger : colors.textMuted },
-              ]}
-            >
-              {earningHint}
-            </Text>
-          ) : null}
-
-          <View style={styles.row}>
             <View style={styles.field}>
               <Input
-                label="Total Stock *"
+                label="Total Stock"
                 hint={
                   isEditing
                     ? "Leave empty to keep what you have."
@@ -725,7 +752,34 @@ export default function ProductForm({
                 placeholder="e.g. 50"
               />
             </View>
-            <View style={styles.field} />
+          </View>
+          {costPrice || price ? (
+            <Text
+              style={[
+                styles.hint,
+                { color: sellingAtALoss ? colors.danger : colors.textMuted },
+              ]}
+            >
+              {earningHint}
+            </Text>
+          ) : null}
+
+          {/* Optional, and said so: an empty box saves, a filled one is checked. */}
+          <View style={styles.row}>
+            <View style={styles.field}>
+              <Input
+                label="Expiry date"
+                hint="Optional — the app warns you before it expires"
+                value={expiryDate}
+                onChangeText={(v) => {
+                  setExpiryDate(v);
+                  markTouched("expiryDate");
+                }}
+                placeholder="2027-05-12"
+                error={errors.expiryDate}
+                autoCapitalize="none"
+              />
+            </View>
           </View>
 
           {SECTION("3 · Photo")}
@@ -744,10 +798,17 @@ export default function ProductForm({
                 onPick={(uri) => void handlePickImage(uri, "primary")}
                 onRemove={() => handleRemoveImage("primary")}
               />
+              {errors.primaryImage ? (
+                <Text style={[styles.error, { color: colors.danger }]}>
+                  {errors.primaryImage}
+                </Text>
+              ) : null}
             </View>
             <View style={styles.imageSlot}>
               <ImageUpload
                 label="Box photo"
+                variant="compact"
+                optional
                 uri={secondaryImage}
                 uploading={uploadingSlot === "secondary"}
                 onPick={(uri) => void handlePickImage(uri, "secondary")}
@@ -761,164 +822,43 @@ export default function ProductForm({
             </Text>
           ) : null}
 
-          <Pressable
-            onPress={() => setShowMore((v) => !v)}
-            style={[
-              styles.advancedToggle,
-              {
-                borderColor: colors.borderLight,
-                backgroundColor: showMore
-                  ? colors.primarySoft
-                  : colors.backgroundAlt,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={
-              showMore ? "Hide optional fields" : "Show optional fields"
-            }
-          >
-            <Text
-              style={[
-                styles.advancedToggleText,
-                { color: showMore ? colors.accent : colors.textMuted },
-              ]}
-            >
-              {showMore ? "▲ Less (optional)" : "▼ More (optional)"}
-            </Text>
-          </Pressable>
-          {showMore ? (
-            <>
-              <View style={styles.row}>
-                <View style={styles.field}>
-                  <Input
-                    label="Old price (only for discount)"
-                    hint="Only if there is a discount"
-                    value={originalPrice}
-                    onChangeText={(v) => {
-                      setOriginalPrice(v);
-                      markTouched("originalPrice");
-                    }}
-                    keyboardType="decimal-pad"
-                    error={errors.originalPrice}
-                    placeholder="Optional"
-                  />
-                </View>
-                <View style={styles.field}>
-                  <Input
-                    label="Discount %"
-                    hint="10 means 10% off"
-                    value={discountPercent}
-                    onChangeText={(v) => {
-                      setDiscountPercent(v);
-                      markTouched("discountPercent");
-                    }}
-                    keyboardType="numeric"
-                    error={errors.discountPercent}
-                    placeholder="Optional"
-                  />
-                </View>
-              </View>
-
-              <Pressable
-                onPress={() => setShowAdvanced((v) => !v)}
-                style={[
-                  styles.advancedToggle,
-                  {
-                    borderColor: colors.borderLight,
-                    backgroundColor: showAdvanced
-                      ? colors.primarySoft
-                      : colors.backgroundAlt,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  showAdvanced
-                    ? "Hide the batch number and expiry date"
-                    : "Show the batch number and expiry date"
-                }
-              >
-                <Text
-                  style={[
-                    styles.advancedToggleText,
-                    { color: showAdvanced ? colors.accent : colors.textMuted },
-                  ]}
-                >
-                  {showAdvanced
-                    ? "▲ Batch & expiry"
-                    : "▼ Batch & expiry (optional)"}
-                </Text>
-              </Pressable>
-              {showAdvanced ? (
-                <View style={styles.row}>
-                  <View style={styles.field}>
-                    <Input
-                      label="Batch no. on the box"
-                      value={batchNumber}
-                      onChangeText={(v) => {
-                        setBatchNumber(v);
-                        markTouched("batchNumber");
-                      }}
-                      error={errors.batchNumber}
-                      placeholder="On the pack (optional)"
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Input
-                      label="Expiry date"
-                      hint="Lets the app warn you before it expires"
-                      value={expiryDate}
-                      onChangeText={(v) => {
-                        setExpiryDate(v);
-                        markTouched("expiryDate");
-                      }}
-                      placeholder="2027-05-12"
-                      error={errors.expiryDate}
-                      autoCapitalize="none"
-                    />
-                  </View>
-                </View>
-              ) : null}
-
-              <View style={styles.field}>
-                <Input
-                  label="About this medicine (optional)"
-                  hint="What it treats and how to take it."
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  error={errors.description}
-                  placeholder="What it is used for, and how it is taken"
-                />
-              </View>
-
-              <View style={styles.switchRow}>
-                <View style={styles.switchText}>
-                  <Text style={[styles.switchLabel, { color: colors.text }]}>
-                    Show on home page
-                  </Text>
-                  <Text
-                    style={[styles.switchHint, { color: colors.textMuted }]}
-                  >
-                    Shows it on the home page
-                  </Text>
-                </View>
-                <Switch
-                  value={isFeatured}
-                  onValueChange={setIsFeatured}
-                  trackColor={{
-                    false: colors.border,
-                    true: colors.primarySoft,
-                  }}
-                  thumbColor={isFeatured ? colors.accent : colors.textMuted}
-                  accessibilityLabel="Show on home page"
-                />
-              </View>
-            </>
-          ) : null}
+          <View style={styles.row}>
+            <View style={styles.field}>
+              <Input
+                label="About this medicine (optional)"
+                hint="What it treats and how to take it."
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                error={errors.description}
+                placeholder="What it is used for, and how it is taken"
+              />
+            </View>
+          </View>
 
           <View
             style={[styles.switches, { borderTopColor: colors.borderSoft }]}
           >
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={[styles.switchLabel, { color: colors.text }]}>
+                  Show on home page
+                </Text>
+                <Text style={[styles.switchHint, { color: colors.textMuted }]}>
+                  Shows it on the home page
+                </Text>
+              </View>
+              <Switch
+                value={isFeatured}
+                onValueChange={setIsFeatured}
+                trackColor={{
+                  false: colors.border,
+                  true: colors.primarySoft,
+                }}
+                thumbColor={isFeatured ? colors.accent : colors.textMuted}
+                accessibilityLabel="Show on home page"
+              />
+            </View>
             <View style={styles.switchRow}>
               <View style={styles.switchText}>
                 <Text style={[styles.switchLabel, { color: colors.text }]}>
@@ -992,6 +932,13 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.micro * lineHeight.normal,
     marginTop: spacing.sm,
   },
+  // A label the form draws itself, matching `Input`'s exactly, for the two places a title
+  // belongs to more than one control: the combined brand/company pair and the chip row.
+  fieldLabel: {
+    fontFamily: fontFamily.pjsSemiBold,
+    fontSize: fontSize.bodySmall,
+    lineHeight: fontSize.bodySmall * lineHeight.normal,
+  },
   row: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1000,6 +947,11 @@ const styles = StyleSheet.create({
   field: {
     flexGrow: 1,
     flexBasis: 240,
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
   group: { gap: spacing.sm },
   addToggle: {
@@ -1068,22 +1020,11 @@ const styles = StyleSheet.create({
     marginTop: -spacing.xs,
     marginBottom: spacing.xs,
   },
-  advancedToggle: {
-    borderWidth: 1,
-    borderRadius: sizes.cardRadius,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-  },
-  advancedToggleText: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-  },
   error: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: spacing.xs,
   },
   // The sticky action bar: one hairline against the card above it, nothing else.
   footer: {

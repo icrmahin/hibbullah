@@ -7,6 +7,7 @@ import type { Product } from '../types/product'
 import { fetchCart, addToCart, updateCartItemQuantity, removeFromCart, clearCart } from '../services/cart'
 import { normalizeError } from '../utils/errorHandling'
 import { lowestDeliveryFee } from '../utils/deliveryFee'
+import { sumBasket } from '../utils/currency'
 
 type CartContextValue = {
   items: (CartItem & { product: Product })[]
@@ -129,11 +130,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [user, loadCart])
 
   const summary = useMemo(() => {
-    const subtotal = items.reduce((sum, item) => sum + (item.product?.price || 0) * item.quantity, 0)
-    const discount = items.reduce((sum, item) => {
-      const itemDiscount = ((item.product?.price || 0) * item.quantity * (item.product?.discountPercent || 0)) / 100
-      return sum + itemDiscount
-    }, 0)
+    // `price` is the price the customer pays; the discount line is what the struck-through
+    // original says they are not paying. See `sumBasket` — the previous maths took a
+    // percentage off a price that already had it removed, so the cart quoted a total the
+    // server never charged.
+    const { subtotal, discount } = sumBasket(
+      items.map((item) => ({
+        price: item.product?.price || 0,
+        originalPrice: item.product?.originalPrice,
+        quantity: item.quantity,
+      })),
+    )
     // The flat delivery fee — one rate everywhere while serving Dhaka only, so the
     // cart figure and the checkout figure are the same number. Checkout still
     // reprices from the selected address's district, and the server charges that

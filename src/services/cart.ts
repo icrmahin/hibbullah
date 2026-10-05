@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import type { CartItem, CartSummary } from '../types/cart'
 import type { Product } from '../types/product'
 import { lowestDeliveryFee } from '../utils/deliveryFee'
+import { sumBasket } from '../utils/currency'
 
 interface DbProduct {
   id: string
@@ -73,11 +74,15 @@ export async function fetchCart(userId: string): Promise<{ items: CartItemWithPr
     product: mapDbProductToProduct(item.products as DbProduct),
   }))
 
-  const subtotal = items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
-  const discount = items.reduce((sum, item) => {
-    const itemDiscount = (item.product.price * item.quantity * (item.product.discountPercent || 0)) / 100
-    return sum + itemDiscount
-  }, 0)
+  // `price` is already the price the customer pays. What the summary calls "Discount" is
+  // the gap between the struck-through original and that price — see `sumBasket`.
+  const { subtotal, discount } = sumBasket(
+    items.map((item) => ({
+      price: item.product.price,
+      originalPrice: item.product.originalPrice,
+      quantity: item.quantity,
+    })),
+  )
   // The lowest rate, not the standard one -- see the matching comment in CartProvider.
   // Nothing has picked a delivery address at this point, so this number is a floor and the
   // cart page labels it "from". Checkout reprices from the address's district and the

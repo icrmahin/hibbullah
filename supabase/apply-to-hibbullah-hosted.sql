@@ -6726,3 +6726,306 @@ drop trigger if exists trg_notifications_push on public.notifications;
 create trigger trg_notifications_push
   after insert on public.notifications
   for each row execute function public.push_notification_to_devices();
+
+-- ==========================================================================
+-- A discount can be the whole price, not 99% of it.
+-- ==========================================================================
+--
+-- Appended verbatim from 20261005010000_discount_percent_to_100.sql. Kept as a
+-- byte-for-byte copy so `verify-sql-sync.mjs` can hold the two files to each other;
+-- if the two ever differ, a rebuilt project would run different rules from the one
+-- being tested and nothing would say so until the numbers disagreed.
+
+-- A discount can be the whole price, not 99% of it.
+--
+-- The form used to ask for three numbers that had to agree by hand: a customer price, an
+-- old price and a percentage between 0 and 99. The old price was a separate box nobody
+-- tied to the other two, so the cap at 99 protected a relationship nothing actually
+-- enforced. The form now asks for one customer price and one percentage and derives the
+-- rest, which makes 100% a meaningful entry: a free sample, a give-away, the one way a
+-- medicine is deliberately priced at nothing. The column refused it.
+--
+-- Nothing else about the price moves. `price` is already `>= 0`, `original_price` keeps
+-- `>= 0`, and `valid_discount` still requires the pair — this only widens the ceiling.
+--
+-- Both tables that carry the percentage are widened in the same breath: `order_items`
+-- copies the same number onto the receipt, so a product the form would happily save at
+-- 100% could not then have been sold.
+
+alter table public.products
+  drop constraint if exists products_discount_percent_check;
+
+alter table public.products
+  add constraint products_discount_percent_check
+  check (discount_percent >= 0 and discount_percent <= 100);
+
+alter table public.order_items
+  drop constraint if exists order_items_discount_percent_check;
+
+alter table public.order_items
+  add constraint order_items_discount_percent_check
+  check (discount_percent >= 0 and discount_percent <= 100);
+
+--
+-- Appended verbatim from 20261005020000_short_batch_numbers.sql. Kept as a
+-- byte-for-byte copy so `verify-sql-sync.mjs` can hold the two files to each other;
+-- if the two ever differ, a rebuilt project would run different rules from the one
+-- being tested and nothing would say so until the batch numbers disagreed.
+
+-- Short, readable, backend-generated batch identifiers: `B-000123`.
+--
+-- ── what this replaces ────────────────────────────────────────────────────────
+-- Two generators existed for one identifier, and neither was short:
+--
+--   * `create_product` (20260926180000) derived the default from the product uuid:
+--         'BATCH-' || upper(left(v_id::text, 8)) || '-001'   ->  BATCH-82BC67FA-001
+--   * `updateProduct` repeated the same expression *in TypeScript*, for a product that
+--     reached editing with no batch rows at all — a second, independent copy of the
+--     format that could drift from the first the moment either one changed.
+--
+-- Eighteen characters of uuid for a number the owner reads off a shelf label, and a
+-- client-side format string for something the database should be naming.
+--
+-- ── uniqueness ────────────────────────────────────────────────────────────────
+-- The scope that matters is the existing constraint:
+--
+--     constraint unique_product_batch unique (product_id, batch_number)
+--
+-- so batch numbers are unique *per product*, not globally. A sequence is stronger than
+-- that requires — globally unique, therefore certainly unique within one product — and,
+-- unlike `count(*) + 1` or a slice of a uuid, `nextval` is atomic. Two admins creating
+-- products at the same instant cannot be handed the same number, which is the race the
+-- order-number generator had to take an advisory lock for.
+--
+-- ── what is deliberately untouched ────────────────────────────────────────────
+-- No existing row is updated, renamed or migrated. `BATCH-82BC67FA-001` stays exactly
+-- what it is: it still satisfies the same per-product constraint, nothing parses it (no
+-- query in the schema or the test suites splits, matches or orders on the format), and it
+-- cannot collide with a new value because the prefixes differ. Editing a product never
+-- rewrites a batch number — `updateProduct` only ever reads existing batches or adds a
+-- new one, so an identifier is assigned once, when its row is created, and then stays.
+
+create sequence if not exists public.inventory_batch_seq;
+
+-- Deliberately NOT `security definer`. It is called from a column default, which Postgres
+-- evaluates as the role doing the insert, so it has to work for `authenticated` — and a
+-- definer function in the public schema is exactly what the lockdown migration
+-- (20260928010000) spent its revokes on. This one reads a counter and nothing else: it
+-- touches no table, bypasses no policy, and the row the caller is trying to write is
+-- still gated by `inventory_items`' own RLS.
+create or replace function public.generate_batch_number()
+returns text
+language sql
+volatile
+as $$
+  select 'B-' || lpad(nextval('public.inventory_batch_seq')::text, 6, '0')
+$$;
+
+-- `nextval` needs USAGE on the sequence, and the default runs as the inserting role —
+-- `anon`, `authenticated` and `service_role` all hold INSERT on `inventory_items` (RLS is
+-- what actually refuses anon), so each needs it or an anonymous insert would fail on the
+-- sequence before the policy ever got a say. A sequence value exposes a counter.
+grant usage on sequence public.inventory_batch_seq to anon, authenticated, service_role;
+
+-- The single generation point. `create_product` calls the same function; the client no
+-- longer formats a batch number anywhere, so there is no second copy left to drift.
+alter table public.inventory_items
+  alter column batch_number set default public.generate_batch_number();
+
+
+-- ── create_product, redeclared to use it ──────────────────────────────────────
+-- Only the default in the `coalesce` changes. Signature and everything else are byte for
+-- byte the definition from 20260926180000, because PostgREST resolves an RPC by argument
+-- names and types and a rename would turn every deployed client into a 400.
+create or replace function public.create_product(
+  p_id uuid,
+  p_name text,
+  p_brand text,
+  p_generic_name text,
+  p_manufacturer_id uuid,
+  p_category_id uuid,
+  p_price numeric,
+  p_description text default '',
+  p_original_price numeric default null,
+  p_discount_percent integer default 0,
+  p_cost_price numeric default null,
+  p_unit text default 'pack',
+  p_image_url text default null,
+  p_secondary_image_url text default null,
+  p_is_active boolean default true,
+  p_is_featured boolean default false,
+  p_initial_stock integer default 0,
+  p_batch_number text default null,
+  p_expiry_date date default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_batch text;
+  v_discount integer;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+
+  -- Backstop for the strict check_discount trigger: without an original price
+  -- any discount is meaningless, so drop it instead of failing the upload.
+  v_discount := case
+    when p_original_price is null then 0
+    else coalesce(p_discount_percent, 0)
+  end;
+
+  insert into public.products (
+    id,
+    name,
+    brand,
+    generic_name,
+    description,
+    manufacturer_id,
+    category_id,
+    price,
+    original_price,
+    discount_percent,
+    cost_price,
+    unit,
+    image_url,
+    secondary_image_url,
+    is_active,
+    is_featured,
+    stock
+  ) values (
+    p_id,
+    p_name,
+    p_brand,
+    p_generic_name,
+    coalesce(p_description, ''),
+    p_manufacturer_id,
+    p_category_id,
+    p_price,
+    p_original_price,
+    v_discount,
+    p_cost_price,
+    coalesce(p_unit, 'pack'),
+    p_image_url,
+    p_secondary_image_url,
+    coalesce(p_is_active, true),
+    coalesce(p_is_featured, false),
+    0
+  )
+  returning id into v_id;
+
+  if coalesce(p_initial_stock, 0) > 0 then
+    -- inventory_items.batch_number is NOT NULL and unique per product. An admin-supplied
+    -- number wins; otherwise the short sequence value is generated here, in the database,
+    -- next to the row it names.
+    v_batch := coalesce(
+      nullif(btrim(coalesce(p_batch_number, '')), ''),
+      public.generate_batch_number()
+    );
+
+    insert into public.inventory_items (product_id, batch_number, quantity, expiry_date)
+    values (v_id, v_batch, p_initial_stock, p_expiry_date);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+--
+-- Appended verbatim from 20261005030000_advertisements.sql. Kept as a
+-- byte-for-byte copy so `verify-sql-sync.mjs` can hold the two files to each other;
+-- if the two ever differ, a rebuilt project would run different policies from the one
+-- being tested and nothing would say so until an advertisement showed to the wrong
+-- audience.
+
+-- Advertisements — a merchant-managed banner, distinct from a discount.
+--
+-- ── why this is a new table ────────────────────────────────────────────────────
+-- The homepage banner was generated, not managed: it took the first four products,
+-- preferred whichever had a discount, and then printed copy nobody wrote — "Special
+-- offer", "Selected medicines", "Limited-time offer" — over the top of them. A discount
+-- is a fact about a price; this is a thing an owner decides to promote. Conflating them
+-- is what put every newly uploaded product on the front page.
+--
+-- The three concepts are deliberately separate columns with separate lifecycles:
+--
+--   advertisements.is_active    is this banner showing at all
+--   products.is_active          can this product still be bought
+--   products.discount_percent   what it costs relative to its old price
+--
+-- Reusing `products.is_featured` would not work either: featured is a per-product
+-- property, and an advertisement carries its own image, its own words and a destination
+-- that does not have to be a product at all. Hence a table.
+--
+-- ── visibility is decided in the policy, not the client ────────────────────────
+-- The public policy carries the active flag AND the date window, so a screen cannot
+-- forget to filter and show a campaign that ended. An admin's policy is unconditional,
+-- so an expired advertisement can still be found, edited and restarted.
+--
+-- No date, no sort order and no destination is invented by the app: every one is what
+-- the admin typed.
+
+create table if not exists public.advertisements (
+  id               uuid primary key default gen_random_uuid(),
+  title            text not null,
+  subtitle         text,
+  image_url        text not null,
+  -- `text` with a check rather than an enum: a new destination is an `alter ... add
+  -- constraint`, not a type migration, and the constraint is visible in one place.
+  destination_type text not null default 'none'
+                   check (destination_type in ('none', 'product', 'category', 'manufacturer', 'url')),
+  -- Text, not a uuid: the destination may be a url, and a dead foreign key would refuse
+  -- the row the moment the referenced product is deleted. The app resolves it on tap.
+  destination_id   text,
+  sort_order       integer not null default 0,
+  is_active        boolean not null default true,
+  starts_at        timestamptz,
+  ends_at          timestamptz,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now(),
+
+  -- A banner pointed at a product without an id, or at a url with an id, is a banner
+  -- that does nothing when tapped. Caught here rather than in a form that forgot a rule.
+  constraint advertisement_destination_matches_type check (
+    (destination_type = 'url'      and destination_id is not null)
+    or (destination_type = 'none'   and destination_id is null)
+    or (destination_type in ('product', 'category', 'manufacturer') and destination_id is not null)
+  ),
+  constraint advertisement_window_ordered check (ends_at is null or starts_at is null or ends_at >= starts_at)
+);
+
+-- The homepage asks for exactly this: live banners, in display order.
+create index if not exists idx_advertisements_live
+  on public.advertisements (is_active, sort_order);
+
+-- Reuses `public.update_updated_at()`, the same trigger function every other table with
+-- an `updated_at` uses (initial schema) — a second copy would be a second thing to keep
+-- in sync for no benefit.
+drop trigger if exists trg_advertisements_updated_at on public.advertisements;
+create trigger trg_advertisements_updated_at
+  before update on public.advertisements
+  for each row execute function public.update_updated_at();
+
+-- ── RLS ───────────────────────────────────────────────────────────────────────
+-- Policies are permissive, so they OR together: an admin matches theirs and sees
+-- everything, everybody else matches only the live-window one.
+alter table public.advertisements enable row level security;
+
+drop policy if exists "Admins can manage advertisements" on public.advertisements;
+create policy "Admins can manage advertisements"
+  on public.advertisements for all
+  using (is_admin())
+  with check (is_admin());
+
+drop policy if exists "Anyone can view live advertisements" on public.advertisements;
+create policy "Anyone can view live advertisements"
+  on public.advertisements for select
+  using (
+    is_active
+    and (starts_at is null or starts_at <= now())
+    and (ends_at   is null or ends_at   >= now())
+  );

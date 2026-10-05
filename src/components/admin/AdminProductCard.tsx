@@ -56,8 +56,11 @@ export default function AdminProductCard({
             tone={statusTone(stockKey)}
           />
         </View>
+        {/* The generic-name field is gone from the form, so it can be empty on any medicine
+            saved after that. A separator in front of nothing is not a shorter line, it is a
+            dangling "·" — so the half that exists is what is drawn. */}
         <Text style={[styles.meta, { color: colors.textMuted }]}>
-          {product.brand} · {product.genericName}
+          {product.genericName ? `${product.brand} · ${product.genericName}` : product.brand}
         </Text>
         <View style={styles.footer}>
           <ProductPrice price={product.price} originalPrice={product.originalPrice} />

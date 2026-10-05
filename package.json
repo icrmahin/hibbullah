@@ -53,7 +53,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "verify": "npm run verify:sql-sync && npm run verify:mutation && npm run verify:contrast && npm run verify:device-runtime && npm run verify:device-mutation && npm run verify:flat-ui && npm run verify:flat-ui:mutation && npm run verify:district && npm run verify:allowlist && npm run verify:allowlist:live && npm run verify:no-alert && npm run verify:stack && npm run verify:search && npm run verify:lifecycle && npm run verify:notifications && npm run verify:edge && npm run verify:avatar && npm run verify:admin-areas && npm run verify:profit-restock && npm run db:clean-test-data",
+    "verify": "npm run verify:routes && npm run verify:sql-sync && npm run verify:mutation && npm run verify:contrast && npm run verify:device-runtime && npm run verify:device-mutation && npm run verify:flat-ui && npm run verify:flat-ui:mutation && npm run verify:district && npm run verify:allowlist && npm run verify:allowlist:live && npm run verify:no-alert && npm run verify:stack && npm run verify:search && npm run verify:batch-numbers && npm run verify:advertisements && npm run verify:lifecycle && npm run verify:notifications && npm run verify:edge && npm run verify:avatar && npm run verify:admin-areas && npm run verify:profit-restock && npm run db:clean-test-data",
+    "verify:routes": "node scripts/verify-routes.mjs",
+    "verify:batch-numbers": "node supabase/verify-batch-numbers.mjs",
     "verify:sql-sync": "node supabase/verify-sql-sync.mjs",
     "verify:mutation": "node supabase/mutation-test-sql-sync.mjs",
     "verify:device-runtime": "node supabase/verify-device-runtime.mjs",
@@ -78,7 +80,8 @@
     "verify:profit-restock": "node supabase/verify-profit-and-restock.mjs",
     "verify:order-address": "node supabase/probe-order-address.mjs",
     "verify:audit-actor": "node supabase/probe-audit-actor.mjs",
-    "verify:address": "node supabase/probe-address.mjs"
+    "verify:address": "node supabase/probe-address.mjs",
+    "verify:advertisements": "node supabase/verify-advertisements.mjs"
   },
   "private": true
 }

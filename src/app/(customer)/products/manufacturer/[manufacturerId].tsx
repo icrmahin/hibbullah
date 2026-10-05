@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { goBack } from "@/utils/navigation";
+import { goBack, goToProduct } from "@/utils/navigation";
 import { StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useThemeColors } from "../../../../providers/ThemeProvider";
@@ -69,12 +69,7 @@ export default function ManufacturerProductsScreen() {
           <View style={styles.gridItem}>
             <ProductCard
               product={item}
-              onPress={(product) =>
-                router.push({
-                  pathname: "/(customer)/products/[productId]",
-                  params: { productId: product.id },
-                })
-              }
+              onPress={(product) => goToProduct(product.id)}
             />
           </View>
         )}

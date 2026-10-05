@@ -1,7 +1,7 @@
-import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { goToProduct } from "@/utils/navigation";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
@@ -95,12 +95,7 @@ export default function CustomerProductsScreen() {
           <View style={styles.gridItem}>
             <ProductCard
               product={item}
-              onPress={(product) =>
-                router.push({
-                  pathname: "/(customer)/products/[productId]",
-                  params: { productId: product.id },
-                })
-              }
+              onPress={(product) => goToProduct(product.id)}
             />
           </View>
         )}

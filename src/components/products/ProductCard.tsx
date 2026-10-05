@@ -6,6 +6,7 @@ import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { radius } from "../../constants/sizes";
 import type { Product } from "../../types/product";
 import ProductImage from "./ProductImage";
+import DiscountBadge from "./DiscountBadge";
 import Icon from "../common/Icon";
 import { formatCurrency } from "../../utils/currency";
 import { useCart } from "../../providers/CartProvider";
@@ -49,8 +50,24 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
   const fav = isFavorite(product.id);
 
   const outOfStock = product.stock === 0;
-  const discount = product.discountPercent ?? 0;
-  const showsOriginal = !outOfStock && product.originalPrice != null && product.originalPrice > product.price;
+
+  /**
+   * The reduction the two prices prove, in percent — and nothing else.
+   *
+   * `discountPercent` on the row is the *admin's* figure and it is allowed to disagree
+   * with the prices (a row can sit at price = original with a percentage still attached,
+   * which is a data problem to fix, not a claim to publish). So the badge and the
+   * strikethrough both hang off the same condition — the original being strictly higher
+   * than what the customer pays — and the percentage is derived from those two numbers.
+   *
+   * Two consequences that matter: a row with a stale percentage and an unchanged price
+   * shows no badge at all rather than "-10%" beside an unchanged price, and if the number
+   * is ever restated the badge follows the prices by itself. Same rule the cart uses in
+   * `sumBasket`, so the card and the total can never disagree about what was saved.
+   */
+  const original = product.originalPrice;
+  const showsOriginal = !outOfStock && original != null && original > product.price;
+  const offPercent = showsOriginal ? Math.round((1 - product.price / original) * 100) : 0;
 
   const handleAdd = async () => {
     if (outOfStock || adding) return;
@@ -99,6 +116,15 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
           accessibilityRole="button"
           accessibilityLabel={`View ${product.name} details`}
         />
+
+        {/*
+          The discount badge lives here rather than in the price row for two reasons. It
+          has to be readable at a glance before any text, and in the price row it was the
+          third thing competing for 150px of width — which is why the row had to truncate
+          and why the cards in a row came out different heights. Top-left is the only free
+          corner: favourite is top-right, add-to-cart is bottom-right.
+        */}
+        <DiscountBadge percent={offPercent} />
 
         {/*
           No stock indicator. The scrim and the pill that used to sit here are both gone:
@@ -183,19 +209,26 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
             becomes two — so the cards in a row came out different heights and the grid looked
             broken rather than ragged. Truncating is the lesser cost.
           */}
+          {/*
+            Two things on this line now, where there used to be three. What you pay first
+            and largest; what it used to cost struck through beside it, and only when it is
+            genuinely higher. The percentage moved to the corner of the photograph, so the
+            row fits at 167px without truncating and both figures stay whole.
+          */}
           <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.text }]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.price,
+                { color: showsOriginal ? colors.accent : colors.text },
+              ]}
+              numberOfLines={1}
+            >
               {formatCurrency(product.price)}
             </Text>
             {showsOriginal ? (
               <Text style={[styles.original, { color: colors.textMuted }]} numberOfLines={1}>
-                {formatCurrency(product.originalPrice as number)}
+                {formatCurrency(original as number)}
               </Text>
-            ) : null}
-            {discount > 0 && !outOfStock ? (
-              <View style={[styles.discountBadge, { backgroundColor: colors.primarySoft }]}>
-                <Text style={[styles.discountText, { color: colors.accent }]}>-{discount}%</Text>
-              </View>
             ) : null}
           </View>
         </View>
@@ -281,25 +314,21 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginTop: spacing.xxs,
   },
+  /**
+   * One step above the product name, because on a card whose whole job is "what does this
+   * cost" the price is the figure people scan for. The name stays the largest piece of
+   * *text* through its weight and its reserved two lines; the price wins on size alone.
+   */
   price: {
     fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.bodySmall,
-    lineHeight: fontSize.bodySmall * lineHeight.tight,
+    fontSize: fontSize.body,
+    lineHeight: fontSize.body * lineHeight.tight,
   },
   original: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.tiny,
     textDecorationLine: "line-through",
     flexShrink: 1,
-  },
-  discountBadge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-  },
-  discountText: {
-    fontFamily: fontFamily.pjsBold,
-    fontSize: fontSize.tiny,
   },
 });
 

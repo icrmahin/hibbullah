@@ -14,6 +14,7 @@ const MENU_ITEMS: { label: string; path: string; icon: IconName }[] = [
   { label: "Reports", path: "/(admin)/reports", icon: "bar-chart" },
   { label: "Returns", path: "/(admin)/returns", icon: "assignment-return" },
   { label: "Audit log", path: "/(admin)/audit", icon: "description" },
+  { label: "Advertisements", path: "/(admin)/advertisements", icon: "campaign" },
 ];
 
 const SHOP_ITEM = { label: "Back to Shop", path: "/(customer)/(tabs)" as const, icon: "store" as IconName };

@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { FlatList, StyleSheet, Text, View } from "react-native";
+import { goToProduct } from "@/utils/navigation";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import { useFavorites } from "../../../providers/FavoritesProvider";
 import ProductCard from "../../../components/products/ProductCard";
@@ -59,7 +60,7 @@ export default function FavoritesScreen() {
             <ProductCard
               product={item}
               compact
-              onPress={(p) => router.push({ pathname: "/(customer)/products/[productId]", params: { productId: p.id } })}
+              onPress={(p) => goToProduct(p.id)}
             />
           </View>
         )}

@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { goToAdminProduct } from "@/utils/navigation";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
 import { useThemeColors } from "../../../providers/ThemeProvider";
@@ -71,13 +72,7 @@ export default function AdminInventoryScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Open ${item.productName}`}
               disabled={!item.productId}
-              onPress={() => {
-                if (!item.productId) return;
-                router.push({
-                  pathname: "/(admin)/products/[productId]",
-                  params: { productId: String(item.productId) },
-                });
-              }}
+              onPress={() => goToAdminProduct(item.productId)}
               style={[styles.row, { backgroundColor: colors.backgroundAlt }]}
             >
               <View style={styles.rowMain}>

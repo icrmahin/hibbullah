@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { goToAdminProduct } from "@/utils/navigation";
 import Sparkline from "../../components/admin/Sparkline";
 import StockDonut from "../../components/admin/StockDonut";
 import Screen from "../../components/common/Screen";
@@ -346,7 +347,7 @@ export default function AdminDashboardScreen() {
               </View>
               {recentLowPreview(lowStockBatches).map((p: any, idx: number, arr: any[]) => (
                 <View key={p.id}>
-                  <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => open(`/admin/products/${p.product_id}`)}>
+                  <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={() => goToAdminProduct(p.productId)}>
                     <View style={styles.rowMain}>
                       <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{p.productName}</Text>
                       <Text style={[styles.rowSub, { color: colors.textMuted }]} numberOfLines={1}>Batch {p.batchNumber} · {p.quantity} left</Text>

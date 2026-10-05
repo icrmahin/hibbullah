@@ -2,6 +2,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { goToAdminProduct } from "@/utils/navigation";
 import AdminProductCard from "../../../components/admin/AdminProductCard";
 import type { Product } from "../../../types/product";
 import Screen from "../../../components/common/Screen";
@@ -240,12 +241,7 @@ export default function AdminProductsScreen() {
               <View style={styles.listItem}>
                 <AdminProductCard
                   product={item}
-                  onPress={(product) =>
-                    router.push({
-                      pathname: "/(admin)/products/[productId]",
-                      params: { productId: product.id },
-                    })
-                  }
+                  onPress={(product) => goToAdminProduct(product.id)}
                 />
               </View>
             )}

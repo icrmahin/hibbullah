@@ -2,7 +2,13 @@ import { View } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { useThemeColors } from "../../providers/ThemeProvider";
 
-export default function Sparkline({ data, color }: { data: number[]; color?: string }) {
+export default function Sparkline({
+  data,
+  color,
+}: {
+  data: number[];
+  color?: string;
+}) {
   const colors = useThemeColors();
   const stroke = color || colors.accent;
   const w = 56;
@@ -22,12 +28,20 @@ export default function Sparkline({ data, color }: { data: number[]; color?: str
   // area
   const area = `${d} L ${pad + (data.length - 1) * stepX} ${h - pad} L ${pad} ${h - pad} Z`;
   const lastX = pad + (data.length - 1) * stepX;
-  const lastY = pad + (h - pad * 2) * (1 - (data[data.length - 1] - min) / range);
+  const lastY =
+    pad + (h - pad * 2) * (1 - (data[data.length - 1] - min) / range);
   return (
     <View style={{ width: w, height: h }}>
       <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <Path d={area} fill={stroke} fillOpacity={0.1} stroke="none" />
-        <Path d={d} fill="none" stroke={stroke} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+        <Path
+          d={d}
+          fill="none"
+          stroke={stroke}
+          strokeWidth={1.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
         <Circle cx={lastX} cy={lastY} r={2.2} fill={stroke} />
       </Svg>
     </View>

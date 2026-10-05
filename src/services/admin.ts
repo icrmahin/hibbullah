@@ -14,7 +14,9 @@ interface InventoryItemWithProduct {
   quantity: number
   status: string
   expiry_date: string | null
-  products: { name: string }[]
+  // A many-to-one embed. PostgREST returns ONE object for it, not an array — the same
+  // shape `fetchAdminInventory` and the inventory screens already read it as.
+  products: { name: string } | null
 }
 
 interface OrderBasic {
@@ -56,8 +58,8 @@ export interface AdminDashboardData {
   lowStockProducts: number
   attentionOrders: { id: string; orderNumber: string; customerName: string; total: number }[]
   pendingReturns: { id: string; productName: string; customerName: string; quantity: number }[]
-  lowStockBatches: { id: string; productName: string; batchNumber: string; quantity: number; status: 'healthy' | 'low' | 'out_of_stock'; expiryDate?: string }[]
-  expiringBatches: { id: string; productName: string; batchNumber: string; quantity: number; status: 'healthy' | 'low' | 'out_of_stock'; expiryDate?: string }[]
+  lowStockBatches: { id: string; productId: string; productName: string; batchNumber: string; quantity: number; status: 'healthy' | 'low' | 'out_of_stock'; expiryDate?: string }[]
+  expiringBatches: { id: string; productId: string; productName: string; batchNumber: string; quantity: number; status: 'healthy' | 'low' | 'out_of_stock'; expiryDate?: string }[]
   recentOrders: { id: string; orderNumber: string; customerName: string; total: number; status: string; createdAt: string }[]
 }
 
@@ -190,18 +192,36 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     total: order.total,
   }))
 
-  const transformedLowStock = (lowStockItemsResult.data as InventoryItemWithProduct[] || []).map(item => ({
+  // The supabase-js client here has no generated `Database` type, so it *guesses* the
+  // shape of `products(name)` from the select string and lands on an array. PostgREST
+  // does not guess: `inventory_items.product_id → products.id` is many-to-one, so it
+  // returns ONE object — the same shape `fetchAdminInventory` and the inventory screens
+  // already read it as (verified live: a to-one embed comes back as
+  // `{"categories":{"name":…}}`, not `[{"name":…}]`).
+  //
+  // That mismatch is why the dashboard said "Unknown" while the inventory screen beside
+  // it was correct: `products?.[0]` type-checked against the guess, and at runtime the
+  // index was always undefined. The cast goes through `unknown` so the wrong guess can
+  // never silently win again — the interface below is the shape the server actually sends.
+  const lowStockRows = ((lowStockItemsResult.data ?? []) as unknown) as InventoryItemWithProduct[]
+  const expiringRows = ((expiringResult.data ?? []) as unknown) as InventoryItemWithProduct[]
+
+  const transformedLowStock = lowStockRows.map(item => ({
     id: item.id,
-    productName: item.products?.[0]?.name || 'Unknown',
+    // The product id, so the dashboard row can open the product it is naming. Without it
+    // the row had nothing to navigate with and built an unmatched URL.
+    productId: item.product_id,
+    productName: item.products?.name || 'Unknown',
     batchNumber: item.batch_number,
     quantity: item.quantity,
     status: item.status as 'healthy' | 'low' | 'out_of_stock',
     expiryDate: item.expiry_date || undefined,
   }))
 
-  const transformedExpiring = (expiringResult.data as InventoryItemWithProduct[] || []).map(item => ({
+  const transformedExpiring = expiringRows.map(item => ({
     id: item.id,
-    productName: item.products?.[0]?.name || 'Unknown',
+    productId: item.product_id,
+    productName: item.products?.name || 'Unknown',
     batchNumber: item.batch_number,
     quantity: item.quantity,
     status: item.status as 'healthy' | 'low' | 'out_of_stock',

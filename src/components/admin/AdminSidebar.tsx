@@ -29,6 +29,7 @@ const SECONDARY_NAV: NavItem[] = [
   { label: "Reports", path: "/(admin)/reports", icon: "bar-chart" },
   { label: "Returns", path: "/(admin)/returns", icon: "assignment-return" },
   { label: "Audit Log", path: "/(admin)/audit", icon: "description" },
+  { label: "Advertisements", path: "/(admin)/advertisements", icon: "campaign" },
 ];
 
 const SHOP_LINK = { label: "Back to Shop", path: "/(customer)/(tabs)" as const, icon: "store" as IconName };
@@ -41,6 +42,7 @@ function getActivePath(pathname: string): string {
   if (pathname.includes("/reports")) return "/(admin)/reports";
   if (pathname.includes("/returns")) return "/(admin)/returns";
   if (pathname.includes("/audit")) return "/(admin)/audit";
+  if (pathname.includes("/advertisements")) return "/(admin)/advertisements";
   return "/(admin)";
 }
 
