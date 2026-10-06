@@ -62,7 +62,7 @@ export async function syncLocalFavoritesToRemote(userId: string): Promise<number
 export async function fetchFavorites(userId: string): Promise<Product[]> {
   const { data, error } = await supabase
     .from("favorites")
-    .select("created_at, product_id, products(*)")
+    .select(`created_at, product_id, products(${PRODUCT_PUBLIC_COLUMNS})`)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) {

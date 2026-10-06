@@ -107,17 +107,19 @@ export default function CustomerHomeScreen() {
       title="Hibbullah"
       leading={<AppLogo size={24} />}
       action={
-        <Pressable
-          onPress={() => router.push("/(customer)/account/notifications")}
-          style={styles.headerAction}
-          hitSlop={8}
-          android_ripple={{ color: colors.ripple.primary, borderless: false }}
-          accessibilityRole="button"
-          accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
-        >
-          <Icon name="notifications" size={20} color={colors.accent} />
+        <View style={styles.headerActionWrap}>
+          <Pressable
+            onPress={() => router.push("/(customer)/account/notifications")}
+            style={styles.headerAction}
+            hitSlop={8}
+            android_ripple={{ color: colors.ripple.primary, borderless: false }}
+            accessibilityRole="button"
+            accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+          >
+            <Icon name="notifications" size={20} color={colors.accent} />
+          </Pressable>
           <CountBadge count={unreadCount} tone="danger" />
-        </Pressable>
+        </View>
       }
     />
   );
@@ -252,6 +254,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.md,
   },
+  headerActionWrap: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
   headerAction: {
     width: 36,
     height: 36,
@@ -259,13 +268,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: radius.lg,
     overflow: "hidden",
-    position: "relative",
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: spacing.xs,
   },
   sectionTitle: {
     fontFamily: fontFamily.soraSemiBold,

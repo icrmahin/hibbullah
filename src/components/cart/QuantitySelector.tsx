@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
-import { radius, layout } from "../../constants/sizes";
+import { radius, opacity as opacityToken } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import Icon from "../common/Icon";
@@ -21,18 +21,23 @@ export default function QuantitySelector({
   const atMax = value >= max;
 
   return (
-    <View style={[styles.row, { backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}>
+    <View
+      style={[
+        styles.row,
+        { borderColor: colors.borderLight },
+      ]}
+    >
       <Pressable
         onPress={() => onChange(Math.max(min, value - 1))}
         disabled={atMin}
-        style={styles.control}
-        hitSlop={6}
+        hitSlop={8}
         android_ripple={{ color: colors.ripple.primary, borderless: false }}
         accessibilityRole="button"
         accessibilityLabel="Decrease quantity"
         accessibilityState={{ disabled: atMin }}
+        style={[styles.control, atMin && { opacity: opacityToken.disabled }]}
       >
-        <Icon name="remove" size={18} color={atMin ? colors.textMuted : colors.accent} />
+        <Icon name="remove" size={16} color={atMin ? colors.textMuted : colors.accent} />
       </Pressable>
       <Text
         style={[styles.value, { color: colors.text }]}
@@ -44,14 +49,14 @@ export default function QuantitySelector({
       <Pressable
         onPress={() => onChange(Math.min(max, value + 1))}
         disabled={atMax}
-        style={styles.control}
-        hitSlop={6}
+        hitSlop={8}
         android_ripple={{ color: colors.ripple.primary, borderless: false }}
         accessibilityRole="button"
         accessibilityLabel="Increase quantity"
         accessibilityState={{ disabled: atMax }}
+        style={[styles.control, atMax && { opacity: opacityToken.disabled }]}
       >
-        <Icon name="add" size={18} color={atMax ? colors.textMuted : colors.accent} />
+        <Icon name="add" size={16} color={atMax ? colors.textMuted : colors.accent} />
       </Pressable>
     </View>
   );
@@ -61,25 +66,26 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
     gap: spacing.xs,
     borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: spacing.xs,
-    minHeight: layout.touch,
+    minHeight: 32,
   },
   control: {
-    width: layout.touch - 8,
-    height: layout.touch - 8,
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
     overflow: "hidden",
   },
   value: {
-    minWidth: 32,
+    minWidth: 28,
     textAlign: "center",
     fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.subhead,
-    lineHeight: fontSize.subhead * lineHeight.normal,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
   },
 });

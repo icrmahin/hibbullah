@@ -48,7 +48,7 @@ if (!token) {
  * Delete order: children before parents, and anything a trigger can regenerate
  * (notifications, the audit log) after everything that fires those triggers.
  */
-const WIPES = [
+const WIPES_ALL = [
   'return_requests',
   'order_item_allocations',
   'order_items',
@@ -70,6 +70,18 @@ const WIPES = [
 
 /** Untouched, but asserted afterwards so a mistake is loud. */
 const KEEP_MIN = { profiles: 1, 'auth.users': 1 }
+
+/**
+ * Scoped wipe: `--only a,b,c` restricts to the named tables (kept in WIPES
+ * order, so FK constraints still hold). Anything not named is left alone —
+ * used for history-only cleanups where the catalog and accounts must survive.
+ */
+const ONLY_ARG = argv.find((a) => a.startsWith('--only='))
+const WIPES = WIPES_ALL.filter((t) => !ONLY_ARG || ONLY_ARG.slice('--only='.length).split(',').includes(t))
+if (ONLY_ARG && WIPES.length === 0) {
+  console.error('No known tables match --only. Known:', WIPES_ALL.join(', '))
+  exit(1)
+}
 
 async function query(sql, attempt = 1) {
   let res

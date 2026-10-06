@@ -108,8 +108,8 @@ export default function AdminProductDetailScreen() {
 
   // The product row already carries the joined names, so this screen does not
   // have to load the whole category and manufacturer tables to label one row.
-  const categoryName = product.categoryName ?? "";
-  const manufacturerName = product.manufacturerName ?? "";
+  const categoryName = product.categoryName || "—";
+  const manufacturerName = product.manufacturerName || "—";
   // Every batch the product has, in the order `fetchProductInventory` returns them, and
   // the earliest date any of them carries. An empty product has neither, so both render
   // as nothing rather than as an empty row.

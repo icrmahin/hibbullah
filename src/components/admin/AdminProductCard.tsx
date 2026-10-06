@@ -58,12 +58,18 @@ export default function AdminProductCard({
             tone={statusTone(stockKey)}
           />
         </View>
-        {/* The generic-name field is gone from the form, so it can be empty on any medicine
-            saved after that. A separator in front of nothing is not a shorter line, it is a
-            dangling "·" — so the half that exists is what is drawn. */}
-        <Text style={[styles.meta, { color: colors.textMuted }]}>
-          {product.genericName ? `${product.brand} · ${product.genericName}` : product.brand}
-        </Text>
+        {/* Brand and generic share one line only when at least one exists. Either can
+            now be blank (both optional on the add form), and " · X" or "X · " with a
+            dangling separator reads as a rendering bug — so the line is built from
+            whichever halves exist, and omitted entirely when neither does. */}
+        {(() => {
+          const parts = [product.brand, product.genericName].filter(
+            (p) => p != null && p.trim().length > 0,
+          );
+          return parts.length > 0 ? (
+            <Text style={[styles.meta, { color: colors.textMuted }]}>{parts.join(" · ")}</Text>
+          ) : null;
+        })()}
         <View style={styles.footer}>
           <ProductPrice price={product.price} originalPrice={product.originalPrice} />
           {/* Neutral ink: the badge above already carries the stock status, so

@@ -9,12 +9,15 @@ import ResponsiveContainer from '../../../components/common/ResponsiveContainer'
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
+import Button from '../../../components/common/Button';
+import ConfirmDialog from '../../../components/common/ConfirmDialog';
+import { useConfirm } from '../../../hooks/useConfirm';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
-import { fetchCustomerById, type CustomerRecord } from '../../../services/customers';
+import { fetchCustomerById, setCustomerBlocked, type CustomerRecord } from '../../../services/customers';
 import { radius } from '../../../constants/sizes';
 
 /** One level deep: fall back to the admin dashboard when there is nothing to pop. */
@@ -28,6 +31,8 @@ export default function AdminCustomerDetailScreen() {
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toggling, setToggling] = useState(false);
+  const { confirm, confirmDialogProps } = useConfirm();
 
   // FIX: load was a fresh function per render but the effect only depended on customerId,
   // tripping react-hooks/exhaustive-deps. Memoized it so the dependency list is correct.
@@ -83,9 +88,34 @@ export default function AdminCustomerDetailScreen() {
     { label: 'Name', value: customer.name },
     { label: 'Email', value: customer.email || '—' },
     { label: 'Phone', value: customer.phone || '—' },
+    { label: 'Status', value: customer.isBlocked ? 'Blocked' : 'Active', danger: customer.isBlocked },
     { label: 'Orders', value: String(customer.orderCount) },
     { label: 'Total spending', value: formatCurrency(customer.totalSpent) },
   ];
+
+  const handleToggleBlock = async () => {
+    if (!customer || toggling) return;
+    const blocking = !customer.isBlocked;
+    const ok = await confirm({
+      title: blocking ? 'Block this account?' : 'Unblock this account?',
+      message: blocking
+        ? `${customer.name} will be signed out and refused at login. Their orders stay intact.`
+        : `${customer.name} will be able to sign in and use the app again.`,
+      confirmLabel: blocking ? 'Block' : 'Unblock',
+      cancelLabel: 'Cancel',
+      destructive: blocking,
+    });
+    if (!ok) return;
+    setToggling(true);
+    try {
+      await setCustomerBlocked(customer.id, blocking);
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Failed to update account status');
+    } finally {
+      setToggling(false);
+    }
+  };
 
   return (
     <Screen header={<ScreenHeader title={customer?.name ?? "Customer"} subtitle="Customer overview" onBack={onBack} />}>
@@ -102,10 +132,19 @@ export default function AdminCustomerDetailScreen() {
               ]}
             >
               <Text style={[styles.fieldLabel, { color: colors.text }]}>{field.label}</Text>
-              <Text style={[styles.fieldValue, { color: colors.textMuted }]}>{field.value}</Text>
+              <Text style={[styles.fieldValue, { color: 'danger' in field && field.danger ? colors.danger : colors.textMuted }]}>{field.value}</Text>
             </View>
           ))}
         </View>
+        <Button
+          title={customer.isBlocked ? 'Unblock account' : 'Block account'}
+          variant={customer.isBlocked ? 'secondary' : 'danger'}
+          onPress={handleToggleBlock}
+          loading={toggling}
+          disabled={toggling}
+          fullWidth
+        />
+        <ConfirmDialog {...confirmDialogProps} />
         </ResponsiveContainer>
       </ScrollView>
     </Screen>

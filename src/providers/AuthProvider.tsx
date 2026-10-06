@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [isAdmin, setIsAdmin] = useState<boolean>(false)
+  const [isBlocked, setIsBlocked] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(true)
 
   useEffect(() => {
@@ -127,8 +128,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Blocked check via definer RPC (never the profile row: RLS denies a blocked
+  // user their own profile, so reading the flag from the row cannot work).
+  // Fail-closed is wrong here — an RPC outage must not lock every customer out —
+  // so errors mean "not blocked" and enforcement falls back to RLS, which denies
+  // a blocked session's reads regardless.
+  async function checkBlockedRpc(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.rpc('is_blocked')
+      if (error) return false
+      return data === true
+    } catch {
+      return false
+    }
+  }
+
   async function handleSessionChange(session: Session | null) {
     if (session?.user) {
+      // Blocked accounts hold no session, even with a live token: sign out first so
+      // no screen ever renders for them, then flag for the welcome notice.
+      if (await checkBlockedRpc()) {
+        try {
+          await supabase.auth.signOut()
+        } catch {
+          // ignored — the point is clearing local state below
+        }
+        setSession(null)
+        setUser(null)
+        setIsAdmin(false)
+        setIsBlocked(true)
+        return
+      }
+      setIsBlocked(false)
       const email = session.user.email as string | undefined
       // Phone source of truth is profiles.phone (not auth) — auth only for gmail, phone required for placing order
       const profile = await fetchProfile(session.user.id)
@@ -197,6 +228,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!r.error) rpcAdmin = r.data === true
     } catch {}
     const finalIsAdmin = rpcAdmin !== null ? rpcAdmin : hardenedIsAdmin
+    // A blocked account signs in successfully at the auth layer and is refused here:
+    // drop the fresh session immediately so no screen ever renders for it.
+    try {
+      const { data: blocked } = await supabase.rpc('is_blocked')
+      if (blocked === true) {
+        try {
+          await supabase.auth.signOut()
+        } catch {
+          // ignored — the throw below is what matters
+        }
+        setIsBlocked(true)
+        throw new Error('This account has been blocked. Contact support for help.')
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('This account has been blocked')) throw e
+      // RPC outage: fall through to RLS enforcement rather than locking everyone out.
+    }
+    setIsBlocked(false)
     const role: 'customer' | 'admin' = finalIsAdmin ? 'admin' : 'customer'
     const sessWithId = data.session as Session & { id?: string }
     return {
@@ -265,6 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null)
     setUser(null)
     setIsAdmin(false)
+    setIsBlocked(false)
   }, [user])
 
   const refreshUser = useCallback(async () => {
@@ -312,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isAdmin,
     loading,
+    isBlocked,
     signOut,
     logout: signOut,
     login,
@@ -319,7 +370,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser,
     changePassword,
     sendPasswordResetEmail,
-  }), [session, user, isAdmin, loading, signOut, login, register, refreshUser, changePassword, sendPasswordResetEmail])
+  }), [session, user, isAdmin, isBlocked, loading, signOut, login, register, refreshUser, changePassword, sendPasswordResetEmail])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -93,6 +93,25 @@ export default function CustomerCartScreen() {
     </View>
   );
 
+  // Checkout dominates; continuing to shop stays available but quiet.
+  // One shared column for both layouts so the hierarchy cannot drift.
+  const actions = (
+    <View style={styles.actionsColumn}>
+      <Button
+        title={isDesktop ? `Checkout · ${formatCurrency(summary.total)}` : "Checkout"}
+        onPress={() => router.push("/(customer)/checkout")}
+        disabled={items.length === 0}
+        fullWidth
+      />
+      <Button
+        title="Continue shopping"
+        variant="ghost"
+        onPress={() => router.push("/(customer)/(tabs)/products")}
+        fullWidth
+      />
+    </View>
+  );
+
   return (
     <Screen
       header={
@@ -108,38 +127,24 @@ export default function CustomerCartScreen() {
         {isDesktop ? (
           <View style={styles.desktopLayout}>
             <View style={styles.itemsColumn}>
-              {items.map((item) => (
-                <CartItemRow key={item.id} item={item} onQuantity={(q) => updateQuantity(item.id, q)} onRemove={() => removeCartItem(item.id)} />
+              {items.map((item, index) => (
+                <CartItemRow key={item.id} item={item} onQuantity={(q) => updateQuantity(item.id, q)} onRemove={() => removeCartItem(item.id)} isLast={index === items.length - 1} />
               ))}
             </View>
             <View style={styles.summaryColumn}>
               {summaryCard}
-              <View style={styles.actionsRow}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Shop" variant="secondary" onPress={() => router.push("/(customer)/(tabs)/products")} fullWidth />
-                </View>
-                <View style={{ flex: 1.2 }}>
-                  <Button title={`Checkout · ${formatCurrency(summary.total)}`} onPress={() => router.push("/(customer)/checkout")} disabled={items.length === 0} fullWidth />
-                </View>
-              </View>
+              {actions}
             </View>
           </View>
         ) : (
           <View style={styles.mobileStack}>
             <View style={styles.itemsList}>
-              {items.map((item) => (
-                <CartItemRow key={item.id} item={item} onQuantity={(q) => updateQuantity(item.id, q)} onRemove={() => removeCartItem(item.id)} />
+              {items.map((item, index) => (
+                <CartItemRow key={item.id} item={item} onQuantity={(q) => updateQuantity(item.id, q)} onRemove={() => removeCartItem(item.id)} isLast={index === items.length - 1} />
               ))}
             </View>
             {summaryCard}
-            <View style={styles.actionsRow}>
-              <View style={{ flex: 1 }}>
-                <Button title="Shop" variant="secondary" onPress={() => router.push("/(customer)/(tabs)/products")} fullWidth />
-              </View>
-              <View style={{ flex: 1.2 }}>
-                <Button title="Checkout" onPress={() => router.push("/(customer)/checkout")} disabled={items.length === 0} fullWidth />
-              </View>
-            </View>
+            {actions}
           </View>
         )}
       </ScrollView>
@@ -148,17 +153,17 @@ export default function CustomerCartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.lg },
+  container: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.lg },
   error: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
   },
   desktopLayout: { flexDirection: "row", gap: spacing.xl },
-  itemsColumn: { flex: 2, gap: spacing.md },
+  itemsColumn: { flex: 2 },
   summaryColumn: { flex: 1, gap: spacing.md },
-  mobileStack: { gap: spacing.lg },
-  itemsList: { gap: spacing.md },
+  mobileStack: { gap: spacing.lg, flex: 1 },
+  itemsList: {},
   summaryWrap: { gap: spacing.sm },
   summaryTitle: {
     fontFamily: fontFamily.soraSemiBold,
@@ -172,5 +177,5 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
   },
-  actionsRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xs },
+  actionsColumn: { gap: spacing.sm },
 });

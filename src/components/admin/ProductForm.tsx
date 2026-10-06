@@ -39,8 +39,8 @@ export type ProductFormInput = ProductUpdate & {
   id?: string;
   name: string;
   brand: string;
-  manufacturerId: string;
-  categoryId: string;
+  manufacturerId: string | null;
+  categoryId: string | null;
   description: string;
   price: number;
   stock: number;
@@ -244,9 +244,8 @@ export default function ProductForm({
     const next: Record<string, string> = {};
 
     if (isEmpty(name)) next.name = "Write the medicine name.";
-    if (isEmpty(brand)) next.brand = "Write the brand name.";
-    if (!categoryId) next.categoryId = "Select a category.";
-    if (!manufacturerId) next.manufacturerId = "Select the company.";
+    // Brand, category, and company are optional on add: brand falls back to an
+    // empty string (the generic_name precedent), category/company to null.
 
     const priceNum = Number(price);
     if (isEmpty(price)) next.price = "Write the selling price.";
@@ -340,8 +339,8 @@ export default function ProductForm({
       const payload: ProductFormInput = {
         name: name.trim(),
         brand: brand.trim(),
-        manufacturerId,
-        categoryId,
+        manufacturerId: manufacturerId || null,
+        categoryId: categoryId || null,
         description: description.trim(),
         price:
           percent > 0 ? getSalePrice(customerPrice, percent) : customerPrice,

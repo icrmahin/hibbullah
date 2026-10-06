@@ -8,6 +8,7 @@ export interface CustomerRecord {
   email?: string
   phone?: string
   role: string
+  isBlocked: boolean
   orderCount: number
   totalSpent: number
   createdAt: string
@@ -42,6 +43,8 @@ export async function fetchCustomers(query?: string, options?: { limit?: number;
       email: p.email ?? undefined,
       phone: p.phone ?? undefined,
       role: p.role,
+      // The aggregate RPC does not carry the flag; the detail screen reads it directly.
+      isBlocked: false,
       orderCount: Number(p.order_count || 0),
       totalSpent: Number(p.total_spent || 0),
       createdAt: p.created_at,
@@ -61,7 +64,7 @@ export async function fetchCustomers(query?: string, options?: { limit?: number;
   // Fallback to client-side (legacy) if RPC not yet deployed
   const { data: profiles, error } = await supabase
     .from('profiles')
-    .select('id, name, email, phone, role, created_at')
+    .select('id, name, email, phone, role, is_blocked, created_at')
     .eq('role', 'customer')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -96,6 +99,7 @@ export async function fetchCustomers(query?: string, options?: { limit?: number;
     email: p.email ?? undefined,
     phone: p.phone ?? undefined,
     role: p.role,
+    isBlocked: p.is_blocked ?? false,
     orderCount: stats.get(p.id)?.count ?? 0,
     totalSpent: stats.get(p.id)?.total ?? 0,
     createdAt: p.created_at,
@@ -112,7 +116,7 @@ export async function fetchCustomers(query?: string, options?: { limit?: number;
 export async function fetchCustomerById(customerId: string): Promise<CustomerRecord | null> {
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, name, email, phone, role, created_at')
+    .select('id, name, email, phone, role, is_blocked, created_at')
     .eq('id', customerId)
     .single()
   if (error) {
@@ -129,6 +133,7 @@ export async function fetchCustomerById(customerId: string): Promise<CustomerRec
       email: profile.email ?? undefined,
       phone: profile.phone ?? undefined,
       role: profile.role,
+      isBlocked: profile.is_blocked ?? false,
       orderCount: Number(row.order_count || 0),
       totalSpent: Number(row.total_spent || 0),
       createdAt: profile.created_at,
@@ -145,6 +150,7 @@ export async function fetchCustomerById(customerId: string): Promise<CustomerRec
     email: profile.email ?? undefined,
     phone: profile.phone ?? undefined,
     role: profile.role,
+    isBlocked: profile.is_blocked ?? false,
     orderCount,
     totalSpent,
     createdAt: profile.created_at,
@@ -159,4 +165,19 @@ export async function fetchCustomersResult(query?: string, options?: { limit?: n
     const appErr = e?.name === 'AppError' ? e : supabaseErrorToAppError(e)
     return fail(appErr.message, [] as CustomerRecord[])
   }
+}
+
+/**
+ * Block or unblock a customer account. Admin-only, enforced inside the RPC
+ * (is_admin() check) — the client flag is convenience, not authority.
+ * Blocking suspends the account reversibly: live sessions are refused at next
+ * auth check and RLS denies the blocked token's reads/writes. Nothing is
+ * deleted; order history stays intact.
+ */
+export async function setCustomerBlocked(customerId: string, blocked: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_user_blocked', {
+    p_user_id: customerId,
+    p_blocked: blocked,
+  })
+  if (error) throw supabaseErrorToAppError(error)
 }

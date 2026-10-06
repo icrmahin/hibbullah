@@ -7334,3 +7334,380 @@ create policy "Avatar owner or admin write"
   on storage.objects for all to authenticated
   using (bucket_id = 'avatars' and (public.is_admin() or name like auth.uid()::text || '-%'))
   with check (bucket_id = 'avatars' and (public.is_admin() or name like auth.uid()::text || '-%'));
+
+-- FILE: supabase/migrations/20261006000003_customer_block.sql (functions/policies only)
+create or replace function public.is_blocked()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return coalesce((select p.is_blocked from public.profiles p where p.id = auth.uid()), false);
+end $$;
+create or replace function public.set_user_blocked(p_user_id uuid, p_blocked boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  update public.profiles set is_blocked = p_blocked, updated_at = now() where id = p_user_id;
+end $$;
+create policy "Users can view own profile"
+  on public.profiles for select
+  using (((auth.uid() = id) and (not public.is_blocked())) or is_admin());
+create policy "Users can update own profile"
+  on public.profiles for update
+  using ((auth.uid() = id) and (not public.is_blocked()))
+  with check ((auth.uid() = id) and (not public.is_blocked()));
+create policy "Customers can view own cart"
+  on public.cart_items for select
+  using ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can insert own cart items"
+  on public.cart_items for insert
+  with check ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can update own cart items"
+  on public.cart_items for update
+  using ((auth.uid() = user_id) and (not public.is_blocked()))
+  with check ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can delete own cart items"
+  on public.cart_items for delete
+  using ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can view own favorites"
+  on public.favorites for select
+  using ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can manage own favorites"
+  on public.favorites for all
+  using ((auth.uid() = user_id) and (not public.is_blocked()))
+  with check ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can view own addresses"
+  on public.addresses for select
+  using ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can manage own addresses"
+  on public.addresses for all
+  using ((auth.uid() = user_id) and (not public.is_blocked()))
+  with check ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can view own orders"
+  on public.orders for select
+  using (((auth.uid() = customer_id) and (not public.is_blocked())) or is_admin());
+create policy "Customers can view own order items"
+  on public.order_items for select
+  using (((auth.uid() in (select orders.customer_id from orders where orders.id = order_items.order_id)) and (not public.is_blocked())) or is_admin());
+create policy "Customers can view own notifications"
+  on public.notifications for select
+  using ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can mark own notifications read"
+  on public.notifications for update
+  using ((auth.uid() = user_id) and (not public.is_blocked()))
+  with check ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can clear own notifications"
+  on public.notifications for delete
+  using ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Users can view own push tokens"
+  on public.push_tokens for select
+  using ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Users can manage own push tokens"
+  on public.push_tokens for all
+  using ((auth.uid() = user_id) and (not public.is_blocked()))
+  with check ((auth.uid() = user_id) and (not public.is_blocked()));
+create policy "Customers can view own returns"
+  on public.return_requests for select
+  using (((auth.uid() = customer_id) and (not public.is_blocked())) or is_admin());
+create policy "Customers can create returns"
+  on public.return_requests for insert
+  with check ((auth.uid() = customer_id) and (not public.is_blocked()) and (exists (select 1 from orders o where ((o.id = return_requests.order_id) and (o.customer_id = return_requests.customer_id) and (o.status = 'DELIVERED'::text)))));
+create policy "Customers can create delivery cycles"
+  on public.delivery_cycles for insert
+  with check ((auth.uid() = customer_id) and (not public.is_blocked()));
+create policy "Customers can update own delivery cycles"
+  on public.delivery_cycles for update
+  using ((auth.uid() = customer_id) and (not public.is_blocked()))
+  with check ((auth.uid() = customer_id) and (not public.is_blocked()));
+create policy "Customers can view own delivery cycles"
+  on public.delivery_cycles for select
+  using (((auth.uid() = customer_id) and (not public.is_blocked())) or is_admin());
+create policy "Customers can view own delivery cycle items"
+  on public.delivery_cycle_items for select
+  using ((exists (select 1 from delivery_cycles dc where ((dc.id = delivery_cycle_items.delivery_cycle_id) and (dc.customer_id = auth.uid())))) and (not public.is_blocked()));
+create policy "Customers can manage own delivery cycle items"
+  on public.delivery_cycle_items for all
+  using ((exists (select 1 from delivery_cycles dc where ((dc.id = delivery_cycle_items.delivery_cycle_id) and (dc.customer_id = auth.uid())))) and (not public.is_blocked()))
+  with check ((exists (select 1 from delivery_cycles dc where ((dc.id = delivery_cycle_items.delivery_cycle_id) and (dc.customer_id = auth.uid())))) and (not public.is_blocked()));
+
+-- FILE: supabase/migrations/20261006000005_product_optional_fields.sql
+alter table public.products alter column manufacturer_id drop not null;
+alter table public.products alter column category_id drop not null;
+
+create or replace function public.browse_products(
+  p_category uuid default null,
+  p_manufacturer uuid default null,
+  p_status text default null,
+  p_stock text default null,
+  p_low_stock_threshold integer default 10,
+  p_cursor_created_at timestamptz default null,
+  p_cursor_id uuid default null,
+  p_limit int default 24
+)
+returns table (
+  id uuid,
+  name text,
+  brand text,
+  generic_name text,
+  description text,
+  manufacturer_id uuid,
+  category_id uuid,
+  price numeric,
+  original_price numeric,
+  discount_percent integer,
+  stock integer,
+  unit text,
+  image_url text,
+  secondary_image_url text,
+  is_active boolean,
+  is_deleted boolean,
+  is_featured boolean,
+  created_at timestamptz,
+  updated_at timestamptz,
+  category_name text,
+  category_slug text,
+  manufacturer_name text
+)
+language sql
+stable
+-- SECURITY INVOKER is deliberate. It keeps the existing RLS on products
+-- (20260918020000_fix_admin_rls.sql:55-68 — active-only for everyone, all rows
+-- for admins) in force. A SECURITY DEFINER version would bypass RLS and leak
+-- inactive products to customers. Do not "optimize" this into definer.
+security invoker
+set search_path = public
+as $$
+  select
+    p.id,
+    p.name,
+    p.brand,
+    p.generic_name,
+    p.description,
+    p.manufacturer_id,
+    p.category_id,
+    p.price,
+    p.original_price,
+    p.discount_percent,
+    p.stock,
+    p.unit,
+    p.image_url,
+    p.secondary_image_url,
+    p.is_active,
+    p.is_deleted,
+    p.is_featured,
+    p.created_at,
+    p.updated_at,
+    c.name,
+    c.slug,
+    m.name
+  from public.products p
+  left join public.categories c on c.id = p.category_id
+  left join public.manufacturers m on m.id = p.manufacturer_id
+  where (coalesce(p.is_deleted, false) = false)
+    and (p_category is null or p.category_id = p_category)
+    and (p_manufacturer is null or p.manufacturer_id = p_manufacturer)
+    and (
+      p_status is null
+      or (p_status = 'active' and p.is_active)
+      or (p_status = 'inactive' and not p.is_active)
+    )
+    and (
+      p_stock is null
+      or (p_stock = 'in_stock' and p.stock > 0)
+      or (p_stock = 'out' and p.stock <= 0)
+      or (
+        p_stock = 'low'
+        and p.stock > 0
+        and p.stock < coalesce(p_low_stock_threshold, 10)
+      )
+    )
+    and (
+      p_cursor_created_at is null
+      or p_cursor_id is null
+      or (p.created_at, p.id) < (p_cursor_created_at, p_cursor_id)
+    )
+  order by p.created_at desc, p.id desc
+  limit least(greatest(coalesce(p_limit, 24), 1), 100);
+$$;
+create or replace function public.search_products(
+  p_query text,
+  p_category uuid default null,
+  p_manufacturer uuid default null,
+  p_status text default null,
+  p_stock text default null,
+  p_low_stock_threshold integer default 10,
+  p_limit int default 24,
+  p_offset int default 0
+)
+returns table (
+  id uuid,
+  name text,
+  brand text,
+  generic_name text,
+  description text,
+  manufacturer_id uuid,
+  category_id uuid,
+  price numeric,
+  original_price numeric,
+  discount_percent integer,
+  stock integer,
+  unit text,
+  image_url text,
+  secondary_image_url text,
+  is_active boolean,
+  is_deleted boolean,
+  is_featured boolean,
+  created_at timestamptz,
+  updated_at timestamptz,
+  category_name text,
+  category_slug text,
+  manufacturer_name text,
+  total_count bigint
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with term as (
+    select
+      lower(btrim(coalesce(p_query, ''))) as v,
+      -- A second copy of the term, escaped for `like`.
+      --
+      -- LIKE's default escape character is a backslash, so a term carrying `%`, `_` or `\`
+      -- has to be neutralised before it is interpolated into a pattern. The app already
+      -- strips these (`sanitizeSearchTerm`, src/services/searchQuery.ts) because they are
+      -- PostgREST syntax, so this changes nothing for app traffic. What it removes is the
+      -- case where the RPC is called directly — by a verifier, or by anyone holding the
+      -- publishable key, which is in the bundle and is therefore public — with `p_query`
+      -- set to `%`, and a search silently becomes "return the whole catalogue".
+      --
+      -- Backslash first, or it would escape the backslashes added by the next two.
+      replace(
+        replace(
+          replace(lower(btrim(coalesce(p_query, ''))), '\', '\\'),
+          '%', '\%'
+        ),
+        '_', '\_'
+      ) as pat
+  ),
+  matched as (
+    select
+p.id,
+      p.name,
+      p.brand,
+      p.generic_name,
+      p.description,
+      p.manufacturer_id,
+      p.category_id,
+      p.price,
+      p.original_price,
+      p.discount_percent,
+      p.stock,
+      p.unit,
+      p.image_url,
+      p.secondary_image_url,
+      p.is_active,
+      p.is_deleted,
+      p.is_featured,
+      p.created_at,
+      p.updated_at,
+      c.name as category_name,
+      c.slug as category_slug,
+      m.name as manufacturer_name,
+      case
+        when btrim(coalesce(p_query, '')) = '' then 0
+        when lower(p.name) = (select v from term) then 0
+        when lower(p.name) like (select pat from term) || '%' then 1
+        when lower(p.brand) like (select pat from term) || '%' then 2
+        when lower(m.name) like (select pat from term) || '%' then 3
+        when lower(p.generic_name) like (select pat from term) || '%' then 4
+        when p.brand ilike '%' || (select pat from term) || '%' then 5
+        when m.name ilike '%' || (select pat from term) || '%' then 6
+        when p.name ilike '%' || (select pat from term) || '%' then 7
+        when p.generic_name ilike '%' || (select pat from term) || '%' then 8
+        when p.name % (select v from term) then 9
+        when p.generic_name % (select v from term) then 10
+        when p.brand % (select v from term) then 11
+        when m.name % (select v from term) then 12
+        else 13
+      end as rank
+    from public.products p
+    left join public.categories c on c.id = p.category_id
+    left join public.manufacturers m on m.id = p.manufacturer_id
+    where (coalesce(p.is_deleted, false) = false)
+      and (p_category is null or p.category_id = p_category)
+      and (p_manufacturer is null or p.manufacturer_id = p_manufacturer)
+      and (
+        p_status is null
+        or (p_status = 'active' and p.is_active)
+        or (p_status = 'inactive' and not p.is_active)
+      )
+      and (
+        p_stock is null
+        or (p_stock = 'in_stock' and p.stock > 0)
+        or (p_stock = 'out' and p.stock <= 0)
+        or (
+          p_stock = 'low'
+          and p.stock > 0
+          and p.stock < coalesce(p_low_stock_threshold, 10)
+        )
+      )
+      and (
+        btrim(coalesce(p_query, '')) = ''
+        or lower(p.name) like (select pat from term) || '%'
+        or lower(p.brand) like (select pat from term) || '%'
+        or lower(m.name) like (select pat from term) || '%'
+        or lower(p.generic_name) like (select pat from term) || '%'
+        or p.name ilike '%' || (select pat from term) || '%'
+        or p.brand ilike '%' || (select pat from term) || '%'
+        or m.name ilike '%' || (select pat from term) || '%'
+        or p.generic_name ilike '%' || (select pat from term) || '%'
+        or p.description ilike '%' || (select pat from term) || '%'
+        or p.name % (select v from term)
+        or p.generic_name % (select v from term)
+        or p.brand % (select v from term)
+        or m.name % (select v from term)
+      )
+  )
+  select
+    mt.id,
+    mt.name,
+    mt.brand,
+    mt.generic_name,
+    mt.description,
+    mt.manufacturer_id,
+    mt.category_id,
+    mt.price,
+    mt.original_price,
+    mt.discount_percent,
+    mt.stock,
+    mt.unit,
+    mt.image_url,
+    mt.secondary_image_url,
+    mt.is_active,
+    mt.is_deleted,
+    mt.is_featured,
+    mt.created_at,
+    mt.updated_at,
+    mt.category_name,
+    mt.category_slug,
+    mt.manufacturer_name,
+    count(*) over ()
+  from matched mt
+  order by mt.rank, mt.name, mt.id
+  limit least(greatest(coalesce(p_limit, 24), 1), 100)
+  offset least(greatest(coalesce(p_offset, 0), 0), 5000);
+$$;
+grant execute on function public.browse_products(uuid, uuid, text, text, integer, timestamptz, uuid, int)
+  to anon, authenticated;
+grant execute on function public.search_products(text, uuid, uuid, text, text, integer, int, int)
+  to anon, authenticated;

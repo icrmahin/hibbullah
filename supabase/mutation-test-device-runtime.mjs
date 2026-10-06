@@ -97,8 +97,8 @@ const cases = [
     CARD,
     (s) =>
       s.replace(
-        '        {/* Add to cart, floating on the photo.',
-        '        <Text>{`${product.stock} in stock`}</Text>\n        {/* Add to cart, floating on the photo.',
+        '        {/* Favourite, above the add button in the same corner stack.',
+        '        <Text>{`${product.stock} in stock`}</Text>\n        {/* Favourite, above the add button in the same corner stack.',
       ),
   ],
   [
@@ -108,8 +108,8 @@ const cases = [
     CARD,
     (s) =>
       s.replace(
-        '        {/* Add to cart, floating on the photo.',
-        '        <Text>Only a few left</Text>\n        {/* Add to cart, floating on the photo.',
+        '        {/* Favourite, above the add button in the same corner stack.',
+        '        <Text>Only a few left</Text>\n        {/* Favourite, above the add button in the same corner stack.',
       ),
   ],
   [

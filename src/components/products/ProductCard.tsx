@@ -134,7 +134,7 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
           readout. Its disabled styling carries the meaning, so it stays legible.
         */}
 
-        {/* Add to cart, floating on the photo. A 32px target with a 6px hitSlop is 44px. */}
+        {/* Both floating controls are 32px targets with a 6px hitSlop: 44px. */}
         <Pressable
           onPress={handleAdd}
           disabled={outOfStock}
@@ -177,7 +177,7 @@ function ProductCard({ product, compact, onPress }: ProductCardProps) {
         >
           <Icon
             name={fav ? "favorite" : "favorite-border"}
-            size={13}
+            size={15}
             color={fav ? colors.textInverse : colors.textMuted}
           />
         </Pressable>
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
    * gets the depth for free and hands back 8px.
    */
   imageWrap: {
-    aspectRatio: 1,
+    aspectRatio: 4 / 3,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -247,8 +247,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: spacing.xs + 2,
     right: spacing.xs + 2,
-    width: 26,
-    height: 26,
+    width: 32,
+    height: 32,
     borderRadius: radius.pill,
     borderWidth: 1,
     alignItems: "center",
@@ -275,8 +275,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
     gap: spacing.xxs,
   },
   name: {

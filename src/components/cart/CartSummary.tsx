@@ -42,7 +42,7 @@ function Row({ label, value, muted }: { label: string; value: string; muted?: bo
 const styles = StyleSheet.create({
   box: {
     borderRadius: radius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     gap: spacing.sm,
   },
   row: {
@@ -70,8 +70,8 @@ const styles = StyleSheet.create({
   },
   total: {
     fontFamily: fontFamily.soraSemiBold,
-    fontSize: fontSize.subhead,
-    lineHeight: fontSize.subhead * lineHeight.tight,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
     letterSpacing: -0.2,
   },
 });

@@ -327,8 +327,10 @@ export type CreateProductInput = {
    * `not null`, and a field the owner was never shown is not a reason to refuse the save.
    */
   genericName?: string
-  manufacturerId: string
-  categoryId: string
+  /** Optional since the nullable-columns migration: null stores no link. */
+  manufacturerId: string | null
+  /** Optional since the nullable-columns migration: null stores no link. */
+  categoryId: string | null
   description: string
   price: number
   stock: number
@@ -370,16 +372,13 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   const productId = input.id ?? randomUuid()
 
   const name = input.name?.trim()
-  const brand = input.brand?.trim()
-  // The generic-name field is gone from the form, so a new medicine may arrive without
-  // one. `generic_name` is `not null`, so an absent value is stored as an empty string
-  // rather than turned into a refused save; an edited medicine keeps whatever it had,
-  // because the update path leaves an undefined key alone.
+  // Generic name and brand share one precedent: both columns are `not null` without a
+  // default, so a blank box stores an empty string and displays as absent rather than
+  // refusing the save. Category and company are genuinely nullable columns, so those
+  // pass null straight through instead.
   const genericName = input.genericName?.trim() ?? ''
+  const brand = input.brand?.trim() ?? ''
   if (!name) throw new Error('Product name is required.')
-  if (!brand) throw new Error('Brand is required.')
-  if (!input.manufacturerId) throw new Error('Select a manufacturer.')
-  if (!input.categoryId) throw new Error('Select a category.')
 
   const price = Number(input.price)
   if (!Number.isFinite(price) || price < 0) throw new Error('Enter a valid price.')
@@ -446,8 +445,8 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
     p_brand: brand,
     p_generic_name: genericName,
     p_description: input.description ?? '',
-    p_manufacturer_id: input.manufacturerId,
-    p_category_id: input.categoryId,
+    p_manufacturer_id: input.manufacturerId || null,
+    p_category_id: input.categoryId || null,
     p_price: price,
     p_original_price: originalPrice,
     p_discount_percent: discountPercent,
@@ -517,8 +516,12 @@ export type ProductUpdate = Partial<
     | 'primaryImage'
     | 'secondaryImage'
     | 'image'
+    | 'manufacturerId'
+    | 'categoryId'
   >
 > & {
+  manufacturerId?: string | null
+  categoryId?: string | null
   originalPrice?: number | null
   discountPercent?: number | null
   costPrice?: number | null

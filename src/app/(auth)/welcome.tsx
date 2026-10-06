@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { useAuth } from "../../hooks/useAuth";
 import Button from "../../components/common/Button";
+import Alert from "../../components/common/Alert";
 import AppLogo from "../../components/common/AppLogo";
 import AuthShell from "../../components/auth/AuthShell";
 import spacing from "../../constants/spacing";
@@ -11,7 +12,7 @@ import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 
 export default function WelcomeScreen() {
   const colors = useThemeColors();
-  const { user, loading } = useAuth();
+  const { user, loading, isBlocked } = useAuth();
 
   useEffect(() => {
     if (!loading && user) router.replace("/" as any);
@@ -34,6 +35,12 @@ export default function WelcomeScreen() {
       <View style={styles.spacer} />
 
       <View style={styles.actions}>
+        {isBlocked ? (
+          <Alert
+            variant="warning"
+            message="This account has been blocked. Contact support for help."
+          />
+        ) : null}
         <Button
           title="Get Started"
           onPress={() => router.push("/(auth)/login" as any)}

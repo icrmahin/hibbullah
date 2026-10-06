@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process'
 const LOCK = 'supabase/migrations/20260928010000_secdef_grants_and_guards.sql'
 const REPORTS = 'supabase/migrations/20260928020000_reports_and_customer_spend.sql'
 const PROFIT = 'supabase/migrations/20260930010000_real_profit_and_stock_restore.sql'
-const SEARCH = 'supabase/migrations/20261006000002_search_restore_manufacturer.sql'
+const SEARCH = 'supabase/migrations/20261006000005_product_optional_fields.sql'
 const HOSTED = 'supabase/apply-to-hibbullah-hosted.sql'
 /**
  * The two SQL files a `search_products` change has to be mirrored into.

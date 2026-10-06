@@ -65,8 +65,10 @@ export default function CustomerNavigation() {
               }
               accessibilityState={{ selected: active }}
             >
-              <View style={[styles.iconContainer, active && { backgroundColor: colors.primarySoft }]}>
-                <Icon name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.accent : colors.textMuted} />
+              <View style={styles.iconBadgeWrap}>
+                <View style={[styles.iconContainer, active && { backgroundColor: colors.primarySoft }]}>
+                  <Icon name={active ? item.activeIcon : item.icon} size={20} color={active ? colors.accent : colors.textMuted} />
+                </View>
                 {item.badge ? <CountBadge count={distinctCount} /> : null}
               </View>
               <Text style={[styles.label, { color: active ? colors.accent : colors.textMuted }]}>{item.label}</Text>
@@ -99,6 +101,13 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: 2,
     overflow: "hidden",
+  },
+  iconBadgeWrap: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   iconContainer: {
     width: 32,

@@ -34,6 +34,13 @@ export default function DiscountBadge({ percent }: { percent: number }) {
 
 const styles = StyleSheet.create({
   badge: {
+    // Pinned to the photo's top-left corner, inside the image edges — never covering
+    // the favourite/add stack top-right or the tappable photo beneath it. Absolute
+    // (not in-flow) so it takes no layout space from the photograph.
+    position: "absolute",
+    top: spacing.xs + 2,
+    left: spacing.xs + 2,
+    zIndex: 2,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,

@@ -29,6 +29,8 @@ export interface AuthState {
   session: AuthSession | null;
   isAdmin: boolean;
   loading: boolean;
+  /** True when the signed-in account is blocked. Sessions are refused while set. */
+  isBlocked: boolean;
 }
 
 export interface AuthContextType extends AuthState {

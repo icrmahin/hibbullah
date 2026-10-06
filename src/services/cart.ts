@@ -3,6 +3,7 @@ import type { CartItem, CartSummary } from '../types/cart'
 import type { Product } from '../types/product'
 import { lowestDeliveryFee } from '../utils/deliveryFee'
 import { sumBasket } from '../utils/currency'
+import { PRODUCT_PUBLIC_COLUMNS } from './products'
 
 interface DbProduct {
   id: string
@@ -63,7 +64,7 @@ export async function fetchCart(userId: string): Promise<{ items: CartItemWithPr
     .from('cart_items')
     .select(`
       *,
-      products(*)
+      products(${PRODUCT_PUBLIC_COLUMNS})
     `)
     .eq('user_id', userId)
 
