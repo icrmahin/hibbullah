@@ -156,9 +156,6 @@ export default function EditAddressScreen() {
           keyboardType="phone-pad"
           autoComplete="tel"
         />
-        <Text style={[styles.hint, { color: colors.textMuted }]}>
-          This number is who we will call about the delivery.
-        </Text>
         <View style={[styles.switchRow, { gap: spacing.sm }]}>
           <Text style={[styles.switchLabel, { color: colors.text }]}>Set as default</Text>
           <Toggle value={isDefault} onValueChange={setIsDefault} accessibilityLabel="Set as default address" />
@@ -178,10 +175,5 @@ const styles = StyleSheet.create({
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.normal,
   },
-  hint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-    marginTop: -spacing.xs,
-  },
+
 });

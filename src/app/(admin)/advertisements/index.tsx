@@ -25,7 +25,6 @@ const DESTINATION_LABEL: Record<AdvertisementDestination, string> = {
   none: "No destination",
   product: "Medicine",
   category: "Category",
-  manufacturer: "Manufacturer",
   url: "Website link",
 };
 

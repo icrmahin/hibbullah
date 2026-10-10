@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching and derived state sync require setState inside effects */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { normalizeError } from '../utils/errorHandling'
 import { useAuth } from './useAuth'
 import type { NotificationItem } from '../types/notification'
 import { fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead, clearAllNotifications, clearReadNotifications, getUnreadCount } from '../services/notifications'
@@ -50,7 +51,7 @@ export function useNotifications() {
       setUnreadCount(unread)
     } catch (err) {
       if (mine !== seq.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load notifications')
+      setError(normalizeError(err).message)
     } finally {
       // Only the newest request may clear the spinner; a stale one doing so would show a
       // settled screen while the read that matters is still in flight.

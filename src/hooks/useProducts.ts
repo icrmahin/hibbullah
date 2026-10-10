@@ -3,16 +3,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { Product } from '../types/product'
 import type { Category } from '../types/category'
-import type { Manufacturer } from '../types/manufacturer'
 import { supabase } from '../lib/supabase'
-import { listProducts, searchProductList, fetchCategories, fetchManufacturers } from '../services/products'
+import { listProducts, searchProductList, fetchCategories } from '../services/products'
 import type { ProductCursor, ProductListParams } from '../services/products'
 import { normalizeError } from '../utils/errorHandling'
 import { isSearchableTerm } from '../services/searchQuery'
 
 export interface ProductFilters {
   categoryId?: string
-  manufacturerId?: string
   query?: string
   isActive?: boolean
   isFeatured?: boolean
@@ -60,7 +58,6 @@ export function useProducts(filters: ProductFilters = {}) {
     () =>
       JSON.stringify({
         categoryId: parsedFilters.categoryId,
-        manufacturerId: parsedFilters.manufacturerId,
         isActive: parsedFilters.isActive,
         isFeatured: parsedFilters.isFeatured,
         limit: parsedFilters.limit,
@@ -90,7 +87,6 @@ export function useProducts(filters: ProductFilters = {}) {
     const active = paramsRef.current
     const base: ProductListParams & { query?: string } = {
       categoryId: active.categoryId,
-      manufacturerId: active.manufacturerId,
       status:
         active.isActive === false ? 'inactive' : active.isActive === true ? 'active' : undefined,
       limit: active.limit,
@@ -315,10 +311,6 @@ function useLookup<T>(query: string | undefined, fetcher: (term?: string) => Pro
 
 export function useCategories(query?: string) {
   return useLookup<Category>(query, fetchCategories)
-}
-
-export function useManufacturers(query?: string) {
-  return useLookup<Manufacturer>(query, fetchManufacturers)
 }
 
 export function useProductSearch(query: string) {

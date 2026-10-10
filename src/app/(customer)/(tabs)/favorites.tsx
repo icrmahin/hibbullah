@@ -67,9 +67,9 @@ export default function FavoritesScreen() {
         ListHeaderComponent={
           <View style={styles.hintRow}>
             <Icon name="favorite" size={12} color={colors.danger} />
-            <Text style={[styles.hint, { color: colors.textMuted }]}>Sorted most recent → oldest</Text>
           </View>
         }
+
       />
     </Screen>
   );
@@ -78,9 +78,4 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   hintRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
-  hint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-  },
 });

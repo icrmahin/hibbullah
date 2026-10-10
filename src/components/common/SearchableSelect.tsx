@@ -19,8 +19,6 @@ import Input from "./Input";
 export type SelectOption = {
   label: string;
   value: string;
-  /** Secondary line, e.g. a manufacturer country. */
-  hint?: string;
 };
 
 type SearchableSelectProps = {
@@ -30,7 +28,7 @@ type SearchableSelectProps = {
   onSelect: (value: string) => void;
   /**
    * Omit for a client-side filter over `options`; supply it to search the
-   * database instead. At a few thousand categories or manufacturers, filtering a
+   * database instead. At a few thousand categories, filtering a
    * downloaded list in the app is neither fast nor accurate.
    */
   onSearch?: (term: string) => void;
@@ -91,16 +89,9 @@ export default function SearchableSelect({
   const triggerLabel = selected?.label ?? (value ? selectedLabel : undefined);
   // Without a server-side search, narrow the list here. With one, the caller
   // already narrowed it and re-filtering would hide valid results.
-  //
-  // `value` and `hint` are searched as well as `label`, so an option can be found by
-  // anything the caller put on the row. This matters for the district picker, where a
-  // customer may know their district only in Bangla ("ঢাকা") while `label` is the
-  // English name — matching `label` alone made the search look broken for exactly the
-  // users most likely to need it.
   const matches = (o: SelectOption, needle: string) =>
     o.label.toLowerCase().includes(needle) ||
-    o.value.toLowerCase().includes(needle) ||
-    (o.hint ?? "").toLowerCase().includes(needle);
+    o.value.toLowerCase().includes(needle);
   const visible = onSearch
     ? options
     : term.trim()
@@ -211,11 +202,6 @@ export default function SearchableSelect({
                           >
                             {item.label}
                           </Text>
-                          {item.hint ? (
-                            <Text style={[styles.optionHint, { color: colors.textMuted }]} numberOfLines={1}>
-                              {item.hint}
-                            </Text>
-                          ) : null}
                         </View>
                         {isSelected ? <Icon name="check" size={18} color={colors.accent} /> : null}
                       </Pressable>
@@ -303,10 +289,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.body,
     lineHeight: fontSize.body * lineHeight.normal,
-  },
-  optionHint: {
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
   },
   loading: { paddingVertical: spacing.xl, alignItems: "center" },
   empty: {

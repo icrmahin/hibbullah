@@ -1,9 +1,8 @@
 export type Product = {
   id: string;
   name: string;
-  brand: string;
+  companyName: string;
   genericName: string;
-  manufacturerId: string;
   categoryId: string;
   description: string;
   price: number;
@@ -25,7 +24,6 @@ export type Product = {
   expiryDate?: string;
   /** Joined by the product list functions; absent on a single-row fetch. */
   categoryName?: string;
-  manufacturerName?: string;
   createdAt: string;
 };
 

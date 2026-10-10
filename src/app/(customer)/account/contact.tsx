@@ -61,7 +61,6 @@ export default function ContactUsScreen() {
           <Input label="Message" value={msg} onChangeText={setMsg} placeholder="How can we help?" multiline />
           {sent ? <Text style={[styles.sent, { color: colors.success }]}>Opening mail app — we’ll reply soon.</Text> : null}
           <Button title="Email support" onPress={handleMail} disabled={!msg.trim()} fullWidth />
-          <Text style={[styles.hint, { color: colors.textMuted }]}>This opens your mail app. No data leaves device except via email.</Text>
         </View>
       </ScrollView>
     </Screen>
@@ -105,11 +104,6 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.caption * lineHeight.normal,
     textAlign: "center",
   },
-  hint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-    textAlign: "center",
-  },
+
   pressed: { opacity: opacity.pressed },
 });

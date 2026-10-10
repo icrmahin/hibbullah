@@ -181,11 +181,6 @@ export default function ProfileScreen() {
           <PhoneInput
             value={phone}
             onChangeDigits={setPhone}
-            hint={
-              user?.phone
-                ? `Saved as ${formatBdPhone(user.phone)}`
-                : 'Optional. Used for delivery updates.'
-            }
           />
         </View>
         {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}

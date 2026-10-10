@@ -63,7 +63,7 @@ export default function AdminProductCard({
             dangling separator reads as a rendering bug — so the line is built from
             whichever halves exist, and omitted entirely when neither does. */}
         {(() => {
-          const parts = [product.brand, product.genericName].filter(
+          const parts = [product.companyName, product.genericName].filter(
             (p) => p != null && p.trim().length > 0,
           );
           return parts.length > 0 ? (

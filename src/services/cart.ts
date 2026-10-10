@@ -8,9 +8,8 @@ import { PRODUCT_PUBLIC_COLUMNS } from './products'
 interface DbProduct {
   id: string
   name: string
-  brand: string
+  company_name: string
   generic_name: string
-  manufacturer_id: string
   category_id: string
   description: string
   price: number
@@ -33,9 +32,8 @@ function mapDbProductToProduct(db: DbProduct): Product {
   return {
     id: db.id,
     name: db.name,
-    brand: db.brand,
+    companyName: db.company_name,
     genericName: db.generic_name,
-    manufacturerId: db.manufacturer_id,
     categoryId: db.category_id,
     description: db.description,
     price: db.price,

@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/refs -- stable filters refs intentionally mutated during render for stable callbacks */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from './useAuth'
+import { normalizeError } from '../utils/errorHandling'
 // FIX: merged the duplicate ../services/admin imports (runtime values on one line, type on another)
 // into a single import — previously this imported the same module twice, tripping import/no-duplicates.
 import {
@@ -36,7 +37,7 @@ export function useAdmin() {
       const data = await fetchAdminDashboard()
       setDashboard(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load admin dashboard')
+      setError(normalizeError(err).message)
     } finally {
       setLoading(false)
     }
@@ -132,7 +133,7 @@ export function useAdminProducts(filters?: AdminProductFilters) {
       searchOffsetRef.current = result.data.length
     } catch (err) {
       if (isCurrent() && !controller.signal.aborted && mountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Failed to load products')
+        setError(normalizeError(err).message)
       }
     } finally {
       if (isCurrent()) {
@@ -167,7 +168,7 @@ export function useAdminProducts(filters?: AdminProductFilters) {
       cursorRef.current = result.cursor
       searchOffsetRef.current += result.data.length
     } catch (err) {
-      if (mountedRef.current) setError(err instanceof Error ? err.message : 'Failed to load more products')
+      if (mountedRef.current) setError(normalizeError(err).message)
     } finally {
       if (mountedRef.current) setLoadingMore(false)
     }
@@ -201,7 +202,7 @@ export function useAdminOrders(filters?: { status?: string; limit?: number; offs
       setData(result.data)
       setTotal(result.total)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load orders')
+      setError(normalizeError(err).message)
     } finally {
       setLoading(false)
     }
@@ -232,7 +233,7 @@ export function useAdminInventory() {
       const data = await fetchAdminInventory()
       setData(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load inventory')
+      setError(normalizeError(err).message)
     } finally {
       setLoading(false)
     }
@@ -264,7 +265,7 @@ export function useStockAdjustment() {
     try {
       await createStockAdjustment(adjustment)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create stock adjustment'
+      const message = normalizeError(err).message
       setError(message)
       throw new Error(message)
     } finally {

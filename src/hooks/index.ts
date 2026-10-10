@@ -5,7 +5,7 @@ export { useUser } from './useUser'
 
 export { useCart } from './useCart'
 
-export { useProducts, useProduct, useCategories, useManufacturers, useProductSearch } from './useProducts'
+export { useProducts, useProduct, useCategories, useProductSearch } from './useProducts'
 
 export { useOrders, useOrder, useCreateOrder } from './useOrders'
 

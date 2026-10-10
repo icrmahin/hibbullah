@@ -266,7 +266,6 @@ export default function UnifiedAuth({ initialMode = "signin" }: { initialMode?: 
             keyboardType="phone-pad"
             autoCapitalize="none"
             editable={!loading}
-            hint="Optional for admin"
             prefix={<Icon name="phone" size={18} color={colors.textMuted} />}
           />
         )}

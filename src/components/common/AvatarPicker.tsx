@@ -66,9 +66,6 @@ export default function AvatarPicker({
 
         <View style={styles.actions}>
           <Text style={[styles.title, { color: colors.text }]}>Profile picture</Text>
-          <Text style={[styles.hint, { color: colors.textMuted }]}>
-            {hasImage ? "Shown on your account and orders." : "Add a photo so staff can recognise you."}
-          </Text>
 
           <View style={styles.buttons}>
             <Pressable
@@ -157,7 +154,6 @@ const styles = StyleSheet.create({
   },
   actions: { flex: 1, gap: spacing.xs },
   title: { fontFamily: fontFamily.soraBold, fontSize: typography.bodySmall },
-  hint: { fontSize: typography.caption },
   buttons: {
     flexDirection: "row",
     flexWrap: "wrap",

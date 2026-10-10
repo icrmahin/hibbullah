@@ -7,8 +7,8 @@ import ProductForm from "../../../../components/admin/ProductForm";
 import EmptyState from "../../../../components/common/EmptyState";
 import LoadingState from "../../../../components/common/LoadingState";
 import ErrorState from "../../../../components/common/ErrorState";
-import { useCategories, useManufacturers, useProduct } from "../../../../hooks/useProducts";
-import { createCategory, createManufacturer, updateProduct } from "../../../../services/products";
+import { useProduct } from "../../../../hooks/useProducts";
+import { updateProduct } from "../../../../services/products";
 import { uploadProductImage, reclaimSupersededProductImages } from "../../../../services/storage";
 
 /** One level deep: fall back to the admin dashboard when there is nothing to pop. */
@@ -19,12 +19,8 @@ export default function AdminEditProductScreen() {
   const productId = params.productId as string;
 
   const { product, loading, error, reload } = useProduct(productId);
-  const [categoryTerm, setCategoryTerm] = useState("");
-  const [manufacturerTerm, setManufacturerTerm] = useState("");
-  const { data: categories, loading: catLoading } = useCategories(categoryTerm);
-  const { data: manufacturers, loading: manLoading } = useManufacturers(manufacturerTerm);
 
-  if (loading || catLoading || manLoading) {
+  if (loading) {
     return (
       <Screen header={<ScreenHeader title="Edit product" subtitle="Update catalog item" onBack={onBack} />}>
         <LoadingState label="Loading product" />
@@ -58,26 +54,11 @@ export default function AdminEditProductScreen() {
       <ProductForm
         key={product.id}
         product={product}
-        categories={categories}
-        manufacturers={manufacturers}
-        onSearchCategories={setCategoryTerm}
-        onSearchManufacturers={setManufacturerTerm}
-        categoriesLoading={catLoading}
-        manufacturersLoading={manLoading}
-        onCreateCategory={(name) => createCategory({ name })}
-        onCreateManufacturer={(name) => createManufacturer({ name })}
         onUploadImage={(localUri, slot, id) => uploadProductImage(localUri, id, slot)}
         submitLabel="Save changes"
         onSubmit={async (input) => {
-          // A partial update: `undefined` leaves a field alone, so the admin only
-          // changes what they actually typed in.
           const saved = await updateProduct(productId, input);
 
-          // An unsigned Cloudinary upload cannot replace an existing asset, so a
-          // swapped photo leaves its predecessor behind. Reclaim it now that the row
-          // no longer points at it -- after the save, never before, or a cancelled
-          // edit would be left referencing a file that no longer exists. Anything the
-          // admin did not change still matches, and is left untouched.
           const superseded = {
             primary: product.primaryImage !== saved.primaryImage ? product.primaryImage : null,
             secondary: product.secondaryImage !== saved.secondaryImage ? product.secondaryImage : null,

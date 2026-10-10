@@ -130,11 +130,6 @@ function AdvertisementCard({ advertisement, cardWidth }: { advertisement: Advert
         pathname: "/(customer)/products/category/[categoryId]",
         params: { categoryId: String(destinationId) },
       });
-    else if (destinationType === "manufacturer")
-      router.push({
-        pathname: "/(customer)/products/manufacturer/[manufacturerId]",
-        params: { manufacturerId: String(destinationId) },
-      });
     else if (destinationType === "url" && destinationId) void Linking.openURL(destinationId);
   }, [destinationType, destinationId]);
 

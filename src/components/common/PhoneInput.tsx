@@ -12,7 +12,6 @@ type PhoneInputProps = Omit<TextInputProps, "value" | "onChangeText"> & {
   onChangeDigits: (digits: string) => void;
   label?: string;
   error?: string;
-  hint?: string;
 };
 
 /**
@@ -31,7 +30,6 @@ export default function PhoneInput({
   onChangeDigits,
   label = "Phone number",
   error,
-  hint,
   ...props
 }: PhoneInputProps) {
   const colors = useThemeColors();
@@ -58,7 +56,6 @@ export default function PhoneInput({
       maxLength={NATIONAL_LENGTH_DIGITS + 4}
       placeholder="1812345678"
       error={error}
-      hint={hint}
       prefix={
         <Text style={[styles.prefix, { color: colors.textMuted }]} accessibilityLabel="Country code plus 880">
           {COUNTRY_PREFIX}

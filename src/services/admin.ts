@@ -316,7 +316,7 @@ export async function fetchAdminProducts(
     }
   }
 
-  // Safety net: browse_products uses INNER JOINs on categories/manufacturers,
+  // Safety net: browse_products uses INNER JOINs on categories,
   // so a product whose category row is missing — or hidden by RLS — drops the
   // whole row and the admin list reads empty with no error. When the RPC says
   // "no rows" on an unfiltered first page, read the table directly (PostgREST
@@ -332,7 +332,7 @@ export async function fetchAdminProducts(
   const limit = Math.min(Math.max(filters?.limit ?? 24, 1), 100)
   const fallback = await supabase
     .from('products')
-    .select(`${PRODUCT_PUBLIC_COLUMNS},categories(name, slug),manufacturers(name)`)
+    .select(`${PRODUCT_PUBLIC_COLUMNS},categories(name, slug)`)
     .order('created_at', { ascending: false })
     .limit(limit + 1)
   if (fallback.error) return { data: [], total: 0, hasMore: false, cursor: null }
@@ -342,7 +342,7 @@ export async function fetchAdminProducts(
     .filter((p): p is Product => !!p && !p.isDeleted)
   if (products.length === 0) return { data: [], total: 0, hasMore: false, cursor: null }
   console.warn(
-    `[fetchAdminProducts] RPC returned 0 rows but direct query found ${products.length}; showing direct results (likely category/manufacturer join or RLS).`,
+    `[fetchAdminProducts] RPC returned 0 rows but direct query found ${products.length}; showing direct results (likely category join or RLS).`,
   )
   const page = products.slice(0, limit)
   const last = (fallback.data || [])[page.length - 1] as unknown as Record<string, unknown> | undefined
@@ -400,13 +400,13 @@ export interface AdminInventoryRow {
   status: string
   expiry_date: string | null
   last_updated: string
-  products?: { name: string; brand?: string; generic_name?: string; is_active?: boolean } | null
+  products?: { name: string; company_name?: string; generic_name?: string; is_active?: boolean } | null
 }
 
 export async function fetchAdminInventory(): Promise<AdminInventoryRow[]> {
   const { data, error } = await supabase
     .from('inventory_items')
-    .select('*, products(name, brand, generic_name, is_active)')
+    .select('*, products(name, company_name, generic_name, is_active)')
     .order('last_updated', { ascending: false })
 
   if (error) throw error

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './useAuth'
 import type { DeliveryCycle } from '../types/deliveryCycle'
 import { fetchActiveDeliveryCycle, createDeliveryCycle } from '../services/deliveryCycle'
+import { normalizeError } from '../utils/errorHandling'
 
 export function useDeliveryCycle() {
   const { user } = useAuth()
@@ -22,7 +23,7 @@ export function useDeliveryCycle() {
       const cycle = await fetchActiveDeliveryCycle(user.id)
       setCycle(cycle)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load delivery cycle')
+      setError(normalizeError(err).message)
     } finally {
       setLoading(false)
     }

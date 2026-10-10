@@ -5,6 +5,22 @@ import { useAuth } from "../hooks/useAuth";
 import type { Product } from "../types/product";
 import { fetchFavorites, addFavorite, removeFavorite, syncLocalFavoritesToRemote, isMissingTableError } from "../services/favorites";
 
+/**
+ * Errors the favorites flow expects and handles gracefully — missing table
+ * (migration not yet pushed), RLS/permission denials, and network/abort failures.
+ * Only truly unexpected errors should surface as a console warning.
+ */
+function isExpectedFavoritesError(e: any): boolean {
+  if (isMissingTableError(e)) return true;
+  const code = e?.code ?? "";
+  const msg = String(e?.message ?? "");
+  // RLS / permission errors
+  if (code === "42501" || /permission denied|row-level|violates row-level/i.test(msg)) return true;
+  // Network / abort errors
+  if (/network|fetch failed|aborted|timeout|ECONNRESET|ENOTFOUND/i.test(msg)) return true;
+  return false;
+}
+
 type FavoritesContextValue = {
   items: Product[];
   ids: Set<string>;
@@ -36,7 +52,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       const favs = await fetchFavorites(user.id);
       setItems(favs);
     } catch (e: any) {
-      if (!isMissingTableError(e)) console.warn("Failed to load favorites", e);
+      if (!isExpectedFavoritesError(e)) console.warn("Failed to load favorites", e);
       setItems([]);
     } finally {
       setLoading(false);

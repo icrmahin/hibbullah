@@ -6,7 +6,7 @@
  * and the product's `discountPercent` are three independent facts, and only one of them
  * is "is this banner showing".
  */
-export type AdvertisementDestination = 'none' | 'product' | 'category' | 'manufacturer' | 'url'
+export type AdvertisementDestination = 'none' | 'product' | 'category' | 'url'
 
 export type Advertisement = {
   id: string

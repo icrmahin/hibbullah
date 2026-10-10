@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router'
 import { useAuth } from './useAuth'
 import type { Address } from '../types/address'
 import { fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress } from '../services/addresses'
+import { normalizeError } from '../utils/errorHandling'
 
 export function useAddresses() {
   const { user } = useAuth()
@@ -42,7 +43,7 @@ export function useAddresses() {
       setData(rows)
     } catch (err) {
       if (mine !== seq.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load addresses')
+      setError(normalizeError(err).message)
     } finally {
       // Only the newest request may clear the spinner. A stale one clearing it would make
       // the screen look settled while the read that matters is still running.

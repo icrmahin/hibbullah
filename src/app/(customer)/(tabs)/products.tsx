@@ -15,7 +15,7 @@ import spacing from "../../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 import { useResponsive } from "../../../hooks/useResponsive";
 import { useBottomInset } from "../../../hooks/useBottomInset";
-import { useProducts, useCategories, useManufacturers } from "../../../hooks/useProducts";
+import { useProducts, useCategories } from "../../../hooks/useProducts";
 import { isSearchableTerm } from "../../../services/searchQuery";
 
 /** Rows kept mounted beyond the viewport, in dp. */
@@ -26,11 +26,7 @@ export default function CustomerProductsScreen() {
   const bottomInset = useBottomInset();
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [manufacturerId, setManufacturerId] = useState<string | null>(null);
   const [categoryTerm, setCategoryTerm] = useState("");
-  const [manufacturerTerm, setManufacturerTerm] = useState("");
-  // Two product cards per row on a phone, growing from there. The `isMobile ? 1 :` prefix
-  // that used to sit in front of this is what made the catalog one-up on every phone.
   const { columns } = useResponsive();
 
   const {
@@ -44,11 +40,9 @@ export default function CustomerProductsScreen() {
     loadMore,
   } = useProducts({
     categoryId: categoryId || undefined,
-    manufacturerId: manufacturerId || undefined,
     query,
   });
   const { data: categories, loading: categoriesLoading } = useCategories(categoryTerm);
-  const { data: manufacturers, loading: manufacturersLoading } = useManufacturers(manufacturerTerm);
 
   const searching = isSearchableTerm(query);
 
@@ -56,18 +50,9 @@ export default function CustomerProductsScreen() {
     () => categories.map((c) => ({ label: c.name, value: c.id })),
     [categories],
   );
-  const manufacturerOptions = useMemo(
-    () => manufacturers.map((m) => ({ label: m.name, value: m.id })),
-    [manufacturers],
-  );
 
-  // The stored label can fall outside the current search result set, so it is
-  // carried explicitly rather than looked up in whatever rows came back.
   const selectedCategory = categoryId
     ? categoryOptions.find((c) => c.value === categoryId)?.label ?? "Selected category"
-    : undefined;
-  const selectedManufacturer = manufacturerId
-    ? manufacturerOptions.find((m) => m.value === manufacturerId)?.label ?? "Selected manufacturer"
     : undefined;
 
   const resultText = searching
@@ -79,13 +64,11 @@ export default function CustomerProductsScreen() {
       : `${products.length} ${products.length === 1 ? "product" : "products"}`;
 
   return (
-    <Screen header={<ScreenHeader title="Products" subtitle="Browse by category and manufacturer" />}>
+    <Screen header={<ScreenHeader title="Products" subtitle="Browse by category" />}>
       <FlashList
         data={products}
         keyExtractor={(item) => item.id}
         numColumns={columns}
-        // FlashList needs a stable key when the column count changes, and an
-        // explicit height for multi-column layouts.
         key={`cols-${columns}`}
         drawDistance={DRAW_DISTANCE}
         keyboardShouldPersistTaps="handled"
@@ -135,40 +118,12 @@ export default function CustomerProductsScreen() {
                   </Text>
                 </Pressable>
               ) : null}
-
-              <SearchableSelect
-                label="Manufacturer"
-                value={manufacturerId ?? undefined}
-                options={manufacturerOptions}
-                selectedLabel={selectedManufacturer}
-                onSelect={(value) =>
-                  setManufacturerId(value === manufacturerId ? null : value)
-                }
-                onSearch={setManufacturerTerm}
-                loading={manufacturersLoading}
-                placeholder="All manufacturers"
-                searchPlaceholder="Search manufacturers"
-                emptyMessage="No manufacturers match."
-                style={styles.filter}
-              />
-              {manufacturerId ? (
-                <Pressable
-                  onPress={() => setManufacturerId(null)}
-                  style={styles.clearFilter}
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear the manufacturer filter"
-                >
-                  <Text style={[styles.clearFilterText, { color: colors.textMuted }]}>
-                    All manufacturers
-                  </Text>
-                </Pressable>
-              ) : null}
             </View>
 
             <Text style={[styles.resultText, { color: colors.textMuted }]}>{resultText}</Text>
-            {selectedCategory || selectedManufacturer ? (
+            {selectedCategory ? (
               <Text style={[styles.appliedFilters, { color: colors.textMuted }]} numberOfLines={1}>
-                {[selectedCategory, selectedManufacturer].filter(Boolean).join(" · ")}
+                {selectedCategory}
               </Text>
             ) : null}
           </View>
@@ -198,7 +153,6 @@ export default function CustomerProductsScreen() {
               actionLabel="Clear filters"
               onAction={() => {
                 setCategoryId(null);
-                setManufacturerId(null);
               }}
               icon="inventory-2"
             />
@@ -231,19 +185,6 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.caption * lineHeight.normal,
     marginTop: -spacing.xs,
   },
-  /**
-   * FlashList v2 has no `columnWrapperStyle`, so the gutter between columns is
-   * produced by pairing half-gutter padding on the container with half-gutter
-   * padding on every cell. Cells then sit on a 4px rhythm whether they are in a
-   * one-, two-, or five-column layout.
-   *
-   * The container's share is `spacing.md` and not `spacing.sm`, so that the two
-   * halves add up to the same `spacing.lg` page margin every other screen in the
-   * app uses. At `spacing.sm` the catalog gave its cards 8px of screen edge while
-   * the home page gave the *same card* 16px — the gutter was uniform and the margin
-   * was not, which is the version of a layout bug that only shows up when you put
-   * the two screens side by side.
-   */
   content: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   gridItem: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   footer: { paddingVertical: spacing.lg },

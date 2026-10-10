@@ -84,9 +84,6 @@ export default function CustomerOrdersScreen() {
           </View>
         )}
 
-        <Text style={[styles.hint, { color: colors.textMuted }]}>
-          Customer: tap to track. For changes contact support — admin handles status.
-        </Text>
       </ScrollView>
     </Screen>
   );
@@ -97,11 +94,5 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   gridItem: { marginBottom: spacing.md },
   list: { gap: spacing.md },
-  hint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-    textAlign: "center",
-    marginTop: spacing.sm,
-  },
+
 });

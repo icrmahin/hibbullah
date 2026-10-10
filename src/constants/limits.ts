@@ -2,7 +2,7 @@
  * How much history the app keeps.
  *
  * Two lists are transient and are therefore capped; everything else (products, orders,
- * inventory, returns, profiles, categories, manufacturers) is business data and is left
+ * inventory, returns, profiles, categories) is business data and is left
  * to grow without limit.
  *
  * These must stay in step with the database triggers that enforce the same bounds:

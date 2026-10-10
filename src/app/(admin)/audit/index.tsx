@@ -16,11 +16,14 @@ import {
   lineHeight,
 } from "../../../constants/typography";
 import { formatDateTime } from "../../../utils/date";
-import { fetchAuditEntries } from "../../../services/audit";
+import { fetchAuditEntries, clearAuditEntries } from "../../../services/audit";
 import { AUDIT_LOG_LIMIT } from "../../../constants/limits";
 import type { AuditEntry } from "../../../types/audit";
 import { diffAuditValues } from "../../../utils/auditDiff";
 import { radius } from "../../../constants/sizes";
+import { normalizeError } from "../../../utils/errorHandling";
+import HeaderAction from "../../../components/common/HeaderAction";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 
 /**
  * What actually changed, for one audit entry.
@@ -81,6 +84,9 @@ export default function AuditLogScreen() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -88,10 +94,24 @@ export default function AuditLogScreen() {
     try {
       const data = await fetchAuditEntries();
       setEntries(data);
-    } catch (e: any) {
-      setError(e.message || "Failed to load audit log");
+    } catch (e: unknown) {
+      setError(normalizeError(e).message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClear = async () => {
+    setClearing(true);
+    setClearError(null);
+    try {
+      await clearAuditEntries();
+      setEntries([]);
+      setClearConfirm(false);
+    } catch (e: unknown) {
+      setClearError(normalizeError(e).message);
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -129,12 +149,17 @@ export default function AuditLogScreen() {
     );
   }
 
+  const headerAction = entries.length > 0 ? (
+    <HeaderAction label="Clear log" tone="soft" onPress={() => setClearConfirm(true)} accessibilityLabel="Clear audit log" />
+  ) : null;
+
   return (
     <Screen
       header={
         <ScreenHeader
           title="Audit log"
           subtitle="Recent operational activity"
+          action={headerAction}
         />
       }
     >
@@ -180,6 +205,19 @@ export default function AuditLogScreen() {
         )}
         </ResponsiveContainer>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={clearConfirm}
+        destructive
+        title="Clear audit log?"
+        message="All audit entries will be permanently deleted. This cannot be undone."
+        confirmLabel={clearing ? "Clearing..." : "Clear log"}
+        onConfirm={handleClear}
+        onCancel={() => setClearConfirm(false)}
+      />
+      {clearError ? (
+        <Text style={[styles.error, { color: colors.danger }]}>{clearError}</Text>
+      ) : null}
     </Screen>
   );
 }
@@ -229,5 +267,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.tight,
+  },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
   },
 });

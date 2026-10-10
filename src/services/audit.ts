@@ -30,3 +30,11 @@ export async function fetchAuditEntries(limit: number = AUDIT_LOG_LIMIT): Promis
   if (error) throw error
   return (data || []).map((r) => mapAuditEntry(r as unknown as Parameters<typeof mapAuditEntry>[0]) as AuditEntry)
 }
+
+/**
+ * Clears all audit log entries. Admin-only via RLS policy + SECURITY DEFINER function.
+ */
+export async function clearAuditEntries(): Promise<void> {
+  const { error } = await supabase.rpc('clear_audit_entries')
+  if (error) throw error
+}

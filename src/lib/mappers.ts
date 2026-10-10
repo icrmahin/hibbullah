@@ -1,7 +1,6 @@
 import config from '../constants/config'
 import type { Product } from '../types/product'
 import type { Category } from '../types/category'
-import type { Manufacturer } from '../types/manufacturer'
 import type { Order, OrderItem } from '../types/order'
 import type { Address } from '../types/address'
 import type { NotificationItem } from '../types/notification'
@@ -14,11 +13,10 @@ type DbRecord = Record<string, unknown>
 interface DbProductRow extends DbRecord {
   id: string
   name: string
-  brand: string
+  company_name?: string | null
+  companyName?: string | null
   generic_name?: string | null
   genericName?: string | null
-  manufacturer_id?: string | null
-  manufacturerId?: string | null
   category_id?: string | null
   categoryId?: string | null
   description?: string | null
@@ -48,9 +46,7 @@ interface DbProductRow extends DbRecord {
   created_at?: string | null
   createdAt?: string | null
   categories?: { name?: string; slug?: string } | null
-  manufacturers?: { name?: string } | null
   category_name?: string | null
-  manufacturer_name?: string | null
 }
 
 export function mapProduct(db: DbProductRow | null | undefined): Product | null | undefined {
@@ -59,9 +55,8 @@ export function mapProduct(db: DbProductRow | null | undefined): Product | null 
   return {
     id: String(row.id),
     name: String(row.name),
-    brand: String(row.brand),
+    companyName: String(row.company_name ?? row.companyName ?? ''),
     genericName: String(row.generic_name ?? row.genericName ?? ''),
-    manufacturerId: String(row.manufacturer_id ?? row.manufacturerId ?? ''),
     categoryId: String(row.category_id ?? row.categoryId ?? ''),
     description: String(row.description ?? ''),
     price: Number(row.price),
@@ -79,15 +74,9 @@ export function mapProduct(db: DbProductRow | null | undefined): Product | null 
     batchNumber: (row.batch_number ?? row.batchNumber ?? undefined) as string | undefined,
     expiryDate: (row.expiry_date ?? row.expiryDate ?? undefined) as string | undefined,
     createdAt: String(row.created_at ?? row.createdAt ?? ''),
-    // The list functions return the joined names alongside the row, so a screen
-    // can label itself without having to load and search the whole category or
-    // manufacturer table to resolve one id. A single-row fetch joins them as
-    // nested objects instead, so both shapes are read here.
     categoryName: row.category_name ?? row.categories?.name ?? undefined,
-    manufacturerName: row.manufacturer_name ?? row.manufacturers?.name ?? undefined,
     _rawCategory: row.categories ?? undefined,
-    _rawManufacturer: row.manufacturers ?? undefined,
-  } as Product & { _rawCategory?: Category | null; _rawManufacturer?: Manufacturer | null }
+  } as Product & { _rawCategory?: Category | null }
 }
 
 type DbProfileRow = DbRecord & {

@@ -1,5 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
+import { normalizeError } from "../utils/errorHandling";
 
 type Source = "library" | "camera";
 
@@ -57,7 +58,7 @@ export function useImagePicker(options: PickerOptions = {}) {
         if (result.canceled || !result.assets?.[0]) return null;
         return result.assets[0].uri;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not open the image picker.");
+        setError(normalizeError(err).message);
         return null;
       } finally {
         setBusy(false);

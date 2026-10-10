@@ -4,7 +4,7 @@ import type { Advertisement, AdvertisementDestination, AdvertisementInput } from
 const COLUMNS =
   'id, title, subtitle, image_url, destination_type, destination_id, sort_order, is_active, starts_at, ends_at, created_at, updated_at'
 
-const DESTINATIONS: AdvertisementDestination[] = ['none', 'product', 'category', 'manufacturer', 'url']
+const DESTINATIONS: AdvertisementDestination[] = ['none', 'product', 'category', 'url']
 
 function mapAdvertisement(row: any): Advertisement {
   return {

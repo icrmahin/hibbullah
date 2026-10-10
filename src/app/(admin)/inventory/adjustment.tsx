@@ -118,9 +118,6 @@ export default function InventoryAdjustmentScreen() {
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <ResponsiveContainer sidebarAware maxWidth={720}>
         <View style={[styles.form, { backgroundColor: colors.backgroundAlt }]}>
-          <Text style={[styles.hint, { color: colors.textMuted }]}>
-            Find Product ID in Products → open product → copy ID.
-          </Text>
           <Input label="Product ID" value={productId} onChangeText={setProductId} placeholder="uuid from product detail" autoCapitalize="none" />
           <Input label="Batch number" value={batchNumber} onChangeText={setBatchNumber} placeholder="e.g. BATCH-001" autoCapitalize="none" />
           <Input label="Type (increase/decrease)" value={type} onChangeText={(v) => setType(v.trim().toLowerCase() === 'decrease' ? 'decrease' : 'increase')} placeholder="increase" autoCapitalize="none" />
@@ -162,11 +159,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radius.lg,
     padding: spacing.lg,
-  },
-  hint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
   },
   error: {
     fontFamily: fontFamily.pjsRegular,

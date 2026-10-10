@@ -8,7 +8,6 @@ import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 type InputProps = TextInputProps & {
   label?: string;
   error?: string;
-  hint?: string;
   prefix?: React.ReactNode;
   suffix?: React.ReactNode;
   containerStyle?: ViewStyle;
@@ -17,7 +16,6 @@ type InputProps = TextInputProps & {
 export default function Input({
   label,
   error,
-  hint,
   prefix,
   suffix,
   containerStyle,
@@ -67,8 +65,6 @@ export default function Input({
       </View>
       {error ? (
         <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
-      ) : hint ? (
-        <Text style={[styles.hint, { color: colors.textMuted }]}>{hint}</Text>
       ) : null}
     </View>
   );
@@ -112,11 +108,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   error: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-  },
-  hint: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,

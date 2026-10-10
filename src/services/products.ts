@@ -5,7 +5,6 @@ import { sanitizeSearchTerm } from './searchQuery'
 import { randomUuid } from '../utils/uuid'
 import type { Product } from '../types/product'
 import type { Category } from '../types/category'
-import type { Manufacturer } from '../types/manufacturer'
 
 /**
  * Every product column the client may read, i.e. all of them except cost_price.
@@ -16,7 +15,7 @@ import type { Manufacturer } from '../types/manufacturer'
  * this list instead of `*`. (The browse/search RPCs select explicit columns already.)
  */
 export const PRODUCT_PUBLIC_COLUMNS =
-  'id,name,brand,generic_name,manufacturer_id,category_id,description,price,original_price,' +
+  'id,name,company_name,generic_name,category_id,description,price,original_price,' +
   'discount_percent,stock,unit,image_url,secondary_image_url,is_active,is_featured,created_at,updated_at,is_deleted'
 
 const DEFAULT_PAGE_SIZE = 24
@@ -25,7 +24,6 @@ const MAX_PAGE_SIZE = 100
 /** Filters shared by browse and search. */
 export interface ProductListParams {
   categoryId?: string
-  manufacturerId?: string
   /** 'active' | 'inactive' | undefined for both. Admin-only. */
   status?: 'active' | 'inactive'
   /** 'in_stock' | 'low' | 'out' | undefined for both. Admin-only. */
@@ -87,7 +85,6 @@ export async function browseProducts(
 
   const request = supabase.rpc('browse_products', {
     p_category: params.categoryId ?? null,
-    p_manufacturer: params.manufacturerId ?? null,
     p_status: params.status ?? null,
     p_stock: params.stock ?? null,
     p_low_stock_threshold: params.lowStockThreshold ?? null,
@@ -133,7 +130,6 @@ export async function searchProductList(
   const request = supabase.rpc('search_products', {
     p_query: term,
     p_category: params.categoryId ?? null,
-    p_manufacturer: params.manufacturerId ?? null,
     p_status: params.status ?? null,
     p_stock: params.stock ?? null,
     p_low_stock_threshold: params.lowStockThreshold ?? null,
@@ -182,7 +178,7 @@ export async function searchProducts(query: string, limit = 10): Promise<Product
 export async function fetchProductById(productId: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from('products')
-    .select(`${PRODUCT_PUBLIC_COLUMNS},categories(name, slug),manufacturers(name)`)
+    .select(`${PRODUCT_PUBLIC_COLUMNS},categories(name, slug)`)
     .eq('id', productId)
     .single()
 
@@ -218,14 +214,7 @@ export async function fetchCategories(query?: string): Promise<Category[]> {
   return (data || []) as Category[]
 }
 
-export async function fetchManufacturers(query?: string): Promise<Manufacturer[]> {
-  let builder = supabase.from('manufacturers').select('*').order('name').limit(200)
-  const term = sanitizeSearchTerm(query)
-  if (term) builder = builder.ilike('name', `%${term}%`)
-  const { data, error } = await builder
-  if (error) throw error
-  return (data || []) as Manufacturer[]
-}
+// fetchManufacturers removed — manufacturers table no longer exists
 
 export function slugify(text: string): string {
   return text
@@ -239,31 +228,44 @@ export function slugify(text: string): string {
 const UNIQUE_VIOLATION = '23505'
 
 /**
- * Re-adding something that already exists is a normal thing to do from the inline
+ * Re-adding a category that already exists is a normal thing to do from the inline
  * "add" field on the product form, and the raw error is useless to an admin: it
- * arrives as `duplicate key value violates unique constraint
- * "idx_manufacturers_name_unique"` with no indication of which row clashed.
+ * arrives as `duplicate key value violates unique constraint` with no indication
+ * of which row clashed.
  *
  * So on a unique violation the existing row is looked up and returned instead. The
  * caller cannot tell the difference, which is the point: the admin's intent was "I
  * want this category selected", and it now is.
- *
- * The match is on the same expression the unique index uses, not on an exact
- * spelling, because that index is what actually rejected the insert.
  */
-async function findExistingByName(
-  table: 'categories' | 'manufacturers',
+async function findExistingCategoryByName(
   name: string,
   column: 'slug' | 'name',
   value: string,
 ): Promise<Record<string, unknown> | null> {
-  let query = supabase.from(table).select('*')
+  let query = supabase.from('categories').select('*')
   query =
-    table === 'categories' && column === 'slug'
+    column === 'slug'
       ? query.eq('slug', value)
       : query.ilike('name', name.trim())
   const { data } = await query.maybeSingle()
   return (data as Record<string, unknown> | null) ?? null
+}
+
+/**
+ * Case-insensitive category lookup. Returns the existing category or null.
+ * Used by the product form to deduplicate categories before creation.
+ */
+export async function findCategoryByName(name: string): Promise<Category | null> {
+  const term = name.trim().toLowerCase();
+  if (!term) return null;
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .ilike('name', name.trim())
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Category) ?? null;
 }
 
 export async function createCategory(input: { name: string; description?: string }): Promise<Category> {
@@ -282,9 +284,9 @@ export async function createCategory(input: { name: string; description?: string
     // other row would silently pick a category the admin did not ask for, so that
     // case is reported instead of resolved.
     if (error.code === UNIQUE_VIOLATION) {
-      const sameName = await findExistingByName('categories', name, 'name', '')
+      const sameName = await findExistingCategoryByName(name, 'name', '')
       if (sameName) return sameName as Category
-      const clashing = await findExistingByName('categories', name, 'slug', slug)
+      const clashing = await findExistingCategoryByName(name, 'slug', slug)
       throw new Error(
         clashing
           ? `"${clashing.name}" already covers that name. Pick it from the list, or rename it first.`
@@ -296,39 +298,17 @@ export async function createCategory(input: { name: string; description?: string
   return data as Category
 }
 
-export async function createManufacturer(input: { name: string; country?: string }): Promise<Manufacturer> {
-  const name = input.name.trim()
-  if (!name) throw new Error('Manufacturer name is required.')
-
-  const { data, error } = await supabase
-    .from('manufacturers')
-    .insert({ name, country: input.country?.trim() || null })
-    .select('*')
-    .single()
-  if (error) {
-    // idx_manufacturers_name_unique is unique on lower(btrim(name)), so the only way
-    // to collide is to already have that manufacturer, possibly spelled differently.
-    if (error.code === UNIQUE_VIOLATION) {
-      const existing = await findExistingByName('manufacturers', name, 'name', '')
-      if (existing) return existing as Manufacturer
-      throw new Error('That manufacturer already exists. Pick it from the list instead.')
-    }
-    throw error
-  }
-  return data as Manufacturer
-}
+// createManufacturer removed — manufacturers table no longer exists
 
 export type CreateProductInput = {
   name: string
-  brand: string
+  companyName: string
   /**
    * Optional. The "same medicine, any brand" box was removed from the form, so a medicine
    * saved without one stores an empty string rather than failing — `generic_name` is
    * `not null`, and a field the owner was never shown is not a reason to refuse the save.
    */
   genericName?: string
-  /** Optional since the nullable-columns migration: null stores no link. */
-  manufacturerId: string | null
   /** Optional since the nullable-columns migration: null stores no link. */
   categoryId: string | null
   description: string
@@ -372,12 +352,8 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   const productId = input.id ?? randomUuid()
 
   const name = input.name?.trim()
-  // Generic name and brand share one precedent: both columns are `not null` without a
-  // default, so a blank box stores an empty string and displays as absent rather than
-  // refusing the save. Category and company are genuinely nullable columns, so those
-  // pass null straight through instead.
+  const companyName = input.companyName?.trim() ?? ''
   const genericName = input.genericName?.trim() ?? ''
-  const brand = input.brand?.trim() ?? ''
   if (!name) throw new Error('Product name is required.')
 
   const price = Number(input.price)
@@ -442,10 +418,9 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   const { error } = await supabase.rpc('create_product', {
     p_id: productId,
     p_name: name,
-    p_brand: brand,
+    p_company_name: companyName,
     p_generic_name: genericName,
     p_description: input.description ?? '',
-    p_manufacturer_id: input.manufacturerId || null,
     p_category_id: input.categoryId || null,
     p_price: price,
     p_original_price: originalPrice,
@@ -481,9 +456,8 @@ function toFriendlyCreateError(error: { message?: string; code?: string }): Erro
   if (/invalid input syntax for type date/i.test(message))
     return new Error('Expiry date must be YYYY-MM-DD (e.g. 2027-05-12).')
   if (/violates foreign key constraint/i.test(message)) {
-    if (/manufacturer/i.test(message)) return new Error('That manufacturer no longer exists. Pick another one.')
     if (/categor/i.test(message)) return new Error('That category no longer exists. Pick another one.')
-    return new Error('A linked category or manufacturer no longer exists. Re-select them and try again.')
+    return new Error('A linked category no longer exists. Re-select it and try again.')
   }
   if (/not authorized|42501|permission denied|violates row-level/i.test(message))
     return new Error('Your account is not an admin. Sign in with an admin account to add products.')
@@ -516,11 +490,9 @@ export type ProductUpdate = Partial<
     | 'primaryImage'
     | 'secondaryImage'
     | 'image'
-    | 'manufacturerId'
     | 'categoryId'
   >
 > & {
-  manufacturerId?: string | null
   categoryId?: string | null
   originalPrice?: number | null
   discountPercent?: number | null
@@ -536,9 +508,8 @@ export async function updateProduct(productId: string, input: ProductUpdate): Pr
   const payload: Record<string, unknown> = {}
 
   if (input.name !== undefined) payload.name = input.name
-  if (input.brand !== undefined) payload.brand = input.brand
+  if (input.companyName !== undefined) payload.company_name = input.companyName
   if (input.genericName !== undefined) payload.generic_name = input.genericName
-  if (input.manufacturerId !== undefined) payload.manufacturer_id = input.manufacturerId
   if (input.categoryId !== undefined) payload.category_id = input.categoryId
   if (input.description !== undefined) payload.description = input.description
   if (input.price !== undefined) payload.price = input.price

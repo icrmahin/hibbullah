@@ -47,7 +47,6 @@ export default function WelcomeScreen() {
           fullWidth
           accessibilityLabel="Get Started — continue to sign in or create account"
         />
-        <Text style={[styles.hint, { color: colors.textMuted }]}>Sign in or create account on next screen</Text>
       </View>
     </AuthShell>
   );
@@ -88,10 +87,5 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: "center",
   },
-  hint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-    textAlign: "center",
-  },
+
 });

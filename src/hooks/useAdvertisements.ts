@@ -6,6 +6,7 @@ import {
   fetchLiveAdvertisements,
 } from '../services/advertisements'
 import type { Advertisement } from '../types/advertisement'
+import { normalizeError } from '../utils/errorHandling'
 
 /**
  * Advertisements, read on the way into the screen.
@@ -41,7 +42,7 @@ export function useAdvertisements(scope: 'live' | 'admin' = 'live') {
       setData(rows)
     } catch (err) {
       if (mine !== seq.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load advertisements')
+      setError(normalizeError(err).message)
     } finally {
       if (mine === seq.current) setLoading(false)
     }
@@ -80,7 +81,7 @@ export function useAdvertisement(id: string) {
       setAdvertisement(row)
     } catch (err) {
       if (mine !== seq.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load the banner')
+      setError(normalizeError(err).message)
     } finally {
       if (mine === seq.current) setLoading(false)
     }

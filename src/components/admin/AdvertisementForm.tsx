@@ -11,7 +11,7 @@ import ImageUpload from "../common/ImageUpload";
 import Input from "../common/Input";
 import SearchableSelect from "../common/SearchableSelect";
 import Select from "../common/Select";
-import { useCategories, useManufacturers, useProducts } from "../../hooks/useProducts";
+import { useCategories, useProducts } from "../../hooks/useProducts";
 import { randomUuid } from "../../utils/uuid";
 import { useBottomInset } from "../../hooks/useBottomInset";
 import type { Advertisement, AdvertisementDestination, AdvertisementInput } from "../../types/advertisement";
@@ -33,7 +33,6 @@ const DESTINATION_OPTIONS: { value: string; label: string }[] = [
   { value: "none", label: "Nothing — just a banner" },
   { value: "product", label: "A medicine" },
   { value: "category", label: "A category" },
-  { value: "manufacturer", label: "A manufacturer" },
   { value: "url", label: "A website link" },
 ];
 
@@ -102,11 +101,9 @@ export default function AdvertisementForm({
 
   const [productTerm, setProductTerm] = useState("");
   const [categoryTerm, setCategoryTerm] = useState("");
-  const [manufacturerTerm, setManufacturerTerm] = useState("");
 
   const { data: products, loading: productsLoading } = useProducts({ query: productTerm, limit: 20 });
   const { data: categories, loading: categoriesLoading } = useCategories(categoryTerm);
-  const { data: manufacturers, loading: manufacturersLoading } = useManufacturers(manufacturerTerm);
 
   const [imageUploading, setImageUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -251,7 +248,6 @@ export default function AdvertisementForm({
         onChangeText={setSubtitle}
         error={errors.subtitle}
         placeholder="This week only"
-        hint="Optional — one short line under the title."
         maxLength={120}
       />
 
@@ -307,22 +303,6 @@ export default function AdvertisementForm({
           error={errors.destinationId}
         />
       ) : null}
-      {destinationType === "manufacturer" ? (
-        <SearchableSelect
-          label="Manufacturer"
-          value={destinationId || undefined}
-          selectedLabel={manufacturers.find((m) => m.id === destinationId)?.name}
-          options={manufacturers.map((m) => ({ value: m.id, label: m.name }))}
-          onSelect={setDestinationId}
-          onSearch={setManufacturerTerm}
-          loading={manufacturersLoading}
-          placeholder="Choose a manufacturer"
-          searchPlaceholder="Search manufacturers"
-          emptyMessage="No manufacturers match."
-          error={errors.destinationId}
-        />
-      ) : null}
-
       {section("Schedule")}
       <Input
         label="Starts on"
@@ -330,7 +310,6 @@ export default function AdvertisementForm({
         onChangeText={setStartsAt}
         error={errors.startsAt}
         placeholder="2026-10-05"
-        hint="Leave empty to start as soon as it is on."
         keyboardType="numbers-and-punctuation"
       />
       <Input
@@ -339,7 +318,6 @@ export default function AdvertisementForm({
         onChangeText={setEndsAt}
         error={errors.endsAt}
         placeholder="2026-10-31"
-        hint="Leave empty to keep it running."
         keyboardType="numbers-and-punctuation"
       />
       <Input
@@ -347,16 +325,12 @@ export default function AdvertisementForm({
         value={sortOrder}
         onChangeText={setSortOrder}
         error={errors.sortOrder}
-        hint="0 shows first when there is more than one banner."
         keyboardType="number-pad"
       />
 
       <View style={[styles.switchRow, { borderTopColor: colors.borderSoft }]}>
         <View style={styles.switchText}>
           <Text style={[styles.switchLabel, { color: colors.text }]}>Showing now</Text>
-          <Text style={[styles.switchHint, { color: colors.textMuted }]}>
-            Off keeps the banner and its wording, but nobody sees it
-          </Text>
         </View>
         <Toggle
           value={isActive}
@@ -447,11 +421,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.tight,
   },
-  switchHint: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-  },
+
   formError: {
     fontFamily: fontFamily.pjsRegular,
     fontSize: fontSize.caption,
