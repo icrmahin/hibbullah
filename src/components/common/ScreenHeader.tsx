@@ -107,11 +107,11 @@ const styles = StyleSheet.create({
   leading: {
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: -4,
+    marginLeft: -spacing.xs,
   },
   titleArea: {
     flex: 1,
-    gap: 1,
+    gap: spacing.xxs,
   },
   title: {
     fontFamily: fontFamily.soraSemiBold,

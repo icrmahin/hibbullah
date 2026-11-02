@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   text: {
     fontFamily: fontFamily.pjsSemiBold,

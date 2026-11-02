@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { goToAdminProduct } from "@/utils/navigation";
 import Sparkline from "../../components/admin/Sparkline";
-import StockDonut from "../../components/admin/StockDonut";
 import Screen from "../../components/common/Screen";
 import ScreenHeader from "../../components/common/ScreenHeader";
 import HeaderAction from "../../components/common/HeaderAction";
@@ -23,11 +22,12 @@ import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, letterSpacing, lineHeight } from "../../constants/typography";
 import { formatCurrency } from "../../utils/currency";
 import { formatShortDate } from "../../utils/date";
+import { orderStatusLabel } from "../../utils/displayLabels";
 import { statusTone } from "../../utils/statusTone";
 import type { IconName } from "../../components/common/Icon";
 
-function timeNow(): string {
-  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function today(): string {
+  return new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
 export default function AdminDashboardScreen() {
@@ -52,14 +52,14 @@ export default function AdminDashboardScreen() {
 
   if (loading) {
     return (
-      <Screen header={<ScreenHeader title="Dashboard" subtitle={timeNow() + " · loading"} />}>
+      <Screen header={<ScreenHeader title="Dashboard" subtitle={today() + " · loading"} />}>
         <LoadingState label="Loading dashboard" />
       </Screen>
     );
   }
   if (error) {
     return (
-      <Screen header={<ScreenHeader title="Dashboard" subtitle={timeNow() + " · error"} />}>
+      <Screen header={<ScreenHeader title="Dashboard" subtitle={today() + " · error"} />}>
         <ErrorState message={error} onRetry={reload} />
       </Screen>
     );
@@ -67,7 +67,7 @@ export default function AdminDashboardScreen() {
 
   if (!dashboard) {
     return (
-      <Screen header={<ScreenHeader title="Dashboard" subtitle={timeNow() + " · no data"} />}>
+      <Screen header={<ScreenHeader title="Dashboard" subtitle={today() + " · no data"} />}>
         <ScrollView
           contentContainerStyle={styles.stateScroll}
           showsVerticalScrollIndicator={false}
@@ -132,14 +132,48 @@ export default function AdminDashboardScreen() {
   const healthy = Math.max(activeProducts - lowStockProducts, 0);
   const low = lowStockProducts;
   const out = Math.max(lowStockBatches.filter((b: any) => b.status === "out_of_stock").length, 0);
+  const expiring = expiringBatches.length;
 
-  const time = timeNow();
+  // The strip ranks problems by size: each row's meter is its share of the
+  // largest count, so the longest bar is always the fire to fight first.
+  const pulseMax = Math.max(out, low, expiring, 1);
+  const pulseRows = [
+    {
+      id: "out",
+      title: "Out of stock",
+      sub: out === 1 ? "1 product needs restock" : `${out} products need restock`,
+      count: out,
+      dot: colors.danger,
+      fill: colors.redSoft,
+      onPress: () => open("/(admin)/inventory"),
+    },
+    {
+      id: "low",
+      title: "Low stock",
+      sub: low === 1 ? "1 product running low" : `${low} products running low`,
+      count: low,
+      dot: colors.warning,
+      fill: colors.amberSoft,
+      onPress: () => open("/(admin)/inventory"),
+    },
+    {
+      id: "expiring",
+      title: "Expiring soon",
+      sub: expiring === 1 ? "1 batch within 60 days" : `${expiring} batches within 60 days`,
+      count: expiring,
+      dot: colors.warning,
+      fill: colors.amberSoft,
+      onPress: () => open("/(admin)/inventory/expiry"),
+    },
+  ].filter((r) => r.count > 0);
+
+  const time = today();
   return (
     <Screen
       header={
         <ScreenHeader
           title="Dashboard"
-          subtitle={`${time} · live`}
+          subtitle={time}
           action={
             <HeaderAction label="Add" icon="add" onPress={() => open("/(admin)/products/add")} accessibilityLabel="Add product" />
           }
@@ -240,7 +274,7 @@ export default function AdminDashboardScreen() {
                   <Text style={[styles.heroLabel, { color: colors.textMuted }]}>Orders</Text>
                 </View>
                 <Text style={[styles.heroValue, { color: colors.text }]}>{pendingOrders}</Text>
-                <Text style={[styles.heroSub, { color: colors.textMuted }]}>{pendingOrders === 1 ? "awaiting" : "awaiting"} · {processingOrders} in motion</Text>
+                <Text style={[styles.heroSub, { color: colors.textMuted }]}>{pendingOrders === 1 ? "order awaiting" : "orders awaiting"} · {processingOrders} being packed</Text>
                 <View style={styles.heroFoot}>
                   <View style={[styles.dot, { backgroundColor: colors.warning }]} />
                   <Text style={[styles.footText, { color: colors.textMuted }]}>Pending</Text>
@@ -260,9 +294,9 @@ export default function AdminDashboardScreen() {
                   <Text style={[styles.heroLabel, { color: colors.textMuted }]}>Stock</Text>
                 </View>
                 <Text style={[styles.heroValue, { color: colors.text }]}>{activeProducts}</Text>
-                <Text style={[styles.heroSub, { color: low > 0 ? colors.warning : colors.success }]}>{low > 0 ? `${low} fraying` : "all healthy"} · live</Text>
+                <Text style={[styles.heroSub, { color: low > 0 ? colors.warning : colors.success }]}>{low > 0 ? `${low} running low` : "all stocked"}</Text>
                 <View style={styles.heroFoot}>
-                  <Text style={[styles.footText, { color: colors.textMuted }]}>{healthy} ok</Text>
+                  <Text style={[styles.footText, { color: colors.textMuted }]}>{healthy} stocked</Text>
                 </View>
               </Pressable>
             </View>
@@ -308,16 +342,39 @@ export default function AdminDashboardScreen() {
 
               <View style={[styles.missionRight, { backgroundColor: colors.backgroundAlt }]}>
                 <Text style={[styles.missionTitle, { color: colors.text }]}>Stock pulse</Text>
-                <Text style={[styles.missionSub, { color: colors.textMuted }]}>30 days</Text>
-                <View style={styles.donutRow}>
-                  <StockDonut healthy={healthy} low={low} out={out} />
-                  <View style={styles.legend}>
-                    <View style={styles.legRow}><View style={[styles.legDot, { backgroundColor: colors.success }]} /><Text style={[styles.legText, { color: colors.textMuted }]}>Healthy {healthy}</Text></View>
-                    <View style={styles.legRow}><View style={[styles.legDot, { backgroundColor: colors.warning }]} /><Text style={[styles.legText, { color: colors.textMuted }]}>Low {low}</Text></View>
-                    <View style={styles.legRow}><View style={[styles.legDot, { backgroundColor: colors.danger }]} /><Text style={[styles.legText, { color: colors.textMuted }]}>Out {out}</Text></View>
+                {pulseRows.length === 0 ? (
+                  <View style={styles.calm}>
+                    <Icon name="verified" size={20} color={colors.success} />
+                    <Text style={[styles.calmText, { color: colors.success }]}>All stocked — nothing needs you</Text>
                   </View>
-                </View>
-                {expiringBatches.length ? <Text style={[styles.expiry, { color: colors.warning }]}>{expiringBatches.length} expiring in 60d</Text> : null}
+                ) : (
+                  pulseRows.map((r, idx) => (
+                    <View key={r.id}>
+                      <Pressable
+                        style={styles.pulseRow}
+                        onPress={r.onPress}
+                        android_ripple={{ color: colors.ripple.primary, borderless: false }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${r.title}, ${r.count}. ${r.sub}`}
+                      >
+                        <View
+                          style={[
+                            styles.pulseFill,
+                            { width: `${Math.max((r.count / pulseMax) * 100, 10)}%`, backgroundColor: r.fill },
+                          ]}
+                        />
+                        <View style={[styles.pulseDot, { backgroundColor: r.dot }]} />
+                        <View style={styles.rowMain}>
+                          <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{r.title}</Text>
+                          <Text style={[styles.rowSub, { color: colors.textMuted }]} numberOfLines={1}>{r.sub}</Text>
+                        </View>
+                        <Text style={[styles.pulseCount, { color: colors.text }]}>{r.count}</Text>
+                        <Icon name="chevron-right" size={16} color={colors.textMuted} />
+                      </Pressable>
+                      {idx < pulseRows.length - 1 ? <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} /> : null}
+                    </View>
+                  ))
+                )}
               </View>
             </View>
 
@@ -349,7 +406,7 @@ export default function AdminDashboardScreen() {
                   {idx < arr.length - 1 ? <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} /> : null}
                 </View>
               ))}
-              {lowStockBatches.length === 0 ? <Text style={[styles.calmText, { color: colors.textMuted }]}>No fraying stock</Text> : null}
+              {lowStockBatches.length === 0 ? <Text style={[styles.calmText, { color: colors.textMuted }]}>Stock looks good</Text> : null}
             </View>
 
             {/* Recent orders — keep one compact list */}
@@ -366,7 +423,7 @@ export default function AdminDashboardScreen() {
                       <Text style={[styles.rowTitle, { color: colors.text }]}>{o.orderNumber} · {formatCurrency(o.total)}</Text>
                       <Text style={[styles.rowSub, { color: colors.textMuted }]}>{o.customerName} · {formatShortDate(o.createdAt)}</Text>
                     </View>
-                    <StatusBadge label={o.status} tone={statusTone(o.status)} />
+                    <StatusBadge label={orderStatusLabel(o.status)} tone={statusTone(o.status)} />
                     <Icon name="chevron-right" size={16} color={colors.textMuted} />
                   </Pressable>
                   {i < Math.min(4, recentOrders.length) - 1 ? <View style={[styles.hairline, { backgroundColor: colors.borderSoft }]} /> : null}
@@ -390,7 +447,7 @@ const styles = StyleSheet.create({
   heroGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   heroCard: { flexGrow: 1, flexBasis: "46%", minHeight: 92, borderRadius: radius.lg, padding: spacing.md, gap: spacing.xxs, overflow: "hidden" },
   heroTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  heroIcon: { width: 26, height: 26, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  heroIcon: { width: spacing.xxl, height: spacing.xxl, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   heroLabel: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.micro,
@@ -418,7 +475,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   sparkWrap: { marginTop: spacing.xs, opacity: 0.9 },
-  heroFoot: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.xs },
+  heroFoot: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs },
   dot: { width: 6, height: 6, borderRadius: radius.pill },
   footText: {
     fontFamily: fontFamily.pjsRegular,
@@ -428,7 +485,7 @@ const styles = StyleSheet.create({
   mission: { gap: spacing.sm },
   missionWide: { flexDirection: "row", gap: spacing.sm },
   missionLeft: { flex: 1, borderRadius: radius.lg, padding: spacing.md },
-  missionRight: { borderRadius: radius.lg, padding: spacing.md, minWidth: 160, alignItems: "center", gap: spacing.xs },
+  missionRight: { borderRadius: radius.lg, padding: spacing.md, minWidth: 160, gap: spacing.xs },
   missionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
   missionTitle: {
     fontFamily: fontFamily.soraSemiBold,
@@ -441,25 +498,27 @@ const styles = StyleSheet.create({
     fontSize: fontSize.micro,
     lineHeight: fontSize.micro * lineHeight.normal,
   },
-  missionSub: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.micro,
-    lineHeight: fontSize.micro * lineHeight.normal,
+  pulseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    minHeight: 52,
+    overflow: "hidden",
   },
-  donutRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  legend: { gap: spacing.xs },
-  legRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legDot: { width: 8, height: 8, borderRadius: radius.pill },
-  legText: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.micro,
-    lineHeight: fontSize.micro * lineHeight.normal,
+  pulseFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: radius.sm,
   },
-  expiry: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.micro,
-    lineHeight: fontSize.micro * lineHeight.normal,
-    marginTop: spacing.xs,
+  pulseDot: { width: spacing.sm, height: spacing.sm, borderRadius: radius.pill },
+  pulseCount: {
+    fontFamily: fontFamily.soraBold,
+    fontSize: fontSize.title3,
+    lineHeight: fontSize.title3 * lineHeight.tight,
   },
   calm: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
   calmText: {
@@ -488,13 +547,13 @@ const styles = StyleSheet.create({
   },
   hairline: { height: 1 },
   commandBar: { flexDirection: "row", alignItems: "center", borderRadius: radius.lg, padding: spacing.xs, gap: spacing.xs },
-  cmd: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: spacing.sm, borderRadius: radius.pill },
+  cmd: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, paddingVertical: spacing.sm, borderRadius: radius.pill },
   cmdText: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
   },
-  cmdSep: { width: 1, height: 20 },
+  cmdSep: { width: 1, height: spacing.xl },
   cockpit: { borderRadius: radius.lg, padding: spacing.md, gap: spacing.sm },
   cockpitHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cockpitTitle: {

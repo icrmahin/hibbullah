@@ -107,26 +107,17 @@ const CHECKS = [
   ["accent on a muted accent fill", "accent", "primaryMuted", 4.5],
 
   // ── labels on fills ───────────────────────────────────────────────────────────────
-  // `textInverse`, not `white`. A `primary` fill now inverts between the themes — a deep
-  // teal in light, the light sage in dark — so its label has to invert with it, which is
-  // the same reason the four status fills below use this token and not `white`.
-  //
-  // These two lines used to assert `white`, on the reasoning that a `primary` fill was
-  // dark in both themes. That was stricter than the component: `Button.tsx` has always
-  // read `colors.textInverse` here, so the check and the code disagreed, and the check was
-  // the one that would have blocked making the dark-mode primary button the accent. It is
-  // now the token the component actually uses, so it polices the real pair in both themes:
-  // 12.2:1 light, 8.96:1 dark. A white label on the dark fill is 2.19:1 and is exactly the
-  // regression recorded at the top of this file, so `textInverse` is load-bearing here.
+  // `textInverse` is the brand-fill label: #06402B is dark in both themes, so its
+  // label is paper in both (~15:1 light, ~15:1 dark).
   ["label on a primary fill", "textInverse", "primary", 4.5],
   ["label on a primary fill, pressed", "textInverse", "primaryDark", 4.5],
-  // A *status* fill inverts between themes — dark in light, light in dark — so its label
-  // has to invert too, which is what `textInverse` is. Using `white` here is what put a
-  // 3.5:1 badge on the cart in dark mode while being perfectly correct in light mode.
-  ["label on a danger fill", "textInverse", "danger", 4.5],
-  ["label on a success fill", "textInverse", "success", 4.5],
-  ["label on a warning fill", "textInverse", "warning", 4.5],
-  ["label on an info fill", "textInverse", "info", 4.5],
+  // Status fills invert between themes, so their label inverts too — that is what
+  // `statusInk` is (paper in light, near-black in dark). Asserting `textInverse`
+  // here is what put a ~3.5:1 badge on the cart in dark mode.
+  ["label on a danger fill", "statusInk", "danger", 4.5],
+  ["label on a success fill", "statusInk", "success", 4.5],
+  ["label on a warning fill", "statusInk", "warning", 4.5],
+  ["label on an info fill", "statusInk", "info", 4.5],
 
   // ── status as ink, which is how warnings and errors are read ───────────────────────
   ["danger text on a card", "danger", "backgroundAlt", 4.5],

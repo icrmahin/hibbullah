@@ -11,12 +11,14 @@ import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import StatusBadge from '../../../components/common/StatusBadge';
+import OrderTimeline from '../../../components/orders/OrderTimeline';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchAdminOrderById, updateOrderStatus } from '../../../services/admin';
 import type { Order, OrderStatus } from '../../../types/order';
+import { orderStatusLabel, paymentMethodLabel } from '../../../utils/displayLabels';
 import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
 import { normalizeError } from '../../../utils/errorHandling';
@@ -114,14 +116,14 @@ export default function AdminOrderDetailScreen() {
         <ResponsiveContainer sidebarAware maxWidth={960}>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.customer, { color: colors.text }]}>{order.customerName}</Text>
-          <StatusBadge label={order.status} tone={toneForStatus(order.status)} />
+          <StatusBadge label={orderStatusLabel(order.status)} tone={toneForStatus(order.status)} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Placed: {formatDateTime(order.createdAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Total: {formatCurrency(order.total)} · Subtotal {formatCurrency(order.subtotal)} · Delivery {formatCurrency(order.deliveryFee)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Address: {order.address}</Text>
           {order.customerNote ? (
             <Text style={[styles.meta, { color: colors.textMuted }]}>Customer note: {order.customerNote}</Text>
           ) : null}
-          <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: {order.paymentMethod}</Text>
+          <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: {paymentMethodLabel(order.paymentMethod)}</Text>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
@@ -140,12 +142,7 @@ export default function AdminOrderDetailScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Timeline</Text>
-          {(order.timeline || []).map((step) => (
-            <View key={`${step.label}-${step.time}`} style={styles.step}>
-              <Text style={[styles.itemName, { color: colors.text }]}>{step.label}</Text>
-              <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{formatDateTime(step.time)} {step.note ? `· ${step.note}` : ''}</Text>
-            </View>
-          ))}
+          <OrderTimeline steps={order.timeline || []} />
         </View>
         </ResponsiveContainer>
       </ScrollView>
@@ -153,12 +150,12 @@ export default function AdminOrderDetailScreen() {
       <View style={[styles.footer, { borderTopColor: colors.borderSoft, backgroundColor: colors.background }]}>
         {actionError ? <Text style={[styles.actionError, { color: colors.danger }]}>{actionError}</Text> : null}
         {nextStatuses.length === 0 ? (
-          <Text style={[styles.meta, { color: colors.textMuted, textAlign: 'center' }]}>No further transitions for {order.status}</Text>
+          <Text style={[styles.meta, { color: colors.textMuted, textAlign: 'center' }]}>No further transitions for {orderStatusLabel(order.status)}</Text>
         ) : (
           nextStatuses.map((next) => (
             <Button
               key={next}
-              title={next === 'CANCELLED' ? 'Cancel order' : next === 'CONFIRMED' ? 'Confirm order' : next === 'PROCESSING' ? 'Mark processing' : next === 'OUT_FOR_DELIVERY' ? 'Out for delivery' : next === 'DELIVERED' ? 'Mark delivered' : next}
+              title={next === 'CANCELLED' ? 'Cancel order' : next === 'CONFIRMED' ? 'Confirm order' : next === 'PROCESSING' ? 'Mark processing' : next === 'OUT_FOR_DELIVERY' ? 'Out for delivery' : next === 'DELIVERED' ? 'Mark delivered' : orderStatusLabel(next)}
               variant={next === 'CANCELLED' ? 'secondary' : 'primary'}
               onPress={() => handleTransition(next)}
               loading={updating === next}
@@ -198,7 +195,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm, gap: spacing.sm },
-  step: { marginBottom: spacing.sm },
   itemName: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.subhead,

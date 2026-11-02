@@ -6,25 +6,21 @@ import { spacing } from "../../constants/spacing";
 type CardProps = ViewProps & {
   onPress?: () => void;
   pressed?: boolean;
-  elevation?: "none" | "xs" | "sm" | "md";
 };
 
 /**
  * One flat surface: 6px rectangle, 1px hairline, page-to-card lightness step.
- * `elevation` is accepted and ignored — shadows are gone, kept only so call sites
- * keep working. A pressable card answers with the native ripple, clipped by
+ * A pressable card answers with the native ripple, clipped by
  * `overflow: hidden`; there is no scale or fade.
  */
 export default function Card({
   onPress,
   pressed = false,
-  elevation: _elevation,
   style,
   children,
   ...props
 }: CardProps) {
   const colors = useThemeColors();
-  void _elevation;
 
   const cardStyle = [
     styles.card,

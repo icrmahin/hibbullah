@@ -14,6 +14,7 @@ import { useThemeColors } from "../../providers/ThemeProvider";
 import type { ProductUpdate } from "../../services/products";
 import type { Product } from "../../types/product";
 import { getSalePrice } from "../../utils/currency";
+import { hapticError, hapticSelect, hapticSuccess } from "../../utils/haptics";
 import { randomUuid } from "../../utils/uuid";
 import { isEmpty, parseDiscountPercent } from "../../utils/validation";
 import Button from "../common/Button";
@@ -230,7 +231,9 @@ export default function ProductForm({
         payload.expiryDate = expiryDate.trim() || null;
 
       await onSubmit(payload);
+      hapticSuccess();
     } catch (err) {
+      hapticError();
       setSubmitError(
         err instanceof Error
           ? err.message
@@ -462,7 +465,10 @@ export default function ProductForm({
               </View>
               <Switch
                 value={isFeatured}
-                onValueChange={setIsFeatured}
+                onValueChange={(v) => {
+                  hapticSelect();
+                  setIsFeatured(v);
+                }}
                 trackColor={{
                   false: colors.border,
                   true: colors.primarySoft,
@@ -479,7 +485,10 @@ export default function ProductForm({
               </View>
               <Switch
                 value={isActive}
-                onValueChange={setIsActive}
+                onValueChange={(v) => {
+                  hapticSelect();
+                  setIsActive(v);
+                }}
                 trackColor={{ false: colors.border, true: colors.primarySoft }}
                 thumbColor={isActive ? colors.accent : colors.textMuted}
                 accessibilityLabel="Selling now"
@@ -570,7 +579,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     gap: spacing.md,
   },
-  switchText: { flex: 1, gap: 2 },
+  switchText: { flex: 1, gap: spacing.xxs },
   switchLabel: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.subhead,

@@ -14,6 +14,7 @@
  */
 import { StyleSheet, View } from "react-native";
 import { spacing } from "../../constants/spacing";
+import { hapticConfirm } from "../../utils/haptics";
 import Dialog from "./Dialog";
 import Button from "./Button";
 
@@ -55,7 +56,10 @@ export default function ConfirmDialog({
         <Button
           title={confirmLabel}
           variant={destructive ? "danger" : "primary"}
-          onPress={onConfirm}
+          onPress={() => {
+            hapticConfirm();
+            onConfirm();
+          }}
           fullWidth
           style={styles.action}
         />

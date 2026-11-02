@@ -17,6 +17,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { formatCurrency } from '../../utils/currency';
 import { formatDateTime } from '../../utils/date';
+import { deliveryCycleStatusLabel } from '../../utils/displayLabels';
 import { statusTone } from '../../utils/statusTone';
 
 export default function DeliveryCycleScreen() {
@@ -80,7 +81,7 @@ export default function DeliveryCycleScreen() {
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.title, { color: colors.text }]}>Active order cycle</Text>
-          <StatusBadge label={cycle.status} tone={statusTone(cycle.status)} />
+          <StatusBadge label={deliveryCycleStatusLabel(cycle.status)} tone={statusTone(cycle.status)} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Start: {formatDateTime(cycle.startedAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Closes: {formatDateTime(cycle.closesAt)}</Text>
           <Text style={[styles.total, { color: colors.text }]}>Estimated total: {formatCurrency(cycle.estimatedTotal)}</Text>
@@ -98,7 +99,7 @@ export default function DeliveryCycleScreen() {
         </View>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Pending orders in window ({pendingOrders.length})</Text>
-          <Text style={[styles.meta, { color: colors.textMuted, marginBottom: spacing.sm }]}>Orders with status PENDING/CONFIRMED/PROCESSING created after {formatDateTime(cycle.startedAt)}</Text>
+          <Text style={[styles.meta, { color: colors.textMuted, marginBottom: spacing.sm }]}>New and confirmed orders created after {formatDateTime(cycle.startedAt)}</Text>
           {pendingOrders.length === 0 ? (
             <Text style={[styles.meta, { color: colors.textMuted }]}>No pending orders. New orders will be grouped here.</Text>
           ) : (

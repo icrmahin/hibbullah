@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
     gap: spacing.xxs,
-    paddingTop: 2,
+    paddingTop: spacing.xxs,
   },
   name: {
     fontFamily: fontFamily.pjsSemiBold,
@@ -104,8 +104,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "space-between",
     alignSelf: "stretch",
-    paddingTop: 2,
-    paddingBottom: 2,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xxs,
   },
   total: {
     fontFamily: fontFamily.pjsBold,

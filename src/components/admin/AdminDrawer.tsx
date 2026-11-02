@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   sheetEyebrow: { fontFamily: fontFamily.pjsBold, fontSize: fontSize.tiny, letterSpacing: 0.7, textTransform: "uppercase" },
-  sheetTitle: { fontFamily: fontFamily.soraBold, fontSize: typography.title3, marginTop: 2 },
+  sheetTitle: { fontFamily: fontFamily.soraBold, fontSize: typography.title3, marginTop: spacing.xxs },
   closeButton: {
     width: 28,
     height: 28,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  section: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, gap: 2 },
+  section: { paddingHorizontal: spacing.sm, paddingTop: spacing.sm, gap: spacing.xxs },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",

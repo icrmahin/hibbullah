@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.md,
     height: 32,
     borderRadius: radius.pill,
     overflow: "hidden",

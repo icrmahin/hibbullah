@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     minHeight: layout.touch,
     overflow: "hidden",
   },
-  optionTextWrap: { flex: 1, gap: 2 },
+  optionTextWrap: { flex: 1, gap: spacing.xxs },
   optionText: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.body,

@@ -97,9 +97,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    gap: spacing.xxs,
     minHeight: 44,
-    paddingHorizontal: 2,
+    paddingHorizontal: spacing.xxs,
     overflow: "hidden",
   },
   iconBadgeWrap: {

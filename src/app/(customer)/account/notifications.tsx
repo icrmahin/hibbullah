@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: "flex-start",
   },
-  unreadDot: { width: 8, height: 8, borderRadius: radius.pill, marginTop: 6 },
+  unreadDot: { width: spacing.sm, height: spacing.sm, borderRadius: radius.pill, marginTop: spacing.sm },
   cardBody: { flex: 1, gap: spacing.xs },
   cardHeader: {
     flexDirection: "row",

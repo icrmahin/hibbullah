@@ -13,7 +13,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#F6F7F4",
+        "backgroundColor": "#F5F5F5",
         "foregroundImage": "./assets/images/logo/hibbullah-main.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -36,7 +36,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F6F7F4",
+          "backgroundColor": "#F5F5F5",
           "image": "./assets/images/logo/hibbullah-main.png",
           "imageWidth": 88
         }
@@ -45,7 +45,7 @@
       [
         "expo-notifications",
         {
-          "color": "#123C35"
+          "color": "#06402B"
         }
       ]
     ],

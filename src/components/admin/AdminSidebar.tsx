@@ -1,11 +1,13 @@
 import { router, usePathname } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useThemeColors } from "../../providers/ThemeProvider";
+import { useState } from "react";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { useTheme, useThemeColors } from "../../providers/ThemeProvider";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize } from "../../constants/typography";
 import sizes from "../../constants/sizes";
 import Icon from "../common/Icon";
 import AppLogo from "../common/AppLogo";
+import { hapticSelect } from "../../utils/haptics";
 import Avatar from "../common/Avatar";
 import type { IconName } from "../common/Icon";
 import { useAuth } from "../../hooks/useAuth";
@@ -142,13 +144,23 @@ export default function AdminSidebar() {
  */
 function AdminIdentity() {
   const colors = useThemeColors();
+  const { resolvedTheme, setThemeMode } = useTheme();
   const { user } = useAuth();
+
+  // Hooks before the early return — conditional hooks break render order.
+  // Same optimistic-thumb reasoning as the customer settings switch: the
+  // global theme commit stalls a frame on slow phones, so the Switch answers
+  // from local state first and the context follows.
+  const [pendingDark, setPendingDark] = useState<boolean | null>(null);
+  const resolvedDark = resolvedTheme === "dark";
+  const isDark = pendingDark !== null && pendingDark !== resolvedDark ? pendingDark : resolvedDark;
 
   if (!user) return null;
 
   const label = user.name?.trim() || user.email || "Admin";
 
   return (
+    <View>
     <Pressable
       style={styles.identity}
       onPress={() => router.push("/(customer)/account/profile" as never)}
@@ -167,6 +179,24 @@ function AdminIdentity() {
       </View>
       <Icon name="settings" size={16} color={colors.textMuted} />
     </Pressable>
+    <View style={styles.themeRow}>
+      <Icon name="dark-mode" size={16} color={colors.textMuted} />
+      <Text style={[styles.themeLabel, { color: colors.text }]}>Dark mode</Text>
+      <Switch
+        value={isDark}
+        onValueChange={(next) => {
+          setPendingDark(next);
+          hapticSelect();
+          requestAnimationFrame(() => {
+            setThemeMode(next ? "dark" : "light");
+          });
+        }}
+        trackColor={{ false: colors.border, true: colors.primarySoft }}
+        thumbColor={isDark ? colors.accent : colors.textMuted}
+        accessibilityLabel="Dark mode"
+      />
+    </View>
+    </View>
   );
 }
 
@@ -198,7 +228,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.tiny,
     lineHeight: fontSize.tiny * 1.3,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   navSection: {
     paddingHorizontal: spacing.md,
@@ -221,7 +251,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: sizes.borderRadius.md,
     minHeight: 40,
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
     overflow: "hidden",
   },
   iconTile: {
@@ -253,7 +283,7 @@ const styles = StyleSheet.create({
     borderRadius: sizes.borderRadius.md,
     overflow: "hidden",
   },
-  identityText: { flex: 1, gap: 1 },
+  identityText: { flex: 1, gap: spacing.xxs },
   identityName: {
     fontFamily: fontFamily.semiBold,
     fontSize: fontSize.caption,
@@ -263,5 +293,20 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.tiny,
     lineHeight: fontSize.tiny * 1.3,
+  },
+  themeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minHeight: 44,
+  },
+  themeLabel: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * 1.3,
   },
 });

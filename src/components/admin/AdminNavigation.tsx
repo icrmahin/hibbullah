@@ -119,9 +119,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    gap: spacing.xxs,
     minHeight: 40,
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
     overflow: "hidden",
   },
   pill: {

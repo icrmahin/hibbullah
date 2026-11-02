@@ -83,8 +83,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   marker: {
-    width: 20,
-    height: 2,
+    width: spacing.xl,
+    height: spacing.xxs,
     borderRadius: radius.sm,
     marginBottom: spacing.sm,
   },

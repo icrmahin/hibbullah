@@ -44,7 +44,7 @@ export default function Alert({
     >
       <View style={styles.row}>
         <View style={[styles.iconCircle, { backgroundColor: p.fg }]}>
-          <Icon name={glyph} size={12} color={colors.textInverse} />
+          <Icon name={glyph} size={12} color={colors.statusInk} />
         </View>
         <View style={styles.content}>
           {title ? (
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   content: { flex: 1, gap: spacing.xs },
   title: {

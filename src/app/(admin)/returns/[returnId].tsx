@@ -17,6 +17,7 @@ import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchReturnById, updateReturnStatus } from '../../../services/returns';
 import { normalizeError } from '../../../utils/errorHandling';
+import { returnStatusLabel } from '../../../utils/displayLabels';
 import { statusTone } from '../../../utils/statusTone';
 import { useConfirm } from '../../../hooks/useConfirm';
 import ConfirmDialog from '../../../components/common/ConfirmDialog';
@@ -146,7 +147,7 @@ export default function AdminReturnDetailScreen() {
           ))}
           <View style={styles.badgeRow}>
             <StatusBadge
-              label={item.status}
+              label={returnStatusLabel(item.status)}
               tone={statusTone(item.status)}
             />
           </View>

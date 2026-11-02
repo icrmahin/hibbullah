@@ -7,14 +7,13 @@ import ResponsiveContainer from '../../../components/common/ResponsiveContainer'
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
-import StatusBadge from '../../../components/common/StatusBadge';
+import InventoryStatus from '../../../components/admin/InventoryStatus';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useAdminInventory } from '../../../hooks/useAdmin';
 import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { radius } from '../../../constants/sizes';
-import { statusTone } from '../../../utils/statusTone';
 
 /** One level deep: fall back to the admin dashboard when there is nothing to pop. */
 const onBack = () => goBack('/(admin)');
@@ -61,10 +60,7 @@ export default function InventoryBatchesScreen() {
               <Text style={[styles.meta, { color: colors.textMuted }]}>{item.productName}</Text>
               <Text style={[styles.meta, { color: colors.textMuted }]}>Quantity: {item.quantity}</Text>
               <View style={styles.badgeRow}>
-                <StatusBadge
-                  label={item.status}
-                  tone={statusTone(item.status)}
-                />
+                <InventoryStatus status={item.status} />
               </View>
             </View>
           ))

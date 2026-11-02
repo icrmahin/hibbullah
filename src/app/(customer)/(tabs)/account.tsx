@@ -16,6 +16,7 @@ import { useBottomInset } from "../../../hooks/useBottomInset";
 import type { IconName } from "../../../components/common/Icon";
 import Toggle from "../../../components/common/Toggle";
 import { formatBdPhone } from "../../../utils/phone";
+import { hapticSelect } from "../../../utils/haptics";
 
 type SettingsSection = {
   title: string;
@@ -107,6 +108,7 @@ export default function AccountScreen() {
 
   const handleDarkModeToggle = (next: boolean) => {
     setPendingDark(next);
+    hapticSelect();
     requestAnimationFrame(() => {
       setThemeMode(next ? "dark" : "light");
     });

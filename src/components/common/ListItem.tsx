@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   left: { flexShrink: 0 },
-  content: { flex: 1, gap: 2 },
+  content: { flex: 1, gap: spacing.xxs },
   right: { flexShrink: 0 },
   title: {
     fontFamily: fontFamily.medium,

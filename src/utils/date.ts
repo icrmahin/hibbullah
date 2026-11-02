@@ -119,3 +119,24 @@ export const formatDateTime = (value: string | Date): string => {
     minute: "2-digit",
   }).format(date);
 };
+
+/**
+ * Relative age ("2h ago") for tracking-style surfaces.
+ *
+ * Parses through `toDate`, so the same Hermes hazards apply and the same guard
+ * handles them: an unreadable timestamp renders "—", never a wrong age and
+ * never a thrown RangeError during render.
+ */
+export const formatRelativeTime = (value: string | Date): string => {
+  const date = toDate(value);
+  if (!date) return UNKNOWN_DATE;
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDateTime(date);
+};

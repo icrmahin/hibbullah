@@ -6,6 +6,7 @@ import { fontFamily, fontSize } from "../../constants/typography";
 import type { Order } from "../../types/order";
 import { formatCurrency } from "../../utils/currency";
 import { formatDate } from "../../utils/date";
+import { orderStatusLabel, paymentMethodLabel } from "../../utils/displayLabels";
 import OrderStatus from "./OrderStatus";
 import Icon from "../common/Icon";
 
@@ -29,7 +30,7 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
       onPress={() => onPress?.(order)}
       android_ripple={{ color: colors.ripple.primary, borderless: false }}
       accessibilityRole="button"
-      accessibilityLabel={`Order ${order.orderNumber}, ${order.status}, ${formatCurrency(order.total)}`}
+      accessibilityLabel={`Order ${order.orderNumber}, ${orderStatusLabel(order.status)}, ${formatCurrency(order.total)}`}
     >
       <View style={styles.headerRow}>
         <Text style={[styles.orderNumber, { color: colors.text }]}>{order.orderNumber}</Text>
@@ -42,7 +43,7 @@ export default function OrderCard({ order, onPress }: OrderCardProps) {
         <Text style={[styles.meta, { color: colors.textMuted }]}>{order.items.length} item{order.items.length !== 1 ? "s" : ""}</Text>
         <View style={[styles.dot, { backgroundColor: colors.border }]} />
         <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-          {order.paymentMethod === "CASH_ON_DELIVERY" ? "COD" : order.paymentMethod}
+          {paymentMethodLabel(order.paymentMethod)}
         </Text>
       </View>
 
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   tlDot: { width: 6, height: 6, borderRadius: radius.pill },
-  tlLine: { flex: 1, height: 1, maxWidth: 24 },
+  tlLine: { flex: 1, height: 1, maxWidth: spacing.xxl },
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",

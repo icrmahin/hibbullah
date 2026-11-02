@@ -7,6 +7,7 @@ import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
 import StatusBadge from '../../../components/common/StatusBadge';
 import CartSummary from '../../../components/cart/CartSummary';
+import OrderTimeline from '../../../components/orders/OrderTimeline';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import EmptyState from '../../../components/common/EmptyState';
@@ -21,6 +22,7 @@ import { useBottomInset } from '../../../hooks/useBottomInset';
 import { createReturnRequests } from '../../../services/returns';
 import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
+import { orderStatusLabel, paymentMethodLabel } from '../../../utils/displayLabels';
 import { statusTone } from '../../../utils/statusTone';
 
 export default function CustomerOrderDetailScreen() {
@@ -115,13 +117,13 @@ export default function CustomerOrderDetailScreen() {
         {/* One card level: the card carries the surface, the hairline inside it separates. */}
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.title, { color: colors.text }]}>Order summary</Text>
-          <StatusBadge label={order.status} tone={tone} />
+          <StatusBadge label={orderStatusLabel(order.status)} tone={tone} />
           <Text style={[styles.meta, { color: colors.textMuted }]}>Placed {formatDateTime(order.createdAt)}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>Delivery address: {order.address}</Text>
           {order.customerNote ? (
             <Text style={[styles.meta, { color: colors.textMuted }]}>Note: {order.customerNote}</Text>
           ) : null}
-          <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: Cash on Delivery</Text>
+          <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: {paymentMethodLabel(order.paymentMethod)}</Text>
         </View>
         {/* The four money rows are the shared CartSummary — same arithmetic language as
             cart and checkout. A record, not a second copy of the rows. */}
@@ -151,14 +153,7 @@ export default function CustomerOrderDetailScreen() {
         </View>
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Timeline</Text>
-          {(order.timeline || []).map((step) => (
-            <View key={`${step.label}-${step.time}`} style={styles.timelineRow}>
-              <Text style={[styles.timelineLabel, { color: colors.text }]}>{step.label}</Text>
-              <Text style={[styles.timelineTime, { color: colors.textMuted }]}>{formatDateTime(step.time)}</Text>
-              {step.note ? <Text style={[styles.timelineNote, { color: colors.textMuted }]}>{step.note}</Text> : null}
-            </View>
-          ))}
-          {(!order.timeline || order.timeline.length === 0) ? <Text style={[styles.meta, { color: colors.textMuted }]}>No timeline events yet.</Text> : null}
+          <OrderTimeline steps={order.timeline || []} />
         </View>
         {order.status === 'DELIVERED' ? (
           <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
@@ -236,23 +231,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.pjsBold,
     fontSize: fontSize.subhead,
     lineHeight: fontSize.subhead * lineHeight.normal,
-  },
-  timelineRow: { marginBottom: spacing.md },
-  timelineLabel: {
-    fontFamily: fontFamily.pjsSemiBold,
-    fontSize: fontSize.footnote,
-    lineHeight: fontSize.footnote * lineHeight.normal,
-  },
-  timelineTime: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-  },
-  timelineNote: {
-    fontFamily: fontFamily.pjsRegular,
-    fontSize: fontSize.caption,
-    lineHeight: fontSize.caption * lineHeight.normal,
-    marginTop: spacing.xs,
   },
   // A selectable control inside the return card: 1px hairline, primarySoft when selected.
   returnItem: {

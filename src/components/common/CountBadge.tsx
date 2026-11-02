@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import { fontFamily, fontSize } from "../../constants/typography";
+import spacing from "../../constants/spacing";
 
 /**
  * The dot's diameter. The radius below is derived from it (`BADGE_SIZE / 2`) rather than
@@ -40,7 +41,7 @@ export default function CountBadge({ count, tone = "neutral" }: CountBadgeProps)
       importantForAccessibility="no-hide-descendants"
       accessibilityElementsHidden
     >
-      <Text style={[styles.text, { color: colors.textInverse }]}>{count > 99 ? "99+" : String(count)}</Text>
+      <Text style={[styles.text, { color: colors.statusInk }]}>{count > 99 ? "99+" : String(count)}</Text>
     </View>
   );
 }
@@ -52,7 +53,7 @@ const styles = StyleSheet.create({
     right: -4,
     minWidth: BADGE_SIZE,
     height: BADGE_SIZE,
-    paddingHorizontal: 2,
+    paddingHorizontal: spacing.xxs,
     borderRadius: BADGE_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",

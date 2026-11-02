@@ -15,6 +15,7 @@ import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchReturns } from '../../../services/returns';
 import { formatDateTime } from '../../../utils/date';
+import { returnStatusLabel } from '../../../utils/displayLabels';
 import { statusTone } from '../../../utils/statusTone';
 import { radius } from '../../../constants/sizes';
 
@@ -96,7 +97,7 @@ export default function AdminReturnsScreen() {
               ) : null}
               <View style={styles.footer}>
                 <StatusBadge
-                  label={item.status}
+                  label={returnStatusLabel(item.status)}
                   tone={statusTone(item.status)}
                 />
                 <Text

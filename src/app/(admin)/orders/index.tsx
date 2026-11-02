@@ -17,6 +17,7 @@ import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { radius } from '../../../constants/sizes';
 import { statusTone } from '../../../utils/statusTone';
+import { orderStatusLabel } from '../../../utils/displayLabels';
 import type { Order } from '../../../types/order';
 
 /** One order row — defined once and shared by the grid and the list branch. */
@@ -29,7 +30,7 @@ function OrderRow({ order }: { order: Order }) {
         <Text style={[styles.customer, { color: colors.textMuted }]}>{order.customerName}</Text>
       </View>
       <StatusBadge
-        label={order.status}
+        label={orderStatusLabel(order.status)}
         tone={statusTone(order.status)}
       />
       <Text
