@@ -1,3 +1,5 @@
+import { Image } from "expo-image";
+import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
@@ -6,20 +8,23 @@ import {
   StyleSheet,
   Text,
   View,
-  type ViewToken,
+  type ListViewToken,
   useWindowDimensions,
 } from "react-native";
-import { Image } from "expo-image";
-import { router } from "expo-router";
 import { useReducedMotion } from "react-native-reanimated";
-import { useThemeColors } from "../../providers/ThemeProvider";
-import { spacing } from "../../constants/spacing";
 import { radius } from "../../constants/sizes";
-import { fontFamily, fontSize, lineHeight, letterSpacing } from "../../constants/typography";
-import Icon from "../common/Icon";
-import { goToProduct } from "../../utils/navigation";
+import { spacing } from "../../constants/spacing";
+import {
+  fontFamily,
+  fontSize,
+  letterSpacing,
+  lineHeight,
+} from "../../constants/typography";
 import { useAdvertisements } from "../../hooks/useAdvertisements";
+import { useThemeColors } from "../../providers/ThemeProvider";
 import type { Advertisement } from "../../types/advertisement";
+import { goToProduct } from "../../utils/navigation";
+import Icon from "../common/Icon";
 
 /**
  * The homepage banner, from the database instead of from a formula.
@@ -53,12 +58,18 @@ export default function AdvertisementCarousel() {
 
   const live = useMemo(() => advertisements, [advertisements]);
 
-  const viewabilityConfig = useMemo(() => ({ viewAreaCoveragePercentThreshold: 50 }), []);
+  const viewabilityConfig = useMemo(
+    () => ({ viewAreaCoveragePercentThreshold: 50 }),
+    [],
+  );
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const index = viewableItems[0]?.index;
-    if (index != null) setCurrentIndex(index);
-  }, []);
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+      const index = viewableItems[0]?.index;
+      if (index != null) setCurrentIndex(index);
+    },
+    [],
+  );
 
   // Calm autoplay — one advance every five seconds, only when there is more than one to
   // advance to, and never under Reduced Motion, where an unprompted slide is exactly the
@@ -68,7 +79,10 @@ export default function AdvertisementCarousel() {
     const id = setInterval(() => {
       setCurrentIndex((prev) => {
         const next = (prev + 1) % live.length;
-        listRef.current?.scrollToOffset({ offset: next * step, animated: true });
+        listRef.current?.scrollToOffset({
+          offset: next * step,
+          animated: true,
+        });
         return next;
       });
     }, 5000);
@@ -103,7 +117,12 @@ export default function AdvertisementCarousel() {
               style={[
                 styles.dot,
                 index === currentIndex && styles.dotActive,
-                { backgroundColor: index === currentIndex ? colors.primary : colors.borderLight },
+                {
+                  backgroundColor:
+                    index === currentIndex
+                      ? colors.primary
+                      : colors.borderLight,
+                },
               ]}
             />
           ))}
@@ -113,9 +132,16 @@ export default function AdvertisementCarousel() {
   );
 }
 
-function AdvertisementCard({ advertisement, cardWidth }: { advertisement: Advertisement; cardWidth: number }) {
+function AdvertisementCard({
+  advertisement,
+  cardWidth,
+}: {
+  advertisement: Advertisement;
+  cardWidth: number;
+}) {
   const colors = useThemeColors();
-  const { destinationType, destinationId, title, subtitle, imageUrl } = advertisement;
+  const { destinationType, destinationId, title, subtitle, imageUrl } =
+    advertisement;
 
   /**
    * The five destinations, in one place.
@@ -130,7 +156,8 @@ function AdvertisementCard({ advertisement, cardWidth }: { advertisement: Advert
         pathname: "/(customer)/products/category/[categoryId]",
         params: { categoryId: String(destinationId) },
       });
-    else if (destinationType === "url" && destinationId) void Linking.openURL(destinationId);
+    else if (destinationType === "url" && destinationId)
+      void Linking.openURL(destinationId);
   }, [destinationType, destinationId]);
 
   // "Nothing" means the picture is decoration. Making it a button that does nothing would
@@ -147,17 +174,25 @@ function AdvertisementCard({ advertisement, cardWidth }: { advertisement: Advert
       />
       <View style={styles.textRow}>
         <View style={styles.textBlock}>
-          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.title, { color: colors.text }]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
           {subtitle ? (
-            <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text
+              style={[styles.subtitle, { color: colors.textMuted }]}
+              numberOfLines={1}
+            >
               {subtitle}
             </Text>
           ) : null}
         </View>
         {pressable ? (
-          <View style={[styles.chevron, { backgroundColor: colors.primarySoft }]}>
+          <View
+            style={[styles.chevron, { backgroundColor: colors.primarySoft }]}
+          >
             <Icon name="arrow-forward" size={16} color={colors.accent} />
           </View>
         ) : null}
@@ -168,7 +203,14 @@ function AdvertisementCard({ advertisement, cardWidth }: { advertisement: Advert
   if (!pressable) {
     return (
       <View
-        style={[styles.card, { width: cardWidth, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight }]}
+        style={[
+          styles.card,
+          {
+            width: cardWidth,
+            backgroundColor: colors.backgroundAlt,
+            borderColor: colors.borderLight,
+          },
+        ]}
         accessibilityRole="image"
         accessibilityLabel={title}
       >
@@ -183,7 +225,11 @@ function AdvertisementCard({ advertisement, cardWidth }: { advertisement: Advert
       android_ripple={{ color: colors.ripple.primary, borderless: false }}
       style={[
         styles.card,
-        { width: cardWidth, backgroundColor: colors.backgroundAlt, borderColor: colors.borderLight },
+        {
+          width: cardWidth,
+          backgroundColor: colors.backgroundAlt,
+          borderColor: colors.borderLight,
+        },
       ]}
       accessibilityRole="link"
       accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
