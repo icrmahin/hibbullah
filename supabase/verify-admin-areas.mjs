@@ -146,36 +146,33 @@ try {
   stranger = await signUp(strangerEmail, STR_PW)
   check(Boolean(adminU.token), `admin session ready (${adminU.id.slice(0, 8)})`)
 
-  // Fixture category and manufacturer. Products carry both as NOT NULL foreign keys, so
-  // these have to exist before the products do; they are prefixed so the teardown removes
-  // them along with everything else. Reusing the shop's real ones would work, but a test
-  // that mutates shared rows is a test that can break real data.
+  // Fixture category. Products carry it as a foreign key, so it has to exist before the
+  // products do; it is prefixed so the teardown removes it along with everything else.
+  // Reusing the shop's real one would work, but a test that mutates shared rows is a test
+  // that can break real data.
   const [cat] = await rows(
     `insert into public.categories (name, slug) values (${sqlLit(`${P}-Category ${stamp}`)}, ${sqlLit(`${P}-cat-${stamp}`)}) returning id`,
   )
-  const [man] = await rows(
-    `insert into public.manufacturers (name, country) values (${sqlLit(`${P}-Manufacturer ${stamp}`)}, 'Bangladesh') returning id`,
-  )
   fix.category = cat.id
-  fix.manufacturer = man.id
 
   // Three products, so the low-stock and out-of-stock counts are not trivially zero. A
   // report checked only against an empty shop would pass just as happily if every field
   // returned 0, so the fixtures have to make the arithmetic mean something.
   //
-  // `products` has no `low_stock_threshold` column — the threshold lives in
-  // `config.lowStockThreshold` and is passed in as a parameter, which is why a hard-coded
-  // 10 in the reports service was invisible until the two drifted apart.
+  // The fixtures make these non-zero, which is the point: a report checked only against an
+  // empty shop would pass just as happily if every field returned 0. The low-stock count
+  // is driven by each product's own `low_stock_threshold`, which defaults to 50, so both
+  // the stocked fixture (40) and the low fixture (3) count as low.
   //
   // The ids are then looked up by name rather than taken from RETURNING. Postgres does not
   // promise that RETURNING rows arrive in VALUES order, and it did not here: the run
   // silently adopted the wrong product as its stock fixture and asserted against it.
   await admin(`
-    insert into public.products (name, brand, generic_name, manufacturer_id, category_id, price, stock, is_active)
+    insert into public.products (name, company_name, generic_name, category_id, price, stock, is_active)
     values
-      (${sqlLit(`${P}-Pill ${stamp}`)}, 'AA', 'aa-generic', '${fix.manufacturer}', '${fix.category}', 120, 40, true),
-      (${sqlLit(`${P}-Low ${stamp}`)}, 'AA', 'aa-generic', '${fix.manufacturer}', '${fix.category}', 60, 3, true),
-      (${sqlLit(`${P}-Out ${stamp}`)}, 'AA', 'aa-generic', '${fix.manufacturer}', '${fix.category}', 60, 0, true)`)
+      (${sqlLit(`${P}-Pill ${stamp}`)}, 'AA', 'aa-generic', '${fix.category}', 120, 40, true),
+      (${sqlLit(`${P}-Low ${stamp}`)}, 'AA', 'aa-generic', '${fix.category}', 60, 3, true),
+      (${sqlLit(`${P}-Out ${stamp}`)}, 'AA', 'aa-generic', '${fix.category}', 60, 0, true)`)
   const byName = new Map(
     (await rows(`select id, name, stock from public.products where name like '${P}-%'`)).map((p) => [p.name, p]),
   )
@@ -267,14 +264,12 @@ try {
     ['a logged-out visitor', undefined],
     ['a signed-in customer', customer.token],
   ]) {
-    const r = await rpc('get_reports', tok, { p_low_stock_threshold: 10, p_expiry_warning_days: 60 })
+    const r = await rpc('get_reports', tok, { p_expiry_warning_days: 60 })
     refused(r, 'Only admins', `${who} is refused by get_reports`)
   }
 
-  const LOW = 10
   const DAYS = 60
   const rep = await rpc('get_reports', adminU.token, {
-    p_low_stock_threshold: LOW,
     p_expiry_warning_days: DAYS,
   })
   check(rep.status === 200 && Array.isArray(rep.json) && rep.json.length === 1, 'admin reads the reports', `HTTP ${rep.status} ${rep.text.slice(0, 110)}`)
@@ -291,7 +286,7 @@ try {
       select coalesce(sum(total),0)::numeric revenue, count(*)::bigint delivered, coalesce(sum(discount),0)::numeric discount
         from public.orders where status = 'DELIVERED'
     ), s as (
-      select count(*) filter (where stock > 0 and stock < ${LOW})::bigint low,
+      select count(*) filter (where stock > 0 and stock < low_stock_threshold)::bigint low,
              count(*) filter (where stock <= 0)::bigint out
         from public.products
     ), b as (
@@ -327,22 +322,27 @@ try {
 
   // The window is a parameter. A hard-coded 90 or 60 would answer these identically, so the
   // test asks for a window that only the parameter can produce.
-  const tight = await rpc('get_reports', adminU.token, { p_low_stock_threshold: LOW, p_expiry_warning_days: 5 })
-  const loose = await rpc('get_reports', adminU.token, { p_low_stock_threshold: LOW, p_expiry_warning_days: 3650 })
+  const tight = await rpc('get_reports', adminU.token, { p_expiry_warning_days: 5 })
+  const loose = await rpc('get_reports', adminU.token, { p_expiry_warning_days: 3650 })
   check(
     Number(tight.json?.[0]?.expiring) < Number(got.expiring) &&
       Number(loose.json?.[0]?.expiring) > Number(got.expiring),
     'the expiry window is a parameter, not a constant',
     `5d=${tight.json?.[0]?.expiring} ${DAYS}d=${got.expiring} 3650d=${loose.json?.[0]?.expiring}`,
   )
-  const hiThreshold = await rpc('get_reports', adminU.token, { p_low_stock_threshold: 50, p_expiry_warning_days: DAYS })
+  // The low-stock count is driven by each product's own threshold, not a global parameter.
+  // Zeroing the threshold on a stocked fixture must remove exactly that one product's
+  // warning, which is the property the old global constant could not express.
+  await admin(`update public.products set low_stock_threshold = 0 where id = '${fix.product}'`)
+  const noThreshold = await rpc('get_reports', adminU.token, { p_expiry_warning_days: DAYS })
   check(
-    Number(hiThreshold.json?.[0]?.low_stock) > Number(got.low_stock),
-    'the low-stock threshold is a parameter, not a constant',
-    `threshold 10 → ${got.low_stock}, threshold 50 → ${hiThreshold.json?.[0]?.low_stock}`,
+    Number(noThreshold.json?.[0]?.low_stock) < Number(got.low_stock),
+    'a per-product threshold of 0 disables that product’s low-stock warning',
+    `before=${got.low_stock}, after=${noThreshold.json?.[0]?.low_stock}`,
   )
-  const absurd = await rpc('get_reports', adminU.token, { p_low_stock_threshold: -5, p_expiry_warning_days: -5 })
-  check(absurd.status === 200, 'nonsense thresholds give a report rather than an error', `HTTP ${absurd.status}`)
+  await admin(`update public.products set low_stock_threshold = 50 where id = '${fix.product}'`)
+  const absurd = await rpc('get_reports', adminU.token, { p_expiry_warning_days: -5 })
+  check(absurd.status === 200, 'a nonsense expiry window gives a report rather than an error', `HTTP ${absurd.status}`)
 
   // ── 3. returns ────────────────────────────────────────────────────────────────────
   head('Returns — ownership, status transitions, notification')
@@ -545,7 +545,6 @@ try {
     ['addresses', `delete from public.addresses where user_id in ${TEST_IDS}`],
     ['notifications', `delete from public.notifications where user_id in ${TEST_IDS} or title like '${P}-%' or body like '${P}-%'`],
     ['products', `delete from public.products where name like '${P}-%'`],
-    ['manufacturers', `delete from public.manufacturers where name like '${P}-%'`],
     ['categories', `delete from public.categories where name like '${P}-%' or slug like '${P}-%'`],
     // audit_entries references profiles ON DELETE RESTRICT, so this has to precede the
     // user delete or the users cannot be removed at all.

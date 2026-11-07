@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Search by medicine name, by brand, and by company -- proved against the live database.
+ * Search by medicine name, by generic, and by company -- proved against the live database.
  *
  * WHY THIS IS ITS OWN SUITE
- * `search_products` returned a `manufacturer_name` column and never used it in the
- * predicate. So `search_products('square')` answered with zero rows, on a catalogue whose
+ * `search_products` once returned a company/manufacturer column and never used it in the
+ * predicate, so `search_products('square')` answered with zero rows on a catalogue whose
  * "Square" range is a real product, and everything about the function looked correct: it
  * was `stable`, `security invoker`, granted to `anon`, indexed, ranked, and it had a
  * `total_count`. The only way to see the hole was to ask the question a customer asks.
@@ -15,9 +15,9 @@
  * near-misses too:
  *
  *   1. the company name finds every product that company makes, including the one that
- *      shares no brand and no generic with the others (this is the case that was broken)
- *   2. the brand name finds every product in that brand
- *   3. the generic finds the brand it belongs to -- the "paracetamol -> Napa" case
+ *      shares no generic with the others (this is the case that was broken)
+ *   2. a token in the product name finds the products that carry it
+ *   3. the generic finds the products it belongs to -- the "paracetamol -> Napa" case
  *   4. the product name still works, and an exact name still outranks everything else
  *
  * The fixtures are built so that each product can only be reached by one route. If a
@@ -50,19 +50,19 @@ const stamp = Date.now()
 /**
  * Three products, one company, one category.
  *
- * `A` and `B` share a brand and a generic. `C` shares only the company. That is the whole
+ * `A` and `B` share a company and a generic. `C` shares only the company. That is the whole
  * point of the layout: `C` is reachable *only* by the company name, so a search that
- * ignores `manufacturers.name` cannot return it no matter what else it gets right.
+ * ignores `products.company_name` cannot return it no matter what else it gets right.
  *
- * `A`'s name leads with the strength ("500 mg Zylora") so the brand is a *mid-string* match
- * in its name and a prefix match in its own column. A brand search that only did prefix
- * matching on the product name would miss it.
+ * `A`'s name leads with the strength ("500 mg Zylora") so the shared name token is a
+ * *mid-string* match in its name and a prefix match in `B`'s. A name search that only did
+ * prefix matching on the product name would miss `A`.
  *
  * Each fixture gets its own random token, and that is not cosmetic. The first two versions
  * numbered them with a shared timestamp, and the assertions counted result rows. Trigram
  * similarity counts *shared* trigrams, so a shared 13-digit stamp made every product about
  * 0.5 similar to every other, and `stamp + 1` was no better -- twelve of thirteen digits
- * still matched. The brand query therefore also returned the third product, through the
+ * still matched. The name query therefore also returned the third product, through the
  * fuzzy rung, and "and not the third" failed for a reason that had nothing to do with the
  * code under test.
  *
@@ -79,13 +79,11 @@ const OTHER_GENERIC = 'Quinocillin'
 const tagA = randomUUID().slice(0, 8)
 const tagB = randomUUID().slice(0, 8)
 const tagC = randomUUID().slice(0, 8)
-const BRAND = `Zylora ${tagA}`
-const OTHER_BRAND = `Quadrum ${tagC}`
 
 const FIXTURES = [
-  { key: 'A', name: `500 mg Zylora ${tagA}`, brand: BRAND, generic: GENERIC },
-  { key: 'B', name: `Zylora ${tagB} Plus 100 mg`, brand: BRAND, generic: GENERIC },
-  { key: 'C', name: `Quadrum ${tagC} 125 mg`, brand: OTHER_BRAND, generic: OTHER_GENERIC },
+  { key: 'A', name: `500 mg Zylora ${tagA}`, company: COMPANY, generic: GENERIC },
+  { key: 'B', name: `Zylora ${tagB} Plus 100 mg`, company: COMPANY, generic: GENERIC },
+  { key: 'C', name: `Quadrum ${tagC} 125 mg`, company: COMPANY, generic: OTHER_GENERIC },
 ]
 
 let step = 0
@@ -164,17 +162,15 @@ head('fixtures')
 
 await admin(
   `insert into public.categories (name, slug) values ('${CATEGORY}', 'search-probe-${stamp}');
-   insert into public.manufacturers (name) values ('${COMPANY}');
-   insert into public.products (name, brand, generic_name, description, price, stock, unit, category_id, manufacturer_id)
-   select p.name, p.brand, p.generic, 'A deliberately unremarkable description for the search probe.', 100, 25, 'pack', c.id, m.id
+   insert into public.products (name, company_name, generic_name, description, price, stock, unit, category_id)
+   select p.name, p.company, p.generic, 'A deliberately unremarkable description for the search probe.', 100, 25, 'pack', c.id
    from (values
-     ('${FIXTURES[0].name}', '${FIXTURES[0].brand}', '${FIXTURES[0].generic}'),
-     ('${FIXTURES[1].name}', '${FIXTURES[1].brand}', '${FIXTURES[1].generic}'),
-     ('${FIXTURES[2].name}', '${FIXTURES[2].brand}', '${FIXTURES[2].generic}')
-   ) as p(name, brand, generic)
+     ('${FIXTURES[0].name}', '${FIXTURES[0].company}', '${FIXTURES[0].generic}'),
+     ('${FIXTURES[1].name}', '${FIXTURES[1].company}', '${FIXTURES[1].generic}'),
+     ('${FIXTURES[2].name}', '${FIXTURES[2].company}', '${FIXTURES[2].generic}')
+   ) as p(name, company, generic)
    cross join public.categories c
-   cross join public.manufacturers m
-   where c.slug = 'search-probe-${stamp}' and m.name = '${COMPANY}';`,
+   where c.slug = 'search-probe-${stamp}';`,
 )
 
 try {
@@ -207,8 +203,8 @@ try {
   )
   check(
     has(byCompany, 'C'),
-    '…including C, which shares no brand and no generic with the other two',
-    'C is reachable only by manufacturers.name, so this is the whole test',
+    '…including C, which shares no generic with the other two',
+    'C is reachable only by company_name, so this is the whole test',
   )
 
   // A prefix of the company, which is what a customer actually types: "square", not
@@ -221,41 +217,44 @@ try {
     `got ${byCompanyPrefix.length} row(s): ${keysOf(byCompanyPrefix) || '(none)'}`,
   )
 
-  // ── 2. the brand ─────────────────────────────────────────────────────────────────
+  // ── 2. a token in the product name ───────────────────────────────────────────────
 
-  head('2. the brand — every product in the brand')
+  head('2. a token in the product name — "Zylora" returns both products that carry it')
 
-  const byBrand = await search(BRAND)
+  // The bare token, which is the term a customer actually types. It is a *prefix* of B's
+  // name ("Zylora <tagB> Plus...") and *mid-string* in A's ("500 mg Zylora <tagA>").
+  //
+  // This is the case the rewrite fixed and the one the old function could not serve: A is
+  // reachable *only* because name-contains is in the predicate. The ordering here is the
+  // ladder working: B on name-prefix (1), A on name trigram (4).
+  const shared = await search('Zylora')
   check(
-    hasAll(byBrand, 'A', 'B'),
-    'searching the brand returns both of its products',
-    `got ${byBrand.length} row(s): ${keysOf(byBrand) || '(none)'}`,
+    hasAll(shared, 'A', 'B'),
+    'a bare name token returns every product that carries it, strengths and all',
+    `got ${shared.length} row(s): ${keysOf(shared) || '(none)'}`,
+  )
+  check(
+    has(shared, 'A'),
+    'a name token is found when it is mid-string in the product name, not just a prefix of it',
+    `A: ${has(shared, 'A') ? 'present' : 'ABSENT'}`,
   )
   check(
     // Not "C is absent" -- a search has a fuzzy floor and may legitimately return C. What
-    // must hold is that the brand's own products come back *above* it.
-    !has(byBrand, 'C') || (rankOf(byBrand, 'A') < rankOf(byBrand, 'C') && rankOf(byBrand, 'B') < rankOf(byBrand, 'C')),
-    'the brand’s own products rank above any other product that only matched fuzzily',
-    `order: ${keysOf(byBrand) || '(none)'}`,
+    // must hold is that the product whose name starts with the term ranks above the one
+    // where it is mid-string.
+    !has(shared, 'C') || (rankOf(shared, 'A') < rankOf(shared, 'C') && rankOf(shared, 'B') < rankOf(shared, 'C')),
+    'the name matches rank above any other product that only matched fuzzily',
+    `order: ${keysOf(shared) || '(none)'}`,
   )
   check(
-    byBrand.length > 0 && /Zephyr Health Ltd/.test(byBrand[0].manufacturer_name),
-    'the brand hit carries its company name, so the card can be attributed',
-    byBrand[0]?.manufacturer_name,
-  )
-  check(
-    // Both products sit on the same rung -- brand prefix -- so the order between them is
-    // the tiebreak the function promises: `order by rank, name, id`. "500 mg Zylora ..."
-    // sorts before "Zylora ... Plus", so A must come first. Asserting it is what makes the
-    // ordering a stated property rather than whatever the planner happened to emit.
-    rankOf(byBrand, 'A') >= 0 && rankOf(byBrand, 'A') < rankOf(byBrand, 'B'),
-    'two products in the same brand come back in name order, so the list does not shuffle',
-    `order: ${keysOf(byBrand)}`,
+    rankOf(shared, 'B') < rankOf(shared, 'A'),
+    'the product whose *name* starts with the term outranks the one where it is mid-string',
+    `order: ${keysOf(shared)}`,
   )
 
   // ── 3. the generic ───────────────────────────────────────────────────────────────
 
-  head('3. the generic — "paracetamol" should reach the brand it belongs to')
+  head('3. the generic — a generic finds the products it belongs to')
 
   const byGeneric = await search(GENERIC)
   check(
@@ -282,31 +281,6 @@ try {
     byName.length >= 1 && byName[0].name === FIXTURES[1].name,
     'an exact product name ranks that product first',
     `first row: ${nameAt(byName, 0)}`,
-  )
-
-  // The bare brand token, which is the term a customer actually types. It is a *prefix* of
-  // B's name ("Zylora <tagB> Plus...") and *mid-string* in A's ("500 mg Zylora <tagA>").
-  //
-  // This is the case the rewrite fixed and the one the old function could not serve: A's
-  // brand column holds the full `Zylora <tagA>`, so a search for the bare "Zylora" does not
-  // prefix-match it, and `brand % term` only fires on near-misses. A is reachable *only*
-  // because name-contains is now in the predicate. And the ordering here is the ladder
-  // working: B on name-prefix (1), A on brand-contains (5).
-  const shared = await search('Zylora')
-  check(
-    hasAll(shared, 'A', 'B'),
-    'a bare brand token returns every product in the brand, strengths and all',
-    `got ${shared.length} row(s): ${keysOf(shared) || '(none)'}`,
-  )
-  check(
-    has(shared, 'A'),
-    'a brand is found when it is mid-string in the product name, not just a prefix of it',
-    `A: ${has(shared, 'A') ? 'present' : 'ABSENT'}`,
-  )
-  check(
-    rankOf(shared, 'B') < rankOf(shared, 'A'),
-    'the product whose *name* starts with the term outranks the one that only matches on brand',
-    `order: ${keysOf(shared)}`,
   )
 
   // ── 5. the LIKE escaping ─────────────────────────────────────────────────────────
@@ -343,8 +317,7 @@ try {
   head('cleanup')
   try {
     await admin(
-      `delete from public.products where manufacturer_id in (select id from public.manufacturers where name = '${COMPANY}');
-       delete from public.manufacturers where name = '${COMPANY}';
+      `delete from public.products where category_id in (select id from public.categories where slug = 'search-probe-${stamp}');
        delete from public.categories where slug = 'search-probe-${stamp}';`,
     )
     const left = await search('Zephyr')

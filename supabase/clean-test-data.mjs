@@ -73,21 +73,19 @@ const PREFIXES = [
   'Lifecycle Probe%', // verify-lifecycle.mjs
   'OrdProbe %', // probe-order-address.mjs
   'LC Cat %', // verify-lifecycle.mjs (categories)
-  'LC Maker %', // verify-lifecycle.mjs (manufacturers)
-  'Notif Maker %', // verify-notifications.mjs
-  'aa-%', // verify-admin-areas.mjs (products, categories, manufacturers, orders)
-  // verify-search-matches.mjs. Three invented product names, one category, one company.
+  'aa-%', // verify-admin-areas.mjs (products, categories, orders)
+  // verify-search-matches.mjs. Three invented product names and one category.
   //
   // The three products are separate prefixes rather than one because they only share the
   // word "Zylora", and a single `Zylora%` would have covered the other two by accident —
   // which is the same kind of near-miss coverage that left residue behind before, and worse,
   // because it would look correct right up until the one probe it does not cover started
-  // leaving rows.
+  // leaving rows. The company name lives on the product row now, so the product-name
+  // prefixes are what find them.
   '500 mg Zylora %',
   'Zylora %',
   'Quadrum %',
   'Search Probe %', // (categories)
-  'Zephyr Health Ltd %', // (manufacturers)
 ]
 
 /**
@@ -147,7 +145,6 @@ const report = (label) => [
   ['test auth users', `select count(*) from auth.users where email like '%@hibbullah.test'`],
   ['test products', `select count(*) from public.products where ${anyPrefix('name')}`],
   ['test categories', `select count(*) from public.categories where ${anyPrefix('name')}`],
-  ['test manufacturers', `select count(*) from public.manufacturers where ${anyPrefix('name')}`],
   ['test notifications', `select count(*) from public.notifications where ${anyTitle()} or body like '%hibbullah.test%'`],
   [
     'test audit entries',
@@ -182,7 +179,6 @@ const snapshot = async (label, sql) => {
 const captured = {
   products: await snapshot('product', `select id from public.products where ${anyPrefix('name')}`),
   categories: await snapshot('category', `select id from public.categories where ${anyPrefix('name')}`),
-  manufacturers: await snapshot('manufacturer', `select id from public.manufacturers where ${anyPrefix('name')}`),
   orderItems: await snapshot('order item', `select id from public.order_items where product_id in (select id from public.products where ${anyPrefix('name')})`),
   inventory: await snapshot('inventory', `select id from public.inventory_items where product_id in (select id from public.products where ${anyPrefix('name')})`),
 }
@@ -206,7 +202,6 @@ const steps = [
   ['test-titled notifications on real accounts', `delete from public.notifications where ${anyTitle()} or body like '%hibbullah.test%'`],
   ['test products', `delete from public.products where ${anyPrefix('name')}`],
   ['test categories', `delete from public.categories where ${anyPrefix('name')} or slug like 'e2e-%' or slug like 'notif-%' or slug like 'lc-cat-%'`],
-  ['test manufacturers', `delete from public.manufacturers where ${anyPrefix('name')} or name ilike '%Sneaky%'`],
   // After the content deletes, so it sweeps up the entries those deletes just wrote --
   // including entries for records that no longer exist, which is why it uses the id
   // snapshot taken above rather than a join back to the (now empty) products table.
@@ -244,7 +239,6 @@ await count('notifications', `select count(*) from public.notifications`)
 await count('audit entries', `select count(*) from public.audit_entries`)
 await count('products total', `select count(*) from public.products`)
 await count('categories total', `select count(*) from public.categories`)
-await count('manufacturers total', `select count(*) from public.manufacturers`)
 await count('profiles total', `select count(*) from public.profiles`)
 await count('orders total', `select count(*) from public.orders`)
 // Reported, not swept: batches whose product row is gone. See the header -- these are

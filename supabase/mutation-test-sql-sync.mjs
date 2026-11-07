@@ -6,7 +6,7 @@
  * property the checks are supposed to protect, re-runs the checker, and restores the file.
  * A case that reports NOT CAUGHT is a hole in the checking, not a passing test.
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 
 const LOCK = 'supabase/migrations/20260928010000_secdef_grants_and_guards.sql'
@@ -253,18 +253,20 @@ const cases = [
     (s) => s.replace(/^\s*glow:.*$/m, '').replace(/^\s*glowStrong:.*$/m, ''),
   ],
   [
-    'take a parameter and ignore it again',
+    'bring the shadow module back, so a second elevation system exists again',
     'src/constants/shadows.ts',
-    // The original signature, in the shape the flat version can still take: a parameter
-    // that exists and is not read is precisely how the black-shadow bug got in.
-    (s) => s.replace('function buildShadows() {', 'function buildShadows(_colors: unknown) {'),
+    // The flat redesign deleted this file. Recreating it must trip both halves of the
+    // guard: the module is gone, and no screen reads a shadow hook. This case targets a
+    // file that does not exist, which the harness handles by creating it and removing it
+    // again after the check runs.
+    () => 'export function buildShadows() {\n  return { lg: { boxShadow: "0px 12px 24px rgba(0,0,0,0.08)" } };\n}\n',
   ],
   [
-    'vary the steps again, so one of them casts and six do not',
-    'src/constants/shadows.ts',
-    // Flat means all seven are the same value. One different step is a shadow that
-    // reappears in one place only, which is the hardest version of this to notice.
-    (s) => s.replace('lg: { boxShadow: FLAT },', 'lg: { boxShadow: "0px 12px 24px rgba(0,0,0,0.08)" },'),
+    'put an elevation value on a screen again',
+    'src/app/(customer)/delivery-cycle.tsx',
+    // The other half of the shadow rule: even with the module gone, a raw `elevation`
+    // in a StyleSheet reopens the elevation question the flat pass closed.
+    (s) => s.replace('const styles = StyleSheet.create({', 'const styles = StyleSheet.create({\n  __mutation: { elevation: 4 },'),
   ],
   [
     'hard-code a colour in a screen again',
@@ -452,7 +454,10 @@ let broken = 0
 // suite.
 for (const [label, target, mutate] of cases) {
   const files = Array.isArray(target) ? target : [target]
-  const originals = files.map((f) => readFileSync(f, 'utf8'))
+  // A mutation may target a file that is supposed to be absent — the shadows module is
+  // deleted by design, so "bring it back" is a real mutation. `null` records that state
+  // and tells the restore step to unlink rather than write.
+  const originals = files.map((f) => (existsSync(f) ? readFileSync(f, 'utf8') : null))
   const mutations = originals.map((src) => mutate(src))
 
   const unapplied = files.filter((f, i) => mutations[i] === originals[i])
@@ -471,7 +476,13 @@ for (const [label, target, mutate] of cases) {
   } catch (e) {
     out = `${e.stdout ?? ''}${e.stderr ?? ''}`
   }
-  files.forEach((f, i) => writeFileSync(f, originals[i]))
+  files.forEach((f, i) => {
+    if (originals[i] === null) {
+      if (existsSync(f)) unlinkSync(f)
+    } else {
+      writeFileSync(f, originals[i])
+    }
+  })
 
   if (/FAIL/.test(out)) {
     const which = out.split('\n').filter((l) => l.includes('FAIL')).map((l) => l.trim().replace(/^FAIL\s+/, ''))

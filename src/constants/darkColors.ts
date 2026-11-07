@@ -70,12 +70,13 @@ export const darkBorder = {
 
 export const darkSurface = {
   /** The page behind everything. */
-  background: "#100E09",
+  background: "#0A0C0B",
   /**
-   * Cards rest on the page in the same ink, separated by the brand hairline —
-   * the same flat system as light mode, inverted.
+   * Cards sit one lightness step above the page — #131615 on #0A0C0B — so the
+   * same flat separation as light mode survives with no shadow. The brand
+   * hairline is a reinforcement, not the only edge.
    */
-  DEFAULT: "#100E09",
+  DEFAULT: "#131615",
   /** A modal on near-black needs separation — kept heavy. */
   overlay: "rgba(16, 14, 9, 0.72)",
   /** Paper at 10% pre-blended — reads as inactive against near-black. */

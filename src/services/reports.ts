@@ -29,17 +29,21 @@ export interface ReportsBundle {
  * `get_reports` does the same arithmetic in the database and returns one row, so the cost
  * stops scaling with the size of the shop.
  *
- * The thresholds are passed in rather than hardcoded on either side. `config` is the only
- * definition of them: hardcoding 10 and 90 here is what had the reports screen counting a
- * 90-day expiry window while `config.expiryWarningDays` says 60, so the reports screen and
- * the expiry screen disagreed about what "expiring soon" meant.
+ * The expiry window is passed in rather than hardcoded on either side.
+ * `config` is the only definition of it: hardcoding 90 here is what had the
+ * reports screen counting a 90-day expiry window while
+ * `config.expiryWarningDays` says 60, so the reports screen and the expiry
+ * screen disagreed about what "expiring soon" meant.
+ *
+ * There is no low-stock threshold to pass: the RPC counts low products
+ * against each product's own `low_stock_threshold`, so nothing global is
+ * involved.
  *
  * One call serves both report screens, so the overview costs a single round trip instead
  * of the two it used to make by running the sales and inventory fetches in parallel.
  */
 export async function fetchReports(): Promise<ReportsBundle> {
   const { data, error } = await supabase.rpc('get_reports', {
-    p_low_stock_threshold: config.lowStockThreshold,
     p_expiry_warning_days: config.expiryWarningDays,
   })
   if (error) throw supabaseErrorToAppError(error)

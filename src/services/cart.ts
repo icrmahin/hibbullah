@@ -16,6 +16,7 @@ interface DbProduct {
   original_price?: number
   discount_percent?: number
   stock: number
+  low_stock_threshold?: number
   unit: string
   image_url?: string
   secondary_image_url?: string
@@ -40,6 +41,7 @@ function mapDbProductToProduct(db: DbProduct): Product {
     originalPrice: db.original_price,
     discountPercent: db.discount_percent,
     stock: db.stock,
+    lowStockThreshold: Number(db.low_stock_threshold ?? 50),
     unit: db.unit,
     image: db.image_url,
     primaryImage: db.image_url,

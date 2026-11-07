@@ -17,7 +17,6 @@ export const config = {
     outsideDhaka: 80,
   },
   deliveryFee: 80,
-  lowStockThreshold: 10,
   expiryWarningDays: 60,
 };
 

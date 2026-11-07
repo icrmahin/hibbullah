@@ -91,6 +91,9 @@ export default function ProductForm({
       : "",
   );
   const [stock, setStock] = useState(product ? String(product.stock) : "");
+  const [lowStockThreshold, setLowStockThreshold] = useState(
+    product ? String(product.lowStockThreshold) : "50",
+  );
   const [primaryImage, setPrimaryImage] = useState<string | null>(
     product?.primaryImage ?? product?.image ?? null,
   );
@@ -152,6 +155,18 @@ export default function ProductForm({
         next.stock = "Write a whole number.";
     }
 
+    if (isEmpty(lowStockThreshold)) {
+      next.lowStockThreshold = "Write the warning point.";
+    } else {
+      const thresholdNum = Number(lowStockThreshold);
+      if (
+        Number.isNaN(thresholdNum) ||
+        thresholdNum < 0 ||
+        !Number.isInteger(thresholdNum)
+      )
+        next.lowStockThreshold = "Write a whole number of 0 or more.";
+    }
+
     if (expiryDate) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate.trim()))
         next.expiryDate =
@@ -170,6 +185,7 @@ export default function ProductForm({
     costPrice,
     discountPercent,
     stock,
+    lowStockThreshold,
     expiryDate,
     primaryImage,
     isEditing,
@@ -214,6 +230,7 @@ export default function ProductForm({
         price:
           percent > 0 ? getSalePrice(customerPrice, percent) : customerPrice,
         stock: untouchedStock ?? Number(stock),
+        lowStockThreshold: Number(lowStockThreshold),
         unit: unit.trim() || "pack",
         primaryImage,
         secondaryImage,
@@ -403,6 +420,21 @@ export default function ProductForm({
                 error={errors.expiryDate}
                 autoCapitalize="none"
               />
+            </View>
+            <View style={styles.field}>
+              <Input
+                label="Low-stock warning at"
+                value={lowStockThreshold}
+                onChangeText={setLowStockThreshold}
+                keyboardType="numeric"
+                error={errors.lowStockThreshold}
+                placeholder="e.g. 50"
+              />
+              {!errors.lowStockThreshold ? (
+                <Text style={[styles.error, { color: colors.textMuted }]}>
+                  0 = only warn when out of stock
+                </Text>
+              ) : null}
             </View>
           </View>
 

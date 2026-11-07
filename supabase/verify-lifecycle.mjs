@@ -36,7 +36,7 @@ const ADMIN = { email: `lc-admin-${stamp}@hibbullah.test`, password: `LcAdmin-${
 const CUSTOMER = { email: `lc-cust-${stamp}@hibbullah.test`, password: `LcCust-${stamp}-Aa1!` }
 const STRANGER = { email: `lc-str-${stamp}@hibbullah.test`, password: `LcStr-${stamp}-Aa1!` }
 
-const fix = { category: randomUUID(), manufacturer: randomUUID(), product: randomUUID() }
+const fix = { category: randomUUID(), product: randomUUID() }
 const PRODUCT_NAME = `Lifecycle Probe Pill ${stamp}`
 const START_STOCK = 40
 const PRICE = 120
@@ -160,9 +160,8 @@ try {
 
   await admin(
     `insert into public.categories (id, name, slug) values ('${fix.category}', 'LC Cat ${stamp}', 'lc-cat-${stamp}');
-     insert into public.manufacturers (id, name) values ('${fix.manufacturer}', 'LC Maker ${stamp}');
-     insert into public.products (id, name, brand, generic_name, manufacturer_id, category_id, price, stock, unit, is_active, is_featured)
-     values ('${fix.product}', ${sqlLit(PRODUCT_NAME)}, 'LCBrand', 'probe-generic', '${fix.manufacturer}', '${fix.category}', ${PRICE}, ${START_STOCK}, 'strip', true, false);`,
+     insert into public.products (id, name, company_name, generic_name, category_id, price, stock, unit, is_active, is_featured)
+     values ('${fix.product}', ${sqlLit(PRODUCT_NAME)}, 'LCBrand', 'probe-generic', '${fix.category}', ${PRICE}, ${START_STOCK}, 'strip', true, false);`,
   )
   await admin(`insert into public.inventory_items (product_id, batch_number, quantity, expiry_date) values ('${fix.product}', 'B1', ${START_STOCK}, current_date + 400)`)
   check(true, `product "${PRODUCT_NAME}" with ${START_STOCK} in stock`)
@@ -558,7 +557,6 @@ try {
        delete from public.inventory_items where product_id in (select id from public.products where name like 'Lifecycle Probe%');
        delete from public.products where name like 'Lifecycle Probe%';
        delete from public.categories where name like 'LC Cat %';
-       delete from public.manufacturers where name like 'LC Maker %';
        delete from public.notifications
          where title like 'Out of stock: Lifecycle Probe%'
             or body like '%Lifecycle Probe%';

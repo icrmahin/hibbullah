@@ -27,6 +27,8 @@ interface DbProductRow extends DbRecord {
   cost_price?: number | string | null
   costPrice?: number | string | null
   stock?: number | string | null
+  low_stock_threshold?: number | string | null
+  lowStockThreshold?: number | string | null
   unit?: string | null
   image_url?: string | null
   image?: string | null
@@ -64,6 +66,7 @@ export function mapProduct(db: DbProductRow | null | undefined): Product | null 
     discountPercent: Number(row.discount_percent ?? row.discountPercent ?? 0),
     costPrice: row.cost_price != null ? Number(row.cost_price) : row.costPrice != null ? Number(row.costPrice) : undefined,
     stock: Number(row.stock ?? 0),
+    lowStockThreshold: Number(row.low_stock_threshold ?? row.lowStockThreshold ?? 50),
     unit: String(row.unit ?? 'pack'),
     image: (row.image_url ?? row.image ?? undefined) as string | undefined,
     primaryImage: (row.image_url ?? row.primaryImage ?? row.image ?? undefined) as string | undefined,

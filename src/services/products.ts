@@ -16,7 +16,7 @@ import type { Category } from '../types/category'
  */
 export const PRODUCT_PUBLIC_COLUMNS =
   'id,name,company_name,generic_name,category_id,description,price,original_price,' +
-  'discount_percent,stock,unit,image_url,secondary_image_url,is_active,is_featured,created_at,updated_at,is_deleted'
+  'discount_percent,stock,low_stock_threshold,unit,image_url,secondary_image_url,is_active,is_featured,created_at,updated_at,is_deleted'
 
 const DEFAULT_PAGE_SIZE = 24
 const MAX_PAGE_SIZE = 100
@@ -28,8 +28,6 @@ export interface ProductListParams {
   status?: 'active' | 'inactive'
   /** 'in_stock' | 'low' | 'out' | undefined for both. Admin-only. */
   stock?: 'in_stock' | 'low' | 'out'
-  /** Below this many units counts as "low". Defaults to 10 server-side. */
-  lowStockThreshold?: number
   limit?: number
 }
 
@@ -87,7 +85,6 @@ export async function browseProducts(
     p_category: params.categoryId ?? null,
     p_status: params.status ?? null,
     p_stock: params.stock ?? null,
-    p_low_stock_threshold: params.lowStockThreshold ?? null,
     p_cursor_created_at: params.cursor?.createdAt ?? null,
     p_cursor_id: params.cursor?.id ?? null,
     p_limit: limit,
@@ -132,7 +129,6 @@ export async function searchProductList(
     p_category: params.categoryId ?? null,
     p_status: params.status ?? null,
     p_stock: params.stock ?? null,
-    p_low_stock_threshold: params.lowStockThreshold ?? null,
     p_limit: limit,
     p_offset: offset,
   })
@@ -317,6 +313,8 @@ export type CreateProductInput = {
   /** Optional. The column defaults to `'pack'`. */
   unit?: string
   isActive: boolean
+  /** Optional. The column defaults to 50 when omitted. */
+  lowStockThreshold?: number
   /**
    * Optional. The form generates one up front so it can upload the product
    * image to `products/<id>` before the row exists; pass it through so the
@@ -405,6 +403,10 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   const stock = Number(input.stock ?? 0)
   if (!Number.isInteger(stock) || stock < 0) throw new Error('Enter a valid whole-number stock.')
 
+  const lowStockThreshold = input.lowStockThreshold ?? 50
+  if (!Number.isInteger(lowStockThreshold) || lowStockThreshold < 0)
+    throw new Error('Low-stock warning must be a whole number of 0 or more.')
+
   const batchNumber = input.batchNumber?.trim() || null
 
   let expiryDate: string | null = null
@@ -434,6 +436,7 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
     p_initial_stock: stock,
     p_batch_number: batchNumber,
     p_expiry_date: expiryDate,
+    p_low_stock_threshold: lowStockThreshold,
   })
 
   if (error) throw toFriendlyCreateError(error)
@@ -516,6 +519,7 @@ export async function updateProduct(productId: string, input: ProductUpdate): Pr
   if (input.unit !== undefined) payload.unit = input.unit
   if (input.isActive !== undefined) payload.is_active = input.isActive
   if (input.isFeatured !== undefined) payload.is_featured = input.isFeatured
+  if (input.lowStockThreshold !== undefined) payload.low_stock_threshold = input.lowStockThreshold
 
   if (input.costPrice !== undefined) {
     payload.cost_price = input.costPrice === null ? null : Number(input.costPrice)

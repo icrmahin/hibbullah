@@ -251,22 +251,19 @@ try {
   const [cat] = await rows(
     `insert into public.categories (name, slug) values (${sqlLit(`${P}-PR Cat ${stamp}`)}, ${sqlLit(`${P}-pr-cat-${stamp}`)}) returning id`,
   )
-  const [man] = await rows(
-    `insert into public.manufacturers (name, country) values (${sqlLit(`${P}-PR Maker ${stamp}`)}, 'Bangladesh') returning id`,
-  )
 
   // `cost_price` is nullable, which is the whole point of the unpriced fixture: a product
   // the owner has not priced the cost of. Everything else gets a 40 taka margin
   // (120 - 80) so the expected numbers are arithmetic rather than a captured output.
   await admin(`
-    insert into public.products (name, brand, generic_name, manufacturer_id, category_id, price, cost_price, stock, is_active)
+    insert into public.products (name, company_name, generic_name, category_id, price, cost_price, stock, is_active)
     values
-      (${sqlLit(NAMES.cancel)},     'AA', 'aa-generic', '${man.id}', '${cat.id}', 120,  80, 0, true),
-      (${sqlLit(NAMES.delivered)},  'AA', 'aa-generic', '${man.id}', '${cat.id}', 120,  80, 0, true),
-      (${sqlLit(NAMES.unpriced)},   'AA', 'aa-generic', '${man.id}', '${cat.id}', 100, null, 0, true),
-      (${sqlLit(NAMES.returned)},   'AA', 'aa-generic', '${man.id}', '${cat.id}', 120,  80, 0, true),
-      (${sqlLit(NAMES.overReturn)}, 'AA', 'aa-generic', '${man.id}', '${cat.id}', 120,  80, 0, true),
-      (${sqlLit(NAMES.unlinked)},   'AA', 'aa-generic', '${man.id}', '${cat.id}', 120,  80, 0, true)`)
+      (${sqlLit(NAMES.cancel)},     'AA', 'aa-generic', '${cat.id}', 120,  80, 0, true),
+      (${sqlLit(NAMES.delivered)},  'AA', 'aa-generic', '${cat.id}', 120,  80, 0, true),
+      (${sqlLit(NAMES.unpriced)},   'AA', 'aa-generic', '${cat.id}', 100, null, 0, true),
+      (${sqlLit(NAMES.returned)},   'AA', 'aa-generic', '${cat.id}', 120,  80, 0, true),
+      (${sqlLit(NAMES.overReturn)}, 'AA', 'aa-generic', '${cat.id}', 120,  80, 0, true),
+      (${sqlLit(NAMES.unlinked)},   'AA', 'aa-generic', '${cat.id}', 120,  80, 0, true)`)
 
   // Ids are looked up by name, not taken from RETURNING: Postgres does not promise that
   // RETURNING rows arrive in VALUES order, and a suite that trusts the order silently
@@ -646,7 +643,6 @@ try {
   // assumption. Refusing the save would be worse than an unpriced product: not knowing what
   // you paid for something is an ordinary state for a shop.
   const cat2 = (await rows(`select id from public.categories where slug like '${P}-pr-cat-%' limit 1`))[0]
-  const man2 = (await rows(`select id from public.manufacturers where name like '${P}-PR Maker %' limit 1`))[0]
   // A fixed-shape uuid from the run's own stamp, so an interrupted run cannot collide
   // with the row it is trying to insert.
   const newId = `11111111-2222-4333-8444-${String(stamp).replace(/\D/g, '').slice(0, 12).padEnd(12, '0')}`
@@ -660,9 +656,8 @@ try {
   const created = await rpc('create_product', adminU.token, {
     p_id: newId,
     p_name: noCostName,
-    p_brand: 'AA',
+    p_company_name: 'AA',
     p_generic_name: 'aa-generic',
-    p_manufacturer_id: man2?.id,
     p_category_id: cat2?.id,
     p_price: 100,
     p_cost_price: null,
@@ -732,7 +727,6 @@ try {
       ['addresses', `delete from public.addresses where user_id in ${TEST_IDS}`],
       ['notifications', `delete from public.notifications where user_id in ${TEST_IDS} or title like '${P}-%' or body like '%${P}-%' or title like 'Out of stock: ${P}-%'`],
       ['products', `delete from public.products where name like '${P}-%'`],
-      ['manufacturers', `delete from public.manufacturers where name like '${P}-%'`],
       ['categories', `delete from public.categories where name like '${P}-%' or slug like '${P}-%'`],
       ['audit entries', `delete from public.audit_entries where actor_id in ${TEST_IDS} or record_id in (select id from public.return_requests where customer_id in ${TEST_IDS})`],
       ['test auth users', `delete from auth.users where email like '%@hibbullah.test'`],

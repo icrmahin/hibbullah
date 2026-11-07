@@ -26,7 +26,7 @@ const MGMT = env.HIBBULLAH_SUPABASE_TOKEN
 
 const stamp = Date.now()
 const pw = (n) => `Ord-${n}-${stamp}-Aa1!`
-const created = { category: null, manufacturer: null, product: null }
+const created = { category: null, product: null }
 
 let step = 0
 let failures = 0
@@ -110,13 +110,11 @@ const orderRows = []
 
 try {
   created.category = randomUUID()
-  created.manufacturer = randomUUID()
   created.product = randomUUID()
   await admin(
     `insert into public.categories (id, name, slug) values ('${created.category}', 'OrdProbe Cat ${stamp}', 'ordprobe-cat-${stamp}');
-     insert into public.manufacturers (id, name) values ('${created.manufacturer}', 'OrdProbe Maker ${stamp}');
-     insert into public.products (id, name, brand, generic_name, manufacturer_id, category_id, price, stock, unit, is_active)
-     values ('${created.product}', 'OrdProbe Pill ${stamp}', 'OrdProbe', 'probe', '${created.manufacturer}', '${created.category}', 500, 50, 'strip', true);`,
+     insert into public.products (id, name, company_name, generic_name, category_id, price, stock, unit, is_active)
+     values ('${created.product}', 'OrdProbe Pill ${stamp}', 'OrdProbe', 'probe', '${created.category}', 500, 50, 'strip', true);`,
   )
   check(true, `throwaway product in place (${created.product.slice(0, 8)})`)
 
@@ -211,7 +209,6 @@ try {
        delete from public.inventory_items where product_id = '${created.product}';
        delete from public.products where id = '${created.product}';
        delete from public.categories where id = '${created.category}';
-       delete from public.manufacturers where id = '${created.manufacturer}';
        delete from auth.users where email like 'ord-%@hibbullah.test';`,
     )
     console.log(`\nCleaned up ${failures === 0 ? 'everything' : `${failures} assertion(s) failed`}.`)

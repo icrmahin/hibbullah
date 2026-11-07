@@ -62,11 +62,13 @@ export const border = {
 } as const;
 
 // ─── Surface ─────────────────────────────────────────────
-// One surface: paper. Cards sit on the page in the same #F5F5F5 and are
-// separated by the brand hairline, not by tint steps or shadows.
+// Two steps: an off-white page and a white card. The lightness step is the
+// separation — a card is white on the #F6F7F4 page, and the hairline is a
+// reinforcement rather than the only edge. No shadows are used anywhere, so
+// borderless cards (the product grid) still read as raised by tint alone.
 export const surface = {
-  background: "#F5F5F5",
-  DEFAULT: "#F5F5F5",
+  background: "#F6F7F4",
+  DEFAULT: "#FFFFFF",
   overlay: "rgba(16, 14, 9, 0.45)",
   /**
    * Ink at 10% pre-blended — reads as inactive against paper.

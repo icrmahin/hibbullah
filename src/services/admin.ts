@@ -3,7 +3,6 @@ import { mapOrder, mapProduct } from '../lib/mappers'
 import { AppError, AppErrorType, supabaseErrorToAppError } from '../lib/errors'
 import { listProducts, PRODUCT_PUBLIC_COLUMNS } from './products'
 import type { ProductCursor } from './products'
-import config from '../constants/config'
 import type { Product } from '../types/product'
 import type { Order } from '../types/order'
 
@@ -140,9 +139,8 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     pendingResult,
     processingResult,
     activeResult,
-    lowStockCountResult,
+    lowStockResult,
     attentionResult,
-    lowStockItemsResult,
     expiringResult,
     recentOrdersResult,
     pendingReturnsResult,
@@ -151,19 +149,13 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'PENDING'),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'PROCESSING'),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
-    supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true).lt('stock', 10),
+    supabase.rpc('get_admin_low_stock'),
     supabase
       .from('orders')
       .select('id, order_number, customer_name, total')
       .eq('status', 'PENDING')
       .order('created_at', { ascending: false })
       .limit(5),
-    supabase
-      .from('inventory_items')
-      .select('id, product_id, batch_number, quantity, status, expiry_date, products(name)')
-      .lt('quantity', 10)
-      .order('quantity', { ascending: true })
-      .limit(10),
     supabase
       .from('inventory_items')
       .select('id, product_id, batch_number, quantity, status, expiry_date, products(name)')
@@ -183,7 +175,7 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
   const pendingOrders = pendingResult.count || 0
   const processingOrders = processingResult.count || 0
   const activeProducts = activeResult.count || 0
-  const lowStockProducts = lowStockCountResult.count || 0
+  if (lowStockResult.error) throw lowStockResult.error
 
   const attentionOrders = (attentionResult.data as OrderBasic[] || []).map(order => ({
     id: order.id,
@@ -191,6 +183,22 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     customerName: order.customer_name,
     total: order.total,
   }))
+
+  type LowStockRow = {
+    product_id: string
+    product_name: string
+    stock: number
+    low_stock_threshold: number
+    // Null only for a low product with no >0 batch row (LEFT JOIN); the
+    // dashboard falls back to product-level values so the product still shows.
+    batch_id: string | null
+    batch_number: string | null
+    batch_quantity: number | null
+    batch_status: string | null
+    expiry_date: string | null
+  }
+  const lowStockRows = (lowStockResult.data ?? []) as LowStockRow[]
+  const lowStockProducts = new Set(lowStockRows.map((r) => r.product_id)).size
 
   // The supabase-js client here has no generated `Database` type, so it *guesses* the
   // shape of `products(name)` from the select string and lands on an array. PostgREST
@@ -203,18 +211,22 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
   // it was correct: `products?.[0]` type-checked against the guess, and at runtime the
   // index was always undefined. The cast goes through `unknown` so the wrong guess can
   // never silently win again — the interface below is the shape the server actually sends.
-  const lowStockRows = ((lowStockItemsResult.data ?? []) as unknown) as InventoryItemWithProduct[]
   const expiringRows = ((expiringResult.data ?? []) as unknown) as InventoryItemWithProduct[]
 
-  const transformedLowStock = lowStockRows.map(item => ({
-    id: item.id,
-    // The product id, so the dashboard row can open the product it is naming. Without it
-    // the row had nothing to navigate with and built an unmatched URL.
+  // Low-stock rows arrive as (product, batch) pairs; the batch rows are the
+  // dashboard's list and the distinct products are its count. A whole medicine
+  // can be low even when one batch is healthy, so the two are counted on
+  // their own scales and never conflated (mirrors the migration's comment).
+  // A product with no >0 batch row arrives with null batch fields (LEFT JOIN)
+  // and is shown with product-level values so it is never invisible.
+  const transformedLowStock = lowStockRows.map((item) => ({
+    id: item.batch_id ?? item.product_id,
     productId: item.product_id,
-    productName: item.products?.name || 'Unknown',
-    batchNumber: item.batch_number,
-    quantity: item.quantity,
-    status: item.status as 'healthy' | 'low' | 'out_of_stock',
+    productName: item.product_name || 'Unknown',
+    batchNumber: item.batch_number ?? '\u2014',
+    quantity: item.batch_quantity ?? item.stock,
+    status: (item.batch_status as 'healthy' | 'low' | 'out_of_stock') ??
+      (item.stock <= 0 ? 'out_of_stock' : 'low'),
     expiryDate: item.expiry_date || undefined,
   }))
 
@@ -297,7 +309,6 @@ export async function fetchAdminProducts(
     {
       status: filters?.status,
       stock: filters?.stockFilter,
-      lowStockThreshold: config.lowStockThreshold,
       categoryId: filters?.categoryId,
       query: filters?.query,
       limit: filters?.limit,

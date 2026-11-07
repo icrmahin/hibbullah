@@ -10,6 +10,8 @@ export type Product = {
   discountPercent?: number;
   costPrice?: number;
   stock: number;
+  /** Per-product low-stock warning point (units). New products default to 50. */
+  lowStockThreshold: number;
   unit: string;
   image?: string;
   /** Primary product image — app-level field, maps to image_path on backend */

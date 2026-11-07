@@ -62,7 +62,6 @@ const WIPES_ALL = [
   'addresses',
   'products',
   'categories',
-  'manufacturers',
   'notifications',
   'push_tokens',
   'audit_entries',

@@ -65,7 +65,7 @@ async function api(path, { method = 'GET', token, body } = {}) {
   return { status: res.status, text: await res.text() }
 }
 
-const created = { userId: null, shopperId: null, outsiderId: null, categoryId: null, manufacturerId: null, productId: null }
+const created = { userId: null, shopperId: null, outsiderId: null, categoryId: null, productId: null }
 
 async function cleanup() {
   // First and unconditionally: the role trigger is production code, and leaving a test
@@ -86,11 +86,9 @@ async function cleanup() {
   if (created.productId) await admin(`delete from public.inventory_items where product_id = '${created.productId}'`)
   if (created.productId) await admin(`delete from public.products where id = '${created.productId}'`)
   if (created.categoryId) await admin(`delete from public.categories where id = '${created.categoryId}'`)
-  if (created.manufacturerId) await admin(`delete from public.manufacturers where id = '${created.manufacturerId}'`)
-  // Also sweep anything the category/manufacturer section managed to create.
+  // Also sweep anything the category section managed to create.
   await admin(
-    `delete from public.categories where name like 'E2E Cat%';
-     delete from public.manufacturers where name ilike 'E2E Maker%' or name ilike 'E2E NewMaker%' or name ilike 'E2E Sneaky%';`,
+    `delete from public.categories where name like 'E2E Cat%';`,
   )
   for (const id of [created.shopperId, created.outsiderId, created.userId].filter(Boolean)) {
     await admin(`delete from public.audit_entries where actor_id = '${id}'`)
@@ -191,17 +189,13 @@ try {
     `email allowlist promotes the profile to admin on next write (role=${promoted?.role})`,
   )
 
-  // 4. Create the category and manufacturer the product needs. categories.slug is
-  //    NOT NULL with no default, so it must be supplied.
+  // 4. Create the category the product needs. categories.slug is NOT NULL with no
+  //    default, so it must be supplied.
   created.categoryId = randomUUID()
-  created.manufacturerId = randomUUID()
   await admin(
     `insert into public.categories (id, name, slug) values ('${created.categoryId}', 'E2E Category ${stamp}', 'e2e-category-${stamp}')`,
   )
-  await admin(
-    `insert into public.manufacturers (id, name) values ('${created.manufacturerId}', 'E2E Maker ${stamp}')`,
-  )
-  check(true, 'category and manufacturer rows created')
+  check(true, 'category row created')
 
   // 5. create_product RPC, as a real admin, with stock so the batch insert runs too.
   created.productId = randomUUID()
@@ -211,9 +205,8 @@ try {
     body: {
       p_id: created.productId,
       p_name: PRODUCT_NAME,
-      p_brand: 'E2EBrand',
+      p_company_name: 'E2EBrand',
       p_generic_name: 'Paracetamol',
-      p_manufacturer_id: created.manufacturerId,
       p_category_id: created.categoryId,
       p_price: 25.5,
       p_description: 'end to end verification product',
@@ -249,8 +242,8 @@ try {
     `browse_products joins category_name (${browsedRow?.category_name})`,
   )
   check(
-    browsedRow?.manufacturer_name === `E2E Maker ${stamp}`,
-    `browse_products joins manufacturer_name (${browsedRow?.manufacturer_name})`,
+    browsedRow?.company_name === 'E2EBrand',
+    `browse_products returns company_name (${browsedRow?.company_name})`,
   )
 
   // 8. search_products, anonymous, by generic name.
@@ -303,9 +296,9 @@ try {
   )
   await admin(`update public.products set is_active = true where id = '${created.productId}'`)
 
-  // 11. Categories and manufacturers are created inline by the admin from the
-  //     product form, so the unique indexes and the admin RLS policy are the whole
-  //     contract. These are the exact cases createCategory/createManufacturer branch on.
+  // 11. Categories are created inline by the admin from the product form, so the unique
+  //     index and the admin RLS policy are the whole contract. These are the exact cases
+  //     createCategory branches on.
   const catName = `E2E Cat ${stamp}`
   const catSlug = `e2e-cat-${stamp}`
 
@@ -330,27 +323,6 @@ try {
   check(
     JSON.parse(catFound.text).length === 1,
     'the existing category is findable by slug, so the client can resolve the duplicate',
-  )
-
-  // A distinct name: step 10 already created "E2E Maker <stamp>".
-  const manName = `E2E NewMaker ${stamp}`
-  const man1 = await api('/rest/v1/manufacturers', {
-    method: 'POST',
-    token,
-    body: { name: manName, country: 'Bangladesh' },
-  })
-  check(man1.status === 201, `admin can insert a manufacturer (HTTP ${man1.status})`)
-
-  // The manufacturer index is on lower(btrim(name)), so odd spacing and case collide.
-  const manDup = await api('/rest/v1/manufacturers', {
-    method: 'POST',
-    token,
-    body: { name: `  ${manName.toUpperCase()}  ` },
-  })
-  const manDupCode = JSON.parse(manDup.text || '{}').code
-  check(
-    manDup.status === 409 && manDupCode === '23505',
-    `differently-cased/spaced manufacturer name still collides (HTTP ${manDup.status} ${manDupCode})`,
   )
 
   // A non-admin must not be able to create these at all. This one signs up through
@@ -381,16 +353,7 @@ try {
     nonAdminCat.status === 403,
     `non-admin cannot insert a category (HTTP ${nonAdminCat.status} ${JSON.parse(nonAdminCat.text || '{}').code ?? ''})`,
   )
-  const nonAdminMan = await api('/rest/v1/manufacturers', {
-    method: 'POST',
-    token: shopperToken,
-    body: { name: `E2E Sneaky ${stamp}` },
-  })
-  check(
-    nonAdminMan.status === 403,
-    `non-admin cannot insert a manufacturer (HTTP ${nonAdminMan.status})`,
-  )
-  // And nothing was written by the refused attempts.
+  // And nothing was written by the refused attempt.
   const sneaked = await api(`/rest/v1/categories?slug=eq.e2e-sneaky-${stamp}&select=id`, { token })
   check(JSON.parse(sneaked.text).length === 0, 'the refused inserts wrote nothing')
 

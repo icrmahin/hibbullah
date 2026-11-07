@@ -44,7 +44,7 @@ const stamp = Date.now()
 const PREFIX = `Batch Probe ${stamp}`
 const ADMIN = { email: `bn-admin-${stamp}@hibbullah.test`, password: `BnAdmin-${stamp}-Aa1!` }
 const CUSTOMER = { email: `bn-cust-${stamp}@hibbullah.test`, password: `BnCust-${stamp}-Aa1!` }
-const FIX = { category: randomUUID(), manufacturer: randomUUID() }
+const FIX = { category: randomUUID() }
 
 /** The shape every newly generated identifier must have: B- followed by digits. */
 const SHORT = /^B-\d{6,}$/
@@ -139,10 +139,9 @@ function createArgs(name, { stock = 0, batchNumber = null } = {}) {
   return {
     p_id: randomUUID(),
     p_name: name,
-    p_brand: 'BnBrand',
+    p_company_name: 'BnBrand',
     p_generic_name: 'bn-generic',
     p_description: '',
-    p_manufacturer_id: FIX.manufacturer,
     p_category_id: FIX.category,
     p_price: 100,
     p_original_price: null,
@@ -185,8 +184,7 @@ try {
   check(Boolean(customer.token), `customer ready (${customer.id.slice(0, 8)})`)
 
   await admin(
-    `insert into public.categories (id, name, slug) values ('${FIX.category}', ${sqlLit(`Bn Cat ${stamp}`)}, 'bn-cat-${stamp}');
-     insert into public.manufacturers (id, name) values ('${FIX.manufacturer}', ${sqlLit(`Bn Maker ${stamp}`)});`,
+    `insert into public.categories (id, name, slug) values ('${FIX.category}', ${sqlLit(`Bn Cat ${stamp}`)}, 'bn-cat-${stamp}');`,
   )
 
   before = await snapshotAll()
@@ -312,7 +310,6 @@ try {
     }
     await admin(
       `delete from public.categories where name like 'Bn Cat %';
-       delete from public.manufacturers where name like 'Bn Maker %';
        delete from auth.users where email like 'bn-admin-%@hibbullah.test' or email like 'bn-cust-%@hibbullah.test';`,
     )
     const finalSnapshot = await snapshotAll()

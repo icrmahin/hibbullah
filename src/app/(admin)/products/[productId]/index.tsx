@@ -17,7 +17,6 @@ import { useResponsive } from "../../../../hooks/useResponsive";
 import { useBottomInset } from "../../../../hooks/useBottomInset";
 import { useProduct } from "../../../../hooks/useProducts";
 import { fetchProductInventory, updateProduct, deleteProduct } from "../../../../services/products";
-import config from "../../../../constants/config";
 import { radius } from "../../../../constants/sizes";
 import { spacing } from "../../../../constants/spacing";
 import { fontFamily, fontSize, lineHeight, letterSpacing } from "../../../../constants/typography";
@@ -167,14 +166,14 @@ export default function AdminProductDetailScreen() {
               label={
                 product.stock === 0
                   ? "Out of stock"
-                  : product.stock < config.lowStockThreshold
+                  : product.stock < product.lowStockThreshold
                     ? "Low stock"
                     : "In stock"
               }
               tone={statusTone(
                 product.stock === 0
                   ? "OUT_OF_STOCK"
-                  : product.stock < config.lowStockThreshold
+                  : product.stock < product.lowStockThreshold
                     ? "LOW"
                     : "ACTIVE",
               )}

@@ -119,7 +119,7 @@ function parseBody(text, what) {
   }
 }
 
-const created = { userId: null, outsiderId: null, categoryId: null, manufacturerId: null, productId: null, orderId: null, returnId: null }
+const created = { userId: null, outsiderId: null, categoryId: null, productId: null, orderId: null, returnId: null }
 async function cleanup() {
   // First and unconditionally: the role trigger is production code, and leaving a test
   // address in it is worse than any leftover row below.
@@ -167,9 +167,6 @@ async function cleanup() {
   }
   if (uuid(created.categoryId)) {
     await step('categories', `delete from public.categories where id = '${created.categoryId}'`)
-  }
-  if (uuid(created.manufacturerId)) {
-    await step('manufacturers', `delete from public.manufacturers where id = '${created.manufacturerId}'`)
   }
   for (const id of [uuid(created.userId), uuid(created.outsiderId)].filter(Boolean)) {
     await step(`notifications ${id.slice(0, 8)}`, `delete from public.notifications where user_id = '${id}'`)
@@ -240,14 +237,10 @@ try {
   // rows go in via SQL because PostgREST returns no body for an insert without
   // `Prefer: return=representation`, and their ids are needed before the RPC call.
   created.categoryId = randomUUID()
-  created.manufacturerId = randomUUID()
   await admin(
     `insert into public.categories (id, name, slug) values ('${created.categoryId}', 'Notif Cat ${stamp}', 'notif-cat-${stamp}')`,
   )
-  await admin(
-    `insert into public.manufacturers (id, name) values ('${created.manufacturerId}', 'Notif Maker ${stamp}')`,
-  )
-  check(true, 'category and manufacturer created')
+  check(true, 'category created')
 
   const made = await api('/rest/v1/rpc/create_product', {
     method: 'POST',
@@ -255,9 +248,8 @@ try {
     body: {
       p_id: randomUUID(),
       p_name: `Notif Paracetamol ${stamp}`,
-      p_brand: 'NotifBrand',
+      p_company_name: 'NotifBrand',
       p_generic_name: 'Paracetamol',
-      p_manufacturer_id: created.manufacturerId,
       p_category_id: created.categoryId,
       p_price: 25,
       p_description: 'Verification product',

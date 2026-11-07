@@ -3714,11 +3714,12 @@ begin
   returning id into v_id;
 
   if coalesce(p_initial_stock, 0) > 0 then
-    -- inventory_items.batch_number is NOT NULL and unique per product, so the
-    -- default is derived from the product id.
+    -- inventory_items.batch_number is NOT NULL and unique per product. An
+    -- admin-supplied number wins; otherwise the short sequence value is
+    -- generated in the database (20261005020000), never the legacy uuid form.
     v_batch := coalesce(
       nullif(btrim(coalesce(p_batch_number, '')), ''),
-      'BATCH-' || upper(left(v_id::text, 8)) || '-001'
+      public.generate_batch_number()
     );
 
     insert into public.inventory_items (product_id, batch_number, quantity, expiry_date)
@@ -4801,6 +4802,48 @@ begin
 end;
 $$;
 
+
+-- Shim backfill (20260928000000_shim_rls_auto_enable.sql): the helper below
+-- exists on hosted but was never committed to migrations/
+-- Backfill: public.rls_auto_enable() was created out-of-band on hosted (a
+-- "ddl_command_end" event trigger that enables RLS on every new table the
+-- owner creates in public) and was never recorded in any repository file.
+-- The lockdown migration (20260928010000) revokes EXECUTE on it, so a fresh
+-- local database cannot replay the chain past that point without this def.
+-- This file does not alter any already-applied migration; it only adds the
+-- helper the REVOKE already assumed existed. On hosted it is a no-op
+-- redefinition. Body reflects the hosted definition (read-only probe).
+CREATE OR REPLACE FUNCTION public.rls_auto_enable()
+ RETURNS event_trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+DECLARE
+  cmd record;
+BEGIN
+  FOR cmd IN
+    SELECT *
+    FROM pg_event_trigger_ddl_commands()
+    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      AND object_type IN ('table','partitioned table')
+  LOOP
+     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
+      BEGIN
+        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
+        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+      END;
+     ELSE
+        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
+     END IF;
+  END LOOP;
+END;
+$function$;
+drop event trigger if exists ensure_rls;
+create event trigger ensure_rls on ddl_command_end execute function public.rls_auto_enable();
 
 -- ==============================================================================
 -- From migration 20260928010000_secdef_grants_and_guards.sql
@@ -7711,3 +7754,936 @@ grant execute on function public.browse_products(uuid, uuid, text, text, integer
   to anon, authenticated;
 grant execute on function public.search_products(text, uuid, uuid, text, text, integer, int, int)
   to anon, authenticated;
+
+
+-- ======================================================================
+-- Appended from 20261011000001_clear_audit_logs.sql (policy): admins can clear the audit log.
+-- ======================================================================
+-- Allow admins to clear the audit log.
+-- SECURITY DEFINER so the function runs with owner privileges and can delete
+-- rows that the RLS policy would otherwise block.
+
+create policy "Admins can delete audit entries"
+  on public.audit_entries for delete
+  using (auth.jwt() ->> 'role' = 'admin');
+
+create or replace function public.clear_audit_entries()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.audit_entries;
+end;
+$$;
+
+grant execute on function public.clear_audit_entries() to anon, authenticated;
+
+-- ======================================================================
+-- Appended from 20261011000003_clear_audit_guard.sql: clear_audit_entries must 'where true'.
+-- ======================================================================
+-- clear_audit_entries() failed at runtime with "DELETE requires a WHERE clause".
+-- That error comes from a statement-level guard on unqualified DELETEs, which
+-- also inspects statements inside plpgsql functions. `where true` deletes every
+-- row exactly as before while satisfying the guard.
+
+create or replace function public.clear_audit_entries()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.audit_entries where true;
+end;
+$$;
+
+grant execute on function public.clear_audit_entries() to anon, authenticated;
+
+
+-- ======================================================================
+-- Appended from 20261012000000_product_low_stock_threshold.sql: per-product
+-- low-stock thresholds (column, trigger, RPCs, create_product, bootstrap sync).
+-- ======================================================================
+-- Per-product low-stock thresholds.
+--
+-- Before this migration, "low" meant stock < 10, hardcoded in three places:
+-- the inventory status trigger, the product list RPCs, and the reports
+-- aggregate. The trigger classification of a *batch* and the warning on a
+-- *product* both read that same number, and nothing in the catalogue could
+-- say "this medicine warns sooner" without changing the whole shop.
+--
+-- Two different signals now share one number per product, deliberately:
+--
+-- - Batch `status` (inventory_items): batch-level. The trigger labels the
+--   batch 'low' when batch.quantity < its product's threshold. It answers
+--   "is this batch thin?" and is rendered per-batch.
+-- - Product warning (products.stock vs low_stock_threshold): product-level,
+--   measured against products.stock, which the sync trigger keeps equal to
+--   SUM(inventory_items.quantity). It answers "does this medicine need a
+--   restock soon?" and is rendered per-product.
+--
+-- Batch status therefore uses the threshold as a per-batch yardstick for the
+-- medicine's own warning point; the two are never interchangeable, and no
+-- screen adds them together.
+
+-- ── 1. The column: default 50 for new products; existing rows keep 10 ─────
+alter table public.products
+  add column if not exists low_stock_threshold integer not null default 50
+    check (low_stock_threshold >= 0);
+
+-- Existing catalogue keeps the threshold it has actually operated under.
+update public.products set low_stock_threshold = 10 where low_stock_threshold is null;
+
+comment on column public.products.low_stock_threshold is
+  'Per-product units at which a low-stock warning fires. New products default to 50; existing rows were backfilled to 10, the threshold they already operated under.';
+
+-- Same per-column read grant as every other product column except cost_price
+-- (20261011000002_fix_company_name.sql did the same for company_name).
+
+-- ── 2. Batch status reads the product's own threshold ───────────────────
+-- The trigger previously hardcoded 10. It now selects the batch's own
+-- product's threshold, so a batch labelled 'low' means low *for that
+-- medicine*, matching the product-level warning on the same row.
+create or replace function public.update_inventory_status()
+returns trigger as $$
+declare
+  v_threshold integer;
+begin
+  select low_stock_threshold into v_threshold from public.products where id = new.product_id;
+  if v_threshold is null then v_threshold := 50; end if;
+  if new.quantity <= 0 then
+    new.status := 'out_of_stock';
+  elsif new.quantity < v_threshold then
+    new.status := 'low';
+  else
+    new.status := 'healthy';
+  end if;
+  new.last_updated := now();
+  return new;
+end;
+$$ language plpgsql;
+
+-- ── 3. get_reports: product-level low count, per-product threshold ──────
+drop function if exists public.get_reports(integer, integer);
+
+create or replace function public.get_reports(
+  p_expiry_warning_days  integer default 60
+)
+returns table (
+  revenue         numeric,
+  delivered_orders bigint,
+  discounts       numeric,
+  low_stock       bigint,
+  out_of_stock    bigint,
+  expiring        bigint,
+  inventory_value numeric
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_days integer;
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can query reports';
+  end if;
+
+  v_days := least(greatest(coalesce(p_expiry_warning_days, 60), 0), 3650);
+
+  return query
+  with delivered as (
+    select coalesce(sum(total), 0)::numeric   as revenue,
+           count(*)::bigint                    as delivered_orders,
+           coalesce(sum(discount), 0)::numeric as discounts
+      from public.orders
+     where status = 'DELIVERED'
+  ),
+  stock as (
+    select count(*) filter (where stock > 0 and stock < low_stock_threshold)::bigint as low_stock,
+           count(*) filter (where stock <= 0)::bigint                   as out_of_stock
+      from public.products
+  ),
+  batches as (
+    select b.product_id, b.quantity, b.expiry_date
+      from public.inventory_items b
+     where b.quantity > 0
+  ),
+  soon as (
+    select count(*)::bigint as expiring
+      from batches
+     where expiry_date is not null
+       and expiry_date >= current_date
+       and expiry_date <= current_date + v_days
+  ),
+  value as (
+    select coalesce(sum(b.quantity * coalesce(p.price, 0)), 0)::numeric as inventory_value
+      from batches b
+      left join public.products p on p.id = b.product_id
+  )
+  select d.revenue, d.delivered_orders, d.discounts,
+         s.low_stock, s.out_of_stock, n.expiring, v.inventory_value
+    from delivered d
+    cross join stock   s
+    cross join soon    n
+    cross join value   v;
+end;
+$$;
+
+drop function if exists public.get_admin_low_stock();
+
+-- 4. One RPC for the admin dashboard / reports that answers both questions
+-- it asks: which products are low (product-level), and which of their
+-- batches are thin (batch-level). A directly-called, admin-guarded definer
+-- function, so it pays the same guards as get_reports. A product whose
+-- largest batch is small but whose total is healthy is *not* listed; the
+-- batch status column still marks that batch 'low' for the inventory lists.
+create or replace function public.get_admin_low_stock()
+returns table (
+  product_id     uuid,
+  product_name   text,
+  stock          integer,
+  low_stock_threshold integer,
+  batch_id       uuid,
+  batch_number   text,
+  batch_quantity integer,
+  batch_status   text,
+  expiry_date    date
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can query low stock';
+  end if;
+
+  return query
+  select p.id, p.name, p.stock, p.low_stock_threshold,
+         i.id, i.batch_number, i.quantity, i.status, i.expiry_date
+    from public.products p
+    join public.inventory_items i on i.product_id = p.id
+   where p.is_active
+     and coalesce(p.is_deleted, false) = false
+     and p.stock < p.low_stock_threshold
+     and i.quantity > 0
+   order by p.stock asc, p.name asc, i.last_updated asc;
+end;
+$$;
+
+revoke all on function public.get_admin_low_stock() from public, anon, authenticated;
+grant execute on function public.get_admin_low_stock() to authenticated;
+-- ── 5. Product list RPCs: low predicate reads the product's own column ──
+-- Signatures drop p_low_stock_threshold; the limit/cursor flow is unchanged.
+-- Both keep SECURITY INVOKER so the products RLS stays in force (see the
+-- 20261011000002_fix_company_name.sql note on browse_products).
+-- ── 3. browse_products: 20261006000005 body, brand/manufacturer -> company_name ──
+drop function if exists public.browse_products(uuid, text, text, integer, timestamptz, uuid, int);
+
+create or replace function public.browse_products(
+  p_category uuid default null,
+  p_status text default null,
+  p_stock text default null,
+  p_cursor_created_at timestamptz default null,
+  p_cursor_id uuid default null,
+  p_limit int default 24
+)
+returns table (
+  id uuid,
+  name text,
+  company_name text,
+  generic_name text,
+  description text,
+  category_id uuid,
+  price numeric,
+  original_price numeric,
+  discount_percent integer,
+  stock integer,
+  unit text,
+  image_url text,
+  secondary_image_url text,
+  is_active boolean,
+  is_deleted boolean,
+  is_featured boolean,
+  created_at timestamptz,
+  updated_at timestamptz,
+  category_name text,
+  category_slug text
+)
+language sql
+stable
+-- SECURITY INVOKER is deliberate. It keeps the existing RLS on products
+-- (20260918020000_fix_admin_rls.sql:55-68 — active-only for everyone, all rows
+-- for admins) in force. A SECURITY DEFINER version would bypass RLS and leak
+-- inactive products to customers. Do not "optimize" this into definer.
+security invoker
+set search_path = public
+as $$
+  select
+    p.id,
+    p.name,
+    p.company_name,
+    p.generic_name,
+    p.description,
+    p.category_id,
+    p.price,
+    p.original_price,
+    p.discount_percent,
+    p.stock,
+    p.unit,
+    p.image_url,
+    p.secondary_image_url,
+    p.is_active,
+    p.is_deleted,
+    p.is_featured,
+    p.created_at,
+    p.updated_at,
+    c.name,
+    c.slug
+  from public.products p
+  left join public.categories c on c.id = p.category_id
+  where (coalesce(p.is_deleted, false) = false)
+    and (p_category is null or p.category_id = p_category)
+    and (
+      p_status is null
+      or (p_status = 'active' and p.is_active)
+      or (p_status = 'inactive' and not p.is_active)
+    )
+    and (
+      p_stock is null
+      or (p_stock = 'in_stock' and p.stock > 0)
+      or (p_stock = 'out' and p.stock <= 0)
+      or (
+        p_stock = 'low'
+        and p.stock > 0
+        and p.stock < p.low_stock_threshold
+      )
+    )
+    and (
+      p_cursor_created_at is null
+      or p_cursor_id is null
+      or (p.created_at, p.id) < (p_cursor_created_at, p_cursor_id)
+    )
+  order by p.created_at desc, p.id desc
+  limit least(greatest(coalesce(p_limit, 24), 1), 100);
+$$;
+
+-- ── 4. search_products: 20261006000005 body, brand/manufacturer -> company_name ──
+drop function if exists public.search_products(text, uuid, text, text, integer, int, int);
+
+create or replace function public.search_products(
+  p_query text,
+  p_category uuid default null,
+  p_status text default null,
+  p_stock text default null,
+  p_limit int default 24,
+  p_offset int default 0
+)
+returns table (
+  id uuid,
+  name text,
+  company_name text,
+  generic_name text,
+  description text,
+  category_id uuid,
+  price numeric,
+  original_price numeric,
+  discount_percent integer,
+  stock integer,
+  unit text,
+  image_url text,
+  secondary_image_url text,
+  is_active boolean,
+  is_deleted boolean,
+  is_featured boolean,
+  created_at timestamptz,
+  updated_at timestamptz,
+  category_name text,
+  category_slug text,
+  total_count bigint
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with term as (
+    select
+      lower(btrim(coalesce(p_query, ''))) as v,
+      -- A second copy of the term, escaped for `like`.
+      --
+      -- LIKE's default escape character is a backslash, so a term carrying `%`, `_` or `\`
+      -- has to be neutralised before it is interpolated into a pattern. The app already
+      -- strips these (`sanitizeSearchTerm`, src/services/searchQuery.ts) because they are
+      -- PostgREST syntax, so this changes nothing for app traffic. What it removes is the
+      -- case where the RPC is called directly with `p_query` set to `%`, and a search
+      -- silently becomes "return the whole catalogue".
+      replace(
+        replace(
+          replace(lower(btrim(coalesce(p_query, ''))), '\', '\\'),
+          '%', '\%'
+        ),
+        '_', '\_'
+      ) as pat
+  ),
+  matched as (
+    select
+p.id,
+      p.name,
+      p.company_name,
+      p.generic_name,
+      p.description,
+      p.category_id,
+      p.price,
+      p.original_price,
+      p.discount_percent,
+      p.stock,
+      p.unit,
+      p.image_url,
+      p.secondary_image_url,
+      p.is_active,
+      p.is_deleted,
+      p.is_featured,
+      p.created_at,
+      p.updated_at,
+      c.name as category_name,
+      c.slug as category_slug,
+      case
+        when btrim(coalesce(p_query, '')) = '' then 0
+        when lower(p.name) = (select v from term) then 0
+        when lower(p.name) like (select pat from term) || '%' then 1
+        when lower(p.company_name) like (select pat from term) || '%' then 2
+        when lower(p.generic_name) like (select pat from term) || '%' then 3
+        when p.company_name ilike '%' || (select pat from term) || '%' then 4
+        when p.name ilike '%' || (select pat from term) || '%' then 5
+        when p.generic_name ilike '%' || (select pat from term) || '%' then 6
+        when p.name % (select v from term) then 7
+        when p.generic_name % (select v from term) then 8
+        when p.company_name % (select v from term) then 9
+        else 10
+      end as rank
+    from public.products p
+    left join public.categories c on c.id = p.category_id
+    where (coalesce(p.is_deleted, false) = false)
+      and (p_category is null or p.category_id = p_category)
+      and (
+        p_status is null
+        or (p_status = 'active' and p.is_active)
+        or (p_status = 'inactive' and not p.is_active)
+      )
+      and (
+        p_stock is null
+        or (p_stock = 'in_stock' and p.stock > 0)
+        or (p_stock = 'out' and p.stock <= 0)
+        or (
+          p_stock = 'low'
+          and p.stock > 0
+          and p.stock < p.low_stock_threshold
+        )
+      )
+      and (
+        btrim(coalesce(p_query, '')) = ''
+        or lower(p.name) like (select pat from term) || '%'
+        or lower(p.company_name) like (select pat from term) || '%'
+        or lower(p.generic_name) like (select pat from term) || '%'
+        or p.name ilike '%' || (select pat from term) || '%'
+        or p.company_name ilike '%' || (select pat from term) || '%'
+        or p.generic_name ilike '%' || (select pat from term) || '%'
+        or p.description ilike '%' || (select pat from term) || '%'
+        or p.name % (select v from term)
+        or p.generic_name % (select v from term)
+        or p.company_name % (select v from term)
+      )
+  )
+  select
+    mt.id,
+    mt.name,
+    mt.company_name,
+    mt.generic_name,
+    mt.description,
+    mt.category_id,
+    mt.price,
+    mt.original_price,
+    mt.discount_percent,
+    mt.stock,
+    mt.unit,
+    mt.image_url,
+    mt.secondary_image_url,
+    mt.is_active,
+    mt.is_deleted,
+    mt.is_featured,
+    mt.created_at,
+    mt.updated_at,
+    mt.category_name,
+    mt.category_slug,
+    count(*) over ()
+  from matched mt
+  order by mt.rank, mt.name, mt.id
+  limit least(greatest(coalesce(p_limit, 24), 1), 100)
+  offset least(greatest(coalesce(p_offset, 0), 0), 5000);
+$$;
+
+-- Same signature-agnostic drop as 20261011000002_fix_company_name.sql, so
+-- the old overload never survives beside the new one. The new parameter is
+-- validated in-line; a negative value is a refusal, not a silent zero.
+do $$
+declare r record;
+begin
+  for r in select oid::regprocedure::text as sig
+             from pg_proc
+            where proname = 'create_product'
+              and pronamespace = 'public'::regnamespace
+  loop
+    execute 'drop function ' || r.sig;
+  end loop;
+end $$;
+
+create or replace function public.create_product(
+  p_id uuid,
+  p_name text,
+  p_company_name text,
+  p_generic_name text,
+  p_category_id uuid,
+  p_price numeric,
+  p_description text default '',
+  p_original_price numeric default null,
+  p_discount_percent integer default 0,
+  p_cost_price numeric default null,
+  p_unit text default 'pack',
+  p_image_url text default null,
+  p_secondary_image_url text default null,
+  p_is_active boolean default true,
+  p_is_featured boolean default false,
+  p_initial_stock integer default 0,
+  p_batch_number text default null,
+  p_expiry_date date default null,
+  p_low_stock_threshold integer default 50
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_batch text;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  if p_low_stock_threshold is null or p_low_stock_threshold < 0 then
+    raise exception 'low_stock_threshold must be a whole number of 0 or more';
+  end if;
+
+  insert into public.products (
+    id,
+    name,
+    company_name,
+    generic_name,
+    description,
+    category_id,
+    price,
+    original_price,
+    discount_percent,
+    cost_price,
+    unit,
+    image_url,
+    secondary_image_url,
+    is_active,
+    is_featured,
+    stock,
+    low_stock_threshold
+  ) values (
+    p_id,
+    p_name,
+    p_company_name,
+    p_generic_name,
+    coalesce(p_description, ''),
+    p_category_id,
+    p_price,
+    p_original_price,
+    coalesce(p_discount_percent, 0),
+    p_cost_price,
+    coalesce(p_unit, 'pack'),
+    p_image_url,
+    p_secondary_image_url,
+    coalesce(p_is_active, true),
+    coalesce(p_is_featured, false),
+    0,
+    p_low_stock_threshold
+  )
+  returning id into v_id;
+
+  if coalesce(p_initial_stock, 0) > 0 then
+    -- inventory_items.batch_number is NOT NULL and unique per product. An
+    -- admin-supplied number wins; otherwise the short sequence value is
+    -- generated in the database (20261005020000), never the legacy uuid form.
+    v_batch := coalesce(
+      nullif(btrim(coalesce(p_batch_number, '')), ''),
+      public.generate_batch_number()
+    );
+
+    insert into public.inventory_items (product_id, batch_number, quantity, expiry_date)
+    values (v_id, v_batch, p_initial_stock, p_expiry_date);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+revoke execute on function public.create_product(
+  uuid, text, text, text, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date, integer
+) from public;
+
+grant execute on function public.create_product(
+  uuid, text, text, text, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date, integer
+) to authenticated;
+
+-- ── 7. Grants for the re-signed list RPCs ────────────────────────────────
+grant execute on function public.browse_products(uuid, text, text, timestamptz, uuid, int)
+  to anon, authenticated;
+grant execute on function public.search_products(text, uuid, text, text, int, int)
+  to anon, authenticated;
+
+-- ======================================================================
+-- Appended from 20261013000000_phase1_hardening.sql: per-product
+-- notification thresholds, threshold-change reclassification, and
+-- batch-less products in the admin low-stock list.
+-- ======================================================================
+-- Phase 1 hardening: close the three gaps left by
+-- 20261012000000_product_low_stock_threshold.sql.
+--
+-- That migration moved product-level calcs, the inventory status trigger,
+-- and the dashboard/reports RPCs to per-product thresholds, but three
+-- places still behaved as if the global 10 existed:
+--
+-- 1. sync_product_stock() and handle_product_stock_change() both sent
+--    "Low stock" notifications with a hardcoded < 10 / >= 10 test. A
+--    medicine with a warning point of 50 now notified at 10, and one with
+--    0 still notified at 10. Both now read the product's own threshold
+--    (fallback 50), so 0 disables the low-stock notification while the
+--    separate stock == 0 out-of-stock notification is untouched.
+--
+-- 2. Changing products.low_stock_threshold left existing
+--    inventory_items.status stale until each batch was next touched,
+--    because update_inventory_status() only fires on batch INSERT/UPDATE.
+--    The new AFTER UPDATE OF low_stock_threshold trigger reclassifies
+--    exactly that product's batches in place. It is column-scoped, so the
+--    stock sync writing products.stock never recurses into it, and the
+--    batch BEFORE trigger recomputes the same value, so the two agree.
+--
+-- 3. get_admin_low_stock() used INNER JOIN + i.quantity > 0, so a low
+--    product with no positive batch row (new product, or only zero-qty
+--    batches) was invisible on the dashboard while get_reports counted
+--    it. It now LEFT JOINs with the quantity filter in the ON clause,
+--    so the product still appears with null batch fields; the client
+--    falls back to product-level values for that row. The is_active
+--    filter is also dropped: stock 0 auto-deactivates a product, so
+--    keeping it would hide every out-of-stock product from the admin
+--    restock list and the "Out of stock" metric could never fire.
+--    Only soft-deleted products are excluded, matching get_reports.
+
+create or replace function public.sync_product_stock()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare
+  v_product_id uuid;
+  v_new_stock integer;
+  v_product_name text;
+  v_old_stock integer;
+  v_threshold integer;
+begin
+  v_product_id := coalesce(NEW.product_id, OLD.product_id);
+  -- Recalc stock
+  select coalesce(sum(quantity), 0) into v_new_stock
+  from public.inventory_items
+  where product_id = v_product_id;
+
+  -- Get product name for notifications
+  select name into v_product_name from public.products where id = v_product_id;
+  select low_stock_threshold into v_threshold from public.products where id = v_product_id;
+  if v_threshold is null then v_threshold := 50; end if;
+
+  -- Get old stock for threshold comparisons
+  if TG_OP = 'DELETE' then
+    v_old_stock := coalesce((select stock from public.products where id = v_product_id), v_new_stock + coalesce(OLD.quantity,0));
+  elsif TG_OP = 'UPDATE' then
+    -- before trigger sync, products.stock still holds old value
+    select stock into v_old_stock from public.products where id = v_product_id;
+  else
+    select stock into v_old_stock from public.products where id = v_product_id;
+  end if;
+
+  -- Update products stock and is_active
+  update public.products
+  set stock = v_new_stock,
+      is_active = case
+        when v_new_stock <= 0 then false
+        when v_old_stock <= 0 and v_new_stock > 0 then true -- auto-reactivate on restock
+        else is_active
+      end
+  where id = v_product_id;
+
+  -- Notifications
+  -- Case 1: stock just hit 0 (out of stock) -> deactivate
+  if v_new_stock <= 0 and coalesce(v_old_stock, 0) > 0 then
+    -- Notify customers with product in cart, favorites, or past orders + all admins
+    insert into public.notifications (user_id, title, body, type)
+    select distinct user_id, 'Out of stock: ' || v_product_name, v_product_name || ' is now hidden — restock to reactivate. Stock 0.', 'alert'
+    from (
+      select user_id from public.cart_items where product_id = v_product_id
+      union
+      select user_id from public.favorites where product_id = v_product_id
+      union
+      select customer_id as user_id from public.orders o join public.order_items oi on oi.order_id = o.id where oi.product_id = v_product_id
+      union
+      select id as user_id from public.profiles where role = 'admin'
+    ) u;
+  -- Case 2: low stock threshold crossed (per-product low_stock_threshold)
+  elsif v_new_stock > 0 and v_new_stock < v_threshold and coalesce(v_old_stock, 0) >= v_threshold then
+    insert into public.notifications (user_id, title, body, type)
+    select distinct id as user_id, 'Low stock: ' || v_product_name, v_product_name || ' only ' || v_new_stock || ' left — consider restocking.', 'warning'
+    from public.profiles where role = 'admin';
+  end if;
+
+  return coalesce(NEW, OLD);
+end;
+$function$;
+
+create or replace function public.handle_product_stock_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare
+  v_product_name text := NEW.name;
+  v_threshold integer := coalesce(NEW.low_stock_threshold, 50);
+begin
+  if NEW.stock <= 0 and OLD.stock > 0 and NEW.is_active = true then
+    NEW.is_active := false;
+    insert into public.notifications (user_id, title, body, type)
+    select distinct user_id, 'Out of stock: ' || v_product_name, v_product_name || ' is now hidden — restock to reactivate. Stock 0.', 'alert'
+    from (
+      select user_id from public.cart_items where product_id = NEW.id
+      union
+      select user_id from public.favorites where product_id = NEW.id
+      union
+      select customer_id as user_id from public.orders o join public.order_items oi on oi.order_id = o.id where oi.product_id = NEW.id
+      union
+      select id as user_id from public.profiles where role = 'admin'
+    ) u;
+  elsif NEW.stock > 0 and NEW.stock < v_threshold and OLD.stock >= v_threshold then
+    insert into public.notifications (user_id, title, body, type)
+    select distinct id as user_id, 'Low stock: ' || v_product_name, v_product_name || ' only ' || NEW.stock || ' left — consider restocking.', 'warning'
+    from public.profiles where role = 'admin';
+  elsif NEW.stock > 0 and OLD.stock <= 0 and NEW.is_active = false then
+    -- Auto-reactivate if stock restored and was deactivated due to stock
+    NEW.is_active := true;
+  end if;
+  return NEW;
+end;
+$function$;
+
+drop function if exists public.get_admin_low_stock();
+
+create or replace function public.get_admin_low_stock()
+returns table (
+  product_id     uuid,
+  product_name   text,
+  stock          integer,
+  low_stock_threshold integer,
+  batch_id       uuid,
+  batch_number   text,
+  batch_quantity integer,
+  batch_status   text,
+  expiry_date    date
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can query low stock';
+  end if;
+
+  return query
+  select p.id, p.name, p.stock, p.low_stock_threshold,
+         i.id, i.batch_number, i.quantity, i.status, i.expiry_date
+    from public.products p
+    left join public.inventory_items i on i.product_id = p.id and i.quantity > 0
+   where coalesce(p.is_deleted, false) = false
+     and p.stock < p.low_stock_threshold
+   order by p.stock asc, p.name asc, i.last_updated asc nulls last;
+end;
+$$;
+
+revoke all on function public.get_admin_low_stock() from public, anon, authenticated;
+grant execute on function public.get_admin_low_stock() to authenticated;
+
+create or replace function public.reclassify_batches_on_threshold_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare
+  v_threshold integer;
+begin
+  v_threshold := coalesce(NEW.low_stock_threshold, 50);
+  update public.inventory_items
+     set status = case
+                    when quantity <= 0 then 'out_of_stock'
+                    when quantity < v_threshold then 'low'
+                    else 'healthy'
+                  end
+   where product_id = NEW.id;
+  return NEW;
+end;
+$function$;
+
+drop trigger if exists trg_products_reclassify_batches on public.products;
+
+create trigger trg_products_reclassify_batches
+  after update of low_stock_threshold on public.products
+  for each row
+  when (old.low_stock_threshold is distinct from new.low_stock_threshold)
+  execute function public.reclassify_batches_on_threshold_change();
+
+-- ======================================================================
+-- Appended from 20261013010000_products_threshold_read_grant.sql: the new
+-- products column needs the same per-column SELECT grant as every other
+-- readable column (the table has no table-wide SELECT, to keep cost_price private).
+-- ======================================================================
+-- Grant the missing read privilege on the new products column.
+--
+-- 20261012000000 added `products.low_stock_threshold` but never granted
+-- SELECT on it. The products table deliberately has no table-wide SELECT
+-- (cost_price must stay private), so every readable column carries its own
+-- column grant. Without this one, any client `select` that includes
+-- low_stock_threshold -- which is every product read, because
+-- PRODUCT_PUBLIC_COLUMNS lists it -- fails with
+--   permission denied for table products
+-- for both anon and authenticated. The column-level grant is the fix.
+
+grant select (low_stock_threshold) on public.products to anon, authenticated;
+
+-- A rebuilt project runs the same statement; this comment exists so a future
+-- migration that adds a public products column remembers the grant, not just
+-- the column. verify-thresholds.mjs fails if this grant is missing.
+
+-- ======================================================================
+-- Appended from 20261013020000_create_product_short_batch_fix.sql: restore
+-- short `B-000123` batch identifiers generated by `create_product`. The Phase 1
+-- redefinition had copied an older body that explicitly inserted the legacy
+-- `BATCH-<uuid8>-001` value, bypassing the column default.
+-- ======================================================================
+
+create or replace function public.create_product(
+  p_id uuid,
+  p_name text,
+  p_company_name text,
+  p_generic_name text,
+  p_category_id uuid,
+  p_price numeric,
+  p_description text default '',
+  p_original_price numeric default null,
+  p_discount_percent integer default 0,
+  p_cost_price numeric default null,
+  p_unit text default 'pack',
+  p_image_url text default null,
+  p_secondary_image_url text default null,
+  p_is_active boolean default true,
+  p_is_featured boolean default false,
+  p_initial_stock integer default 0,
+  p_batch_number text default null,
+  p_expiry_date date default null,
+  p_low_stock_threshold integer default 50
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_batch text;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized' using errcode = '42501';
+  end if;
+  if p_low_stock_threshold is null or p_low_stock_threshold < 0 then
+    raise exception 'low_stock_threshold must be a whole number of 0 or more';
+  end if;
+
+  insert into public.products (
+    id,
+    name,
+    company_name,
+    generic_name,
+    description,
+    category_id,
+    price,
+    original_price,
+    discount_percent,
+    cost_price,
+    unit,
+    image_url,
+    secondary_image_url,
+    is_active,
+    is_featured,
+    stock,
+    low_stock_threshold
+  ) values (
+    p_id,
+    p_name,
+    p_company_name,
+    p_generic_name,
+    coalesce(p_description, ''),
+    p_category_id,
+    p_price,
+    p_original_price,
+    coalesce(p_discount_percent, 0),
+    p_cost_price,
+    coalesce(p_unit, 'pack'),
+    p_image_url,
+    p_secondary_image_url,
+    coalesce(p_is_active, true),
+    coalesce(p_is_featured, false),
+    0,
+    p_low_stock_threshold
+  )
+  returning id into v_id;
+
+  if coalesce(p_initial_stock, 0) > 0 then
+    v_batch := coalesce(
+      nullif(btrim(coalesce(p_batch_number, '')), ''),
+      public.generate_batch_number()
+    );
+
+    insert into public.inventory_items (product_id, batch_number, quantity, expiry_date)
+    values (v_id, v_batch, p_initial_stock, p_expiry_date);
+  end if;
+
+  return v_id;
+end;
+$$;
+
+revoke execute on function public.create_product(
+  uuid, text, text, text, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date, integer
+) from public;
+
+grant execute on function public.create_product(
+  uuid, text, text, text, uuid, numeric, text,
+  numeric, integer, numeric, text, text, text, boolean, boolean, integer, text, date, integer
+) to authenticated;

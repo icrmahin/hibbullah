@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useThemeColors } from "../../providers/ThemeProvider";
 import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
+import { useThemeColors } from "../../providers/ThemeProvider";
 import type { CartItem } from "../../types/cart";
 import { formatCurrency } from "../../utils/currency";
 import ProductImage from "../products/ProductImage";
@@ -27,15 +27,25 @@ export default function CartItemRow({
     <View
       style={[
         styles.row,
-        !isLast && { borderBottomWidth: 1, borderBottomColor: colors.borderSoft },
+        !isLast && {
+          borderBottomWidth: 1,
+          borderBottomColor: colors.borderSoft,
+        },
       ]}
     >
-      <ProductImage uri={item.product.image} recyclingKey={item.id} style={styles.image} />
+      <ProductImage
+        uri={item.product.image}
+        recyclingKey={item.id}
+        style={styles.image}
+      />
       <View style={styles.info}>
         <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
           {item.product.name}
         </Text>
-        <Text style={[styles.unit, { color: colors.textMuted }]} numberOfLines={1}>
+        <Text
+          style={[styles.unit, { color: colors.textMuted }]}
+          numberOfLines={1}
+        >
           {formatCurrency(item.product.price)} each
           {showsOriginal ? (
             <Text style={[styles.original, { color: colors.textMuted }]}>
@@ -45,7 +55,11 @@ export default function CartItemRow({
           ) : null}
         </Text>
         <View style={styles.stepper}>
-          <QuantitySelector value={item.quantity} onChange={onQuantity} max={item.product.stock} />
+          <QuantitySelector
+            value={item.quantity}
+            onChange={onQuantity}
+            max={item.product.stock}
+          />
         </View>
       </View>
       <View style={styles.aside}>
@@ -59,7 +73,9 @@ export default function CartItemRow({
           accessibilityRole="button"
           accessibilityLabel={`Remove ${item.product.name} from cart`}
         >
-          <Text style={[styles.remove, { color: colors.textMuted }]}>Remove</Text>
+          <Text style={[styles.remove, { color: colors.textMuted }]}>
+            Remove
+          </Text>
         </Pressable>
       </View>
     </View>

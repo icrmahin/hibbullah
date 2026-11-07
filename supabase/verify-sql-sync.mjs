@@ -22,7 +22,7 @@
  * Comparison is on whitespace-normalised SQL with comments stripped, so formatting and
  * comment differences are fine but a changed statement is not.
  */
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 
 const HOSTED = 'supabase/apply-to-hibbullah-hosted.sql'
 const MIGRATIONS_DIR = 'supabase/migrations'
@@ -198,8 +198,8 @@ const searchRank = searchCte.slice(0, searchCte.indexOf('end as rank'))
 const searchWhere = searchCte.slice(searchCte.lastIndexOf('and ('))
 
 // The column a customer would type, the expression the function must match it on, and the
-// modes it must be matchable in. `manufacturer_name` is the one that needs translating: the
-// search is against `manufacturers.name`, surfaced to the caller as `manufacturer_name`.
+// modes it must be matchable in. Brand and manufacturer were merged into one
+// free-text `company_name` column (20261011000000), joined by best of the two.
 //
 // Requiring *both* modes, and not merely "the field appears", is the part that matters.
 // Prefix-only is a real bug and it shipped once: a brand is only a prefix of its own column,
@@ -208,15 +208,14 @@ const searchWhere = searchCte.slice(searchCte.lastIndexOf('and ('))
 // trigram, whose 0.3 threshold silently decides whether it is findable.
 const SEARCH_SOURCES = [
   ['name', 'p.name', 'the medicine name', ['prefix', 'contains']],
-  ['brand', 'p.brand', 'the brand', ['prefix', 'contains']],
+  ['company_name', 'p.company_name', 'the company', ['prefix', 'contains']],
   ['generic_name', 'p.generic_name', 'the generic', ['prefix', 'contains']],
-  ['manufacturer_name', 'm.name', 'the company', ['prefix', 'contains']],
   // A description is a paragraph. "The start of it" is not a meaning anyone types, so
   // contains-only is the whole specification here rather than an omission.
   ['description', 'p.description', 'the description', ['contains']],
 ]
 
-/** Escape an expression for use inside a RegExp — `m.name` must not match `mXname`. */
+/** Escape an expression for use inside a RegExp — `p.company_name` must not match `pXcompany_name`. */
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
@@ -712,8 +711,12 @@ report(
   'src/services/reports.ts aggregates through get_reports instead of reading tables',
 )
 report(
-  /config\.lowStockThreshold/.test(reportsTs) && /config\.expiryWarningDays/.test(reportsTs),
-  'src/services/reports.ts takes its thresholds from config rather than hard-coding them',
+  !/config\.lowStockThreshold/.test(reportsTs) && !/p_low_stock_threshold/.test(reportsTs),
+  'src/services/reports.ts carries no global threshold — low-stock counts are per-product',
+)
+report(
+  /config\.expiryWarningDays/.test(reportsTs),
+  'src/services/reports.ts takes its expiry window from config rather than hard-coding it',
 )
 // The two windows the app uses for the same question. They were 90 days in the reports
 // screen and config.expiryWarningDays (60) everywhere else, so the reports screen and the
@@ -1342,58 +1345,48 @@ report(
 // 3. Six files carried their own hex literals, including `#1A2420` — a dark-mode surface —
 //    as the placeholder behind a product photo in *both* themes, so light mode showed a
 //    near-black rectangle behind every product with no picture.
-const shadowsTs = readFileSync('src/constants/shadows.ts', 'utf8')
-const shadowsCode = stripTsComments(shadowsTs)
-
-// ── 1. the accent glow ────────────────────────────────────────────────────────────
-//
-// Both checks below were written for the dark-mode elevation work and both now assert
-// something the flat redesign deliberately undid. They are kept in rewritten form, because
-// what they were really policing is still true — a token that documents an intent nothing
-// implements is a bug — and it is worth knowing where the flat design put that token.
-//
-// 1a. The glow has to be *in the shadow*, not merely defined in the palette. `glow` and
-//     `glowStrong` were added to `darkUtil` with zero readers, which is the exact failure
-//     `onStatus` and `accentMuted` were deleted for. Flat mode has no shadow to put a glow
-//     in, so the check has changed shape: it now asserts the glow is not quietly *dropped*
-//     from the palette. `useShadows()` returns `none` for all seven steps, so a token left
-//     defined with nothing reading it is the same defect the original check existed to
-//     catch, one layer up.
-const glowStillDefined = /glow(Strong)?\s*:/.test(readFileSync('src/constants/darkColors.ts', 'utf8'))
+// The shadows module is *deleted*, deliberately, by the flat redesign. The
+// checks below pin that state rather than reading a file that no longer
+// exists: a token that documents an intent nothing implements is a bug, no
+// style prop in the app mentions a shadow or elevation value, and the glow
+// token is still defined in the palette for the day a real elevation
+// returns — correctly unread until then.
 report(
-  glowStillDefined && !/colors\.glow(Strong)?\b/.test(shadowsCode),
+  !existsSync('src/constants/shadows.ts'),
+  'the shadows module stays deleted — flat UI renders no shadow hook',
+  'the shadow module was deleted with the flat redesign; bringing one back re-opens the elevation question',
+)
+
+const shadowProps = []
+for (const file of UI_FILES) {
+  const code = stripTsComments(readFileSync(file, 'utf8'))
+  code.split('\n').forEach((line, i) => {
+    if (/shadow[A-Z]\w*|boxShadow|elevation\s*:/.test(line)) shadowProps.push(`${file}:${i + 1}`)
+  })
+}
+report(
+  shadowProps.length === 0,
+  'the flat design renders no shadow or elevation — surfaces separate by lightness',
+  shadowProps.length ? shadowProps.slice(0, 4).join(' | ') : `${UI_FILES.length} files`,
+)
+const glowStillDefined = /glow(Strong)?\s*:/.test(readFileSync('src/constants/darkColors.ts', 'utf8'))
+const glowReaders = []
+for (const file of UI_FILES) {
+  const code = stripTsComments(readFileSync(file, 'utf8'))
+  if (/colors\.glow(Strong)?\b/.test(code)) glowReaders.push(file)
+}
+report(
+  glowStillDefined && glowReaders.length === 0,
   'the accent glow is retained in the palette and, being flat, correctly unread by the shadow hook',
   'flat surfaces separate by lightness; a glow token with no reader is the state this catches',
 )
 
-// 1b. The original signature was `buildShadows(_colors)`: the parameter was there, named, and
-//     unused, which is why every shadow was a hard-coded black and dark mode had no
-//     elevation. The property worth keeping is not "the glow is cast" but "no parameter is
-//     accepted and ignored" — that is what `_colors` was, and it is how a whole class of
-//     dead-theme bug starts.
-//
-//     So the check is now inverted to match reality: `buildShadows` takes no palette
-//     parameter at all, and the check fails if one reappears without being read. Asserting
-//     "every parameter is used" would be satisfied by a hook that takes zero parameters
-//     vacuously, which is not evidence of anything — so the test is that the parameter list
-//     is empty *because* there is nothing left to vary, and that the seven steps are all
-//     the same flat value.
-// The step table is the `return { … }` inside `buildShadows`, matched to its own closing
-// brace. Anchoring on `\n\}` would miss it — the object is indented, so the line is `\n  };`.
-const shadowSteps = shadowsCode.split(/function buildShadows\([^)]*\)/)[1]?.match(/return \{([\s\S]*?)\n\s*\};/)?.[1] ?? ''
-const declaredParams = (shadowsCode.match(/function buildShadows\(([^)]*)\)/)?.[1] ?? '')
-  .split(',')
-  .map((p) => p.trim())
-  .filter(Boolean)
-const flatValues = [...shadowSteps.matchAll(/boxShadow:\s*(\w+|"[^"]*")/g)].map((m) => m[1])
-report(
-  declaredParams.length === 0 &&
-    flatValues.length === 7 &&
-    new Set(flatValues).size === 1,
-  'buildShadows declares no parameter and returns one flat value for all seven steps',
-  'a parameter that is accepted and ignored is how a dead-theme bug starts; a hook that ' +
-    'varies nothing should not accept a palette',
-)
+// The former 1b block asserted `buildShadows`' flat shape (`buildShadows(_colors)`
+// took no palette, seven steps one value). The module is deleted, so the shape
+// it guards no longer exists; keeping a verifier read on it is what crashed.
+// Reasserting the intent directly: the flat design is one value per surface and
+// no function in constants varies an ignored palette — already covered by the
+// shadow-prop absence scan above.
 
 const hexLiterals = []
 const themeSniffs = []

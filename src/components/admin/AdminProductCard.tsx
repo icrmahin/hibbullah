@@ -4,7 +4,6 @@ import { radius } from "../../constants/sizes";
 import { spacing } from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import type { Product } from "../../types/product";
-import config from "../../constants/config";
 import ProductImage from "../products/ProductImage";
 import ProductPrice from "../products/ProductPrice";
 import StatusBadge from "../common/StatusBadge";
@@ -18,9 +17,10 @@ export default function AdminProductCard({
   onPress?: (product: Product) => void;
 }) {
   const colors = useThemeColors();
-  // Same threshold as the product detail screen (`config.lowStockThreshold`) — two
-  // screens disagreeing about what "low" means is a data bug wearing a UI costume.
-  const stockKey = !product.isActive ? "INACTIVE" : product.stock === 0 ? "OUT_OF_STOCK" : product.stock < config.lowStockThreshold ? "LOW" : "ACTIVE";
+  // The product's own threshold — two screens disagreeing about what "low"
+  // means is a data bug wearing a UI costume.
+  const low = product.stock > 0 && product.stock < product.lowStockThreshold;
+  const stockKey = !product.isActive ? "INACTIVE" : product.stock === 0 ? "OUT_OF_STOCK" : low ? "LOW" : "ACTIVE";
 
   return (
     <Pressable
@@ -51,7 +51,7 @@ export default function AdminProductCard({
                 ? "Inactive"
                 : product.stock === 0
                   ? "Out of stock"
-                  : product.stock < config.lowStockThreshold
+                  : low
                     ? "Low stock"
                     : "Active"
             }
