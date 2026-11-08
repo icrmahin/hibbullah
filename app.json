@@ -47,7 +47,8 @@
         {
           "color": "#06402B"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

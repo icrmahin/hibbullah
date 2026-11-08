@@ -24,6 +24,7 @@ import { formatDateTime } from '../../../utils/date';
 import { normalizeError } from '../../../utils/errorHandling';
 import { radius } from '../../../constants/sizes';
 import { statusTone } from '../../../utils/statusTone';
+import { generateAndShareInvoice } from '../../../lib/invoice';
 
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
@@ -51,6 +52,8 @@ export default function AdminOrderDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [invoiceGenerating, setInvoiceGenerating] = useState(false);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   // FIX: load was created inline each render while the effect only listed orderId —
   // react-hooks/exhaustive-deps flagged the missing load. Memoized on orderId.
@@ -83,6 +86,19 @@ export default function AdminOrderDetailScreen() {
       setActionError(normalizeError(e).message);
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const handleDownloadInvoice = async () => {
+    if (!order) return;
+    setInvoiceError(null);
+    setInvoiceGenerating(true);
+    try {
+      await generateAndShareInvoice(order);
+    } catch (e) {
+      setInvoiceError(e instanceof Error ? e.message : 'Could not generate the invoice.');
+    } finally {
+      setInvoiceGenerating(false);
     }
   };
 
@@ -148,6 +164,15 @@ export default function AdminOrderDetailScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { borderTopColor: colors.borderSoft, backgroundColor: colors.background }]}>
+        {invoiceError ? (
+          <Text style={[styles.actionError, { color: colors.danger }]}>{invoiceError}</Text>
+        ) : null}
+        <Button
+          title={invoiceGenerating ? "Generating invoice..." : "Download Invoice"}
+          onPress={handleDownloadInvoice}
+          loading={invoiceGenerating}
+          fullWidth
+        />
         {actionError ? <Text style={[styles.actionError, { color: colors.danger }]}>{actionError}</Text> : null}
         {nextStatuses.length === 0 ? (
           <Text style={[styles.meta, { color: colors.textMuted, textAlign: 'center' }]}>No further transitions for {orderStatusLabel(order.status)}</Text>

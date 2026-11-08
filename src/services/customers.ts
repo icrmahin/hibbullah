@@ -157,6 +157,25 @@ export async function fetchCustomerById(customerId: string): Promise<CustomerRec
   }
 }
 
+/**
+ * Fetch every customer account, paging through the full list. Used for the
+ * consolidated all-customers report where every customer must appear — including
+ * those who have never placed an order.
+ */
+export async function fetchAllCustomers(): Promise<CustomerRecord[]> {
+  const all: CustomerRecord[] = []
+  let offset = 0
+  const limit = 100
+  let hasMore = true
+  while (hasMore) {
+    const data = await fetchCustomers(undefined, { limit, offset })
+    all.push(...data)
+    hasMore = data.length === limit
+    offset += limit
+  }
+  return all
+}
+
 export async function fetchCustomersResult(query?: string, options?: { limit?: number; offset?: number }): Promise<ServiceResult<CustomerRecord[]>> {
   try {
     const data = await fetchCustomers(query, options)

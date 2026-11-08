@@ -24,6 +24,7 @@ import { formatCurrency } from '../../../utils/currency';
 import { formatDateTime } from '../../../utils/date';
 import { orderStatusLabel, paymentMethodLabel } from '../../../utils/displayLabels';
 import { statusTone } from '../../../utils/statusTone';
+import { generateAndShareInvoice } from '../../../lib/invoice';
 
 export default function CustomerOrderDetailScreen() {
   const colors = useThemeColors();
@@ -38,6 +39,8 @@ export default function CustomerOrderDetailScreen() {
   const [returnError, setReturnError] = useState<string | null>(null);
   const [returnSuccess, setReturnSuccess] = useState(false);
   const [selectedReturnIds, setSelectedReturnIds] = useState<Set<string>>(new Set());
+  const [invoiceGenerating, setInvoiceGenerating] = useState(false);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -111,6 +114,19 @@ export default function CustomerOrderDetailScreen() {
     }
   };
 
+  const handleDownloadInvoice = async () => {
+    if (!order) return;
+    setInvoiceError(null);
+    setInvoiceGenerating(true);
+    try {
+      await generateAndShareInvoice(order);
+    } catch (e) {
+      setInvoiceError(e instanceof Error ? e.message : 'Could not generate the invoice.');
+    } finally {
+      setInvoiceGenerating(false);
+    }
+  };
+
   return (
     <Screen header={<ScreenHeader title={order.orderNumber} onBack={() => goBack()} />}>
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
@@ -125,6 +141,15 @@ export default function CustomerOrderDetailScreen() {
           ) : null}
           <Text style={[styles.meta, { color: colors.textMuted }]}>Payment: {paymentMethodLabel(order.paymentMethod)}</Text>
         </View>
+        {invoiceError ? (
+          <Text style={[styles.meta, { color: colors.danger }]}>{invoiceError}</Text>
+        ) : null}
+        <Button
+          title={invoiceGenerating ? "Generating invoice..." : "Download Invoice"}
+          onPress={handleDownloadInvoice}
+          loading={invoiceGenerating}
+          fullWidth
+        />
         {/* The four money rows are the shared CartSummary — same arithmetic language as
             cart and checkout. A record, not a second copy of the rows. */}
         <CartSummary

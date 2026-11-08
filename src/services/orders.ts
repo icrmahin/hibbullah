@@ -51,6 +51,24 @@ export async function createOrder(customerId: string, addressId: string, note?: 
   return data as string
 }
 
+/**
+ * Fetch every order belonging to a single customer, newest first, with their
+ * order-item snapshots. Used for customer statements — never reads live product
+ * prices, so historical orders are reproduced exactly as charged.
+ */
+export async function fetchOrdersByCustomer(customerId: string): Promise<Order[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw supabaseErrorToAppError(error)
+  return (data || [])
+    .map((row) => mapOrder(row as unknown as Parameters<typeof mapOrder>[0]) as Order)
+    .filter(Boolean) as Order[]
+}
+
 export async function fetchOrderTimeline(orderId: string): Promise<{ label: string; time: string; note?: string }[]> {
   // Try separate order_timeline table first (docs describe it), fallback to orders.timeline jsonb
   const { data: tlData, error: tlError } = await supabase
