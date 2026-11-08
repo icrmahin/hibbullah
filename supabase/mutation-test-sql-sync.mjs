@@ -81,7 +81,11 @@ const cases = [
         "const { data: all } = await supabase.from('products').select('id, price, stock')\n  const row = { low_stock: (all ?? []).filter((p: any) => Number(p.stock) < 10).length } as any",
       ),
   ],
-  ['hard-code the low-stock threshold in reports.ts', REPORTS_TS, (s) => s.replace('config.lowStockThreshold', '10')],
+  ['hard-code the low-stock threshold in reports.ts', REPORTS_TS, (s) =>
+    s.replace(
+      'p_expiry_warning_days: config.expiryWarningDays,',
+      'p_expiry_warning_days: config.expiryWarningDays,\n    p_low_stock_threshold: 10,',
+    )],
   ['put a 90-day expiry window back on the expiry screen', EXPIRY_TS, (s) => s.replace('config.expiryWarningDays', '90')],
   [
     'make auditDiff render no values at all',
@@ -362,13 +366,13 @@ const cases = [
   [
     'put back the hint that promises an automatic cost price',
     'src/components/admin/ProductForm.tsx',
-    // The string outlived the behaviour. The app stopped guessing a 20% margin in this very
-    // work, and the hint that told the shop to rely on the guess stayed in the form,
-    // describing a feature that no longer exists. No check on the arithmetic finds it.
+    // The app stopped guessing a 20% margin and the hint that promised it was removed.
+    // Re-adding the hint restores the defective promise. The UI guard flags any line that
+    // couples "auto-set" with a cost/0.8 figure, so the mutation is caught.
     (s) =>
       s.replace(
-        '"Add what you pay for it and this product starts counting towards your earnings."',
-        '"Leave cost empty to auto-set price×0.8"',
+        'placeholder="e.g. 100"\n              />\n            </View>',
+        'placeholder="e.g. 100"\n              />\n              <Text style={styles.hint}>Leave cost empty to auto-set price×0.8</Text>\n            </View>',
       ),
   ],
   // ── search must be able to search what it shows ────────────────────────────────────

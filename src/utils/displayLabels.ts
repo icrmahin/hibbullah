@@ -61,11 +61,19 @@ export function deliveryCycleStatusLabel(status: string): string {
   return (DELIVERY_CYCLE_STATUS_LABELS as Record<string, string>)[status] ?? humanize(status);
 }
 
+const TIMELINE_STEP_LABELS: Record<string, string> = {
+  PLACED: "Placed",
+  STATUS_CHANGED: "Status changed",
+  ITEMS_ADDED: "Items added",
+  STOCK_RESTOCKED: "Stock restocked",
+  CANCELLED: "Cancelled",
+};
+
 /**
  * Timeline step names are written by the database (`transition_order_status`),
  * so they arrive as codes. Known codes read as words; anything else passes
  * through untouched — a custom admin note must never be rewritten.
  */
 export function timelineStepLabel(label: string): string {
-  return (ORDER_STATUS_LABELS as Record<string, string>)[label] ?? label;
+  return TIMELINE_STEP_LABELS[label] ?? label;
 }

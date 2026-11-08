@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { Product } from '../types/product'
 import type { Category } from '../types/category'
 import { supabase } from '../lib/supabase'
-import { listProducts, searchProductList, fetchCategories } from '../services/products'
+import { listProducts, searchProductList, fetchCategories, fetchCompanyNames } from '../services/products'
 import type { ProductCursor, ProductListParams } from '../services/products'
 import { normalizeError } from '../utils/errorHandling'
 import { isSearchableTerm } from '../services/searchQuery'
@@ -311,6 +311,10 @@ function useLookup<T>(query: string | undefined, fetcher: (term?: string) => Pro
 
 export function useCategories(query?: string) {
   return useLookup<Category>(query, fetchCategories)
+}
+
+export function useCompanies(query?: string) {
+  return useLookup<string>(query, fetchCompanyNames)
 }
 
 export function useProductSearch(query: string) {

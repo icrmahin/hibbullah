@@ -212,6 +212,44 @@ export async function fetchCategories(query?: string): Promise<Category[]> {
 
 // fetchManufacturers removed — manufacturers table no longer exists
 
+/**
+ * Distinct company names already in use on products, used to suggest companies
+ * while the admin types in the product form. No separate companies table exists:
+ * `products.company_name` is the source of truth, so a newly entered company is
+ * automatically available for the next product without any extra write.
+ *
+ * Results are filtered server-side by a case-insensitive `company_name` match and
+ * de-duplicated client-side (case-insensitive) so the same company saved under
+ * different capitalisation appears once.
+ */
+export async function fetchCompanyNames(query?: string): Promise<string[]> {
+  let builder = supabase
+    .from('products')
+    .select('company_name')
+    .not('company_name', 'is', null)
+    .neq('company_name', '')
+    .order('company_name')
+    .limit(200)
+
+  const term = sanitizeSearchTerm(query)
+  if (term) builder = builder.ilike('company_name', `%${term}%`)
+
+  const { data, error } = await builder
+  if (error) throw error
+
+  const seen = new Set<string>()
+  const names: string[] = []
+  for (const row of (data || []) as Array<{ company_name: string }>) {
+    const name = String(row.company_name ?? '').trim()
+    if (!name) continue
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    names.push(name)
+  }
+  return names
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

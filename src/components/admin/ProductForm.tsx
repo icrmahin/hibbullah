@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,6 +11,7 @@ import sizes from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { useBottomInset } from "../../hooks/useBottomInset";
+import { useCompanies, useCategories } from "../../hooks/useProducts";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import type { ProductUpdate } from "../../services/products";
 import type { Product } from "../../types/product";
@@ -74,6 +76,9 @@ export default function ProductForm({
   const [name, setName] = useState(product?.name ?? "");
   const [companyName, setCompanyName] = useState(product?.companyName ?? "");
   const [categoryName, setCategoryName] = useState(product?.categoryName ?? "");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    product?.categoryId ?? null,
+  );
   const [unit, setUnit] = useState(product?.unit ?? "pack");
   const [description, setDescription] = useState(product?.description ?? "");
   const [price, setPrice] = useState(() => {
@@ -103,6 +108,72 @@ export default function ProductForm({
   const [expiryDate, setExpiryDate] = useState(product?.expiryDate ?? "");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured ?? false);
+
+  // Existing company names, refreshed as the admin types, used for suggestions
+  // and duplicate detection. `products.company_name` is the source of truth.
+  const { data: companies } = useCompanies(companyName)
+  const trimmedCompany = companyName.trim()
+  const lowerCompany = trimmedCompany.toLowerCase()
+
+  const suggestions = useMemo(() => {
+    if (!trimmedCompany) return []
+    return (companies || [])
+      .filter(
+        (n) =>
+          n.toLowerCase() !== lowerCompany &&
+          n.toLowerCase().includes(lowerCompany),
+      )
+      .slice(0, 8)
+  }, [companies, trimmedCompany, lowerCompany])
+
+  // Warn when the typed name reuses an existing company (case-insensitive),
+  // unless it is the product's own current company while editing.
+  const companyWarning = useMemo(() => {
+    if (!trimmedCompany) return null
+    const exists = (companies || []).some((n) => n.toLowerCase() === lowerCompany)
+    const isOwn =
+      isEditing &&
+      product &&
+      product.companyName &&
+      product.companyName.trim().toLowerCase() === lowerCompany
+    return exists && !isOwn ? 'This company name already exists.' : null
+  }, [companies, trimmedCompany, lowerCompany, isEditing, product])
+
+  // Existing categories, refreshed as the admin types, used for suggestions
+  // and duplicate detection. `categories` is the source of truth.
+  const { data: categories } = useCategories(categoryName)
+  const trimmedCategory = categoryName.trim()
+  const lowerCategory = trimmedCategory.toLowerCase()
+
+  const categorySuggestions = useMemo(() => {
+    if (!trimmedCategory) return []
+    return (categories || [])
+      .filter((c) => c.name.toLowerCase().includes(lowerCategory))
+      .slice(0, 8)
+  }, [categories, trimmedCategory, lowerCategory])
+
+  // Warn when the typed name reuses an existing category (case-insensitive),
+  // unless it is the product's own current category while editing, or the
+  // admin has explicitly selected it from the suggestions.
+  const categoryWarning = useMemo(() => {
+    if (!trimmedCategory) return null
+    const exists = (categories || []).some((c) => c.name.toLowerCase() === lowerCategory)
+    const isOwn =
+      isEditing &&
+      product &&
+      product.categoryName &&
+      product.categoryName.trim().toLowerCase() === lowerCategory
+    return exists && !isOwn && !selectedCategoryId
+      ? 'This category already exists.'
+      : null
+  }, [
+    categories,
+    trimmedCategory,
+    lowerCategory,
+    isEditing,
+    product,
+    selectedCategoryId,
+  ])
 
   const [touched, setTouched] = useState<Partial<Record<OptionalField, boolean>>>(
     {},
@@ -208,10 +279,11 @@ export default function ProductForm({
 
       const percent = discountValue;
 
-      // Resolve category: empty → null, non-empty → find or create (case-insensitive)
+      // Resolve category: use an explicitly selected category, otherwise find or
+      // create (case-insensitive) from the typed name; empty → null.
       const trimmedCategory = categoryName.trim();
-      let resolvedCategoryId: string | null = null;
-      if (trimmedCategory) {
+      let resolvedCategoryId: string | null = selectedCategoryId ?? null;
+      if (!resolvedCategoryId && trimmedCategory) {
         const { findCategoryByName, createCategory } = await import("../../services/products");
         const existing = await findCategoryByName(trimmedCategory);
         if (existing) {
@@ -324,6 +396,32 @@ export default function ProductForm({
                 error={errors.companyName}
                 placeholder="e.g. Square Pharmaceuticals"
               />
+              {companyWarning && (
+                <Text style={[styles.caption, { color: colors.textMuted }]}>
+                  {companyWarning}
+                </Text>
+              )}
+              {suggestions.length > 0 && (
+                <View style={styles.suggestions}>
+                  {suggestions.map((suggestion) => (
+                    <Pressable
+                      key={suggestion}
+                      onPress={() => setCompanyName(suggestion)}
+                      style={[
+                        styles.suggestion,
+                        {
+                          backgroundColor: colors.backgroundAlt,
+                          borderColor: colors.borderLight,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.suggestionText, { color: colors.text }]}>
+                        {suggestion}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
 
@@ -332,11 +430,56 @@ export default function ProductForm({
               <Input
                 label="Category (optional)"
                 value={categoryName}
-                onChangeText={setCategoryName}
+                onChangeText={(v) => {
+                  setCategoryName(v)
+                  setSelectedCategoryId(null)
+                }}
                 error={errors.categoryId}
                 placeholder="e.g. Pain relief"
                 autoCapitalize="words"
+                suffix={
+                  (categoryName.trim() || selectedCategoryId) && (
+                    <Pressable
+                      onPress={() => {
+                        setCategoryName("")
+                        setSelectedCategoryId(null)
+                      }}
+                      accessibilityLabel="Clear category"
+                    >
+                      <Text style={[styles.clearText, { color: colors.textMuted }]}>×</Text>
+                    </Pressable>
+                  )
+                }
               />
+              {categoryWarning && (
+                <Text style={[styles.caption, { color: colors.textMuted }]}>
+                  {categoryWarning}
+                </Text>
+              )}
+              {categorySuggestions.length > 0 && (
+                <View style={styles.suggestions}>
+                  {categorySuggestions.map((category) => (
+                    <Pressable
+                      key={category.id}
+                      onPress={() => {
+                        setCategoryName(category.name)
+                        setSelectedCategoryId(category.id)
+                      }}
+                      style={[
+                        styles.suggestion,
+                        {
+                          backgroundColor: colors.backgroundAlt,
+                          borderColor: colors.borderLight,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.suggestionText, { color: colors.text }]}>
+                        {category.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
             <View style={styles.field}>
               <Text style={[styles.fieldLabel, { color: colors.text }]}>
@@ -622,6 +765,32 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
     marginTop: spacing.xs,
+  },
+  caption: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.caption,
+    lineHeight: fontSize.caption * lineHeight.normal,
+    marginTop: spacing.xs,
+  },
+  suggestions: {
+    marginTop: spacing.xs,
+    gap: spacing.xxs,
+  },
+  suggestion: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: sizes.borderRadius.md,
+    borderWidth: 1,
+  },
+  suggestionText: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.bodySmall,
+    lineHeight: fontSize.bodySmall * lineHeight.normal,
+  },
+  clearText: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.body,
+    lineHeight: fontSize.body * lineHeight.normal,
   },
   footer: {
     padding: spacing.lg,
