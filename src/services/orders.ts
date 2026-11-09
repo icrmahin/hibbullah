@@ -69,6 +69,32 @@ export async function fetchOrdersByCustomer(customerId: string): Promise<Order[]
     .filter(Boolean) as Order[]
 }
 
+/**
+ * Fetch every order created within an inclusive [startDate, endDate] window,
+ * newest first, with their order-item snapshots. Used for monthly/yearly sales
+ * reports — never reads live product prices, so historical orders are reproduced
+ * exactly as charged.
+ *
+ * `startDate` and `endDate` are ISO date strings (YYYY-MM-DD). The window is
+ * inclusive on both ends: orders created on `endDate` at any time are included.
+ */
+export async function fetchOrdersByDateRange(
+  startDate: string,
+  endDate: string,
+): Promise<Order[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .gte('created_at', `${startDate}T00:00:00+00:00`)
+    .lte('created_at', `${endDate}T23:59:59.999999+00:00`)
+    .order('created_at', { ascending: false })
+
+  if (error) throw supabaseErrorToAppError(error)
+  return (data || [])
+    .map((row) => mapOrder(row as unknown as Parameters<typeof mapOrder>[0]) as Order)
+    .filter(Boolean) as Order[]
+}
+
 export async function fetchOrderTimeline(orderId: string): Promise<{ label: string; time: string; note?: string }[]> {
   // Try separate order_timeline table first (docs describe it), fallback to orders.timeline jsonb
   const { data: tlData, error: tlError } = await supabase
