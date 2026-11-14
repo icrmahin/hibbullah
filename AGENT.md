@@ -18,7 +18,6 @@ Your job is to produce production-quality code that is:
 
 Do not optimize for writing the most code.
 Optimize for solving the actual problem with the smallest correct change.
-
 ---
 
 ## 1. Before Changing Anything
