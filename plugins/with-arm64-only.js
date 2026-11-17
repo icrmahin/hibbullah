@@ -12,17 +12,17 @@
  * so the EAS `production-apk` profile packages arm64-v8a only. It touches
  * nothing else: no source, no dependencies, no runtimeVersion, no channel.
  */
-const { withGradleProperties } = require('@expo/config-plugins');
+const { withGradleProperties } = require("@expo/config-plugins");
 
 module.exports = function withArm64Only(config) {
   return withGradleProperties(config, (config) => {
     config.modResults = config.modResults.filter(
-      (item) => item.key !== 'reactNativeArchitectures',
+      (item) => item.key !== "reactNativeArchitectures",
     );
     config.modResults.push({
-      type: 'property',
-      key: 'reactNativeArchitectures',
-      value: 'arm64-v8a',
+      type: "property",
+      key: "reactNativeArchitectures",
+      value: "arm64-v8a",
     });
     return config;
   });
