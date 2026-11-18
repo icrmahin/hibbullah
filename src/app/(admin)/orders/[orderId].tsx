@@ -7,6 +7,8 @@ import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
 import ResponsiveContainer from '../../../components/common/ResponsiveContainer';
 import Button from '../../../components/common/Button';
+import ConfirmDialog from '../../../components/common/ConfirmDialog';
+import { useConfirm } from '../../../hooks/useConfirm';
 import EmptyState from '../../../components/common/EmptyState';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
@@ -54,6 +56,7 @@ export default function AdminOrderDetailScreen() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const { confirm, confirmDialogProps } = useConfirm();
 
   // FIX: load was created inline each render while the effect only listed orderId —
   // react-hooks/exhaustive-deps flagged the missing load. Memoized on orderId.
@@ -76,7 +79,18 @@ export default function AdminOrderDetailScreen() {
   }, [load]);
 
   const handleTransition = async (next: OrderStatus) => {
-    if (!order) return;
+    if (!order || updating) return;
+
+    if (next === 'CANCELLED') {
+      const confirmed = await confirm({
+        title: 'Cancel this order?',
+        message: 'The order will be cancelled and its allocated stock will be returned to inventory. This cannot be undone.',
+        confirmLabel: 'Cancel order',
+        destructive: true,
+      });
+      if (!confirmed) return;
+    }
+
     setUpdating(next);
     setActionError(null);
     try {
@@ -190,6 +204,7 @@ export default function AdminOrderDetailScreen() {
           ))
         )}
       </View>
+      <ConfirmDialog {...confirmDialogProps} />
     </Screen>
   );
 }
