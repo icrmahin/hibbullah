@@ -335,14 +335,16 @@ try {
     'only one pending order exists after the simultaneous checkout',
     concurrentOrders.text.slice(0, 180),
   )
+  if (!concurrentOrderId) fatal('cannot run transition-race test without the single pending order')
 
   const stockAfterConcurrentCheckout = JSON.parse(
-    await admin(`select stock from public.products where id = '${fix.product}'`),
+    await admin(`select p.stock, (select coalesce(sum(i.quantity), 0) from public.inventory_items i where i.product_id = p.id) as inventory_stock from public.products p where p.id = '${fix.product}'`),
   )[0]
   check(
-    Number(stockAfterConcurrentCheckout.stock) === START_STOCK - 5,
-    'the concurrent checkout deducts inventory exactly once',
-    `stock=${stockAfterConcurrentCheckout.stock}; expected ${START_STOCK - 5}`,
+    Number(stockAfterConcurrentCheckout.stock) === START_STOCK - 5 &&
+      Number(stockAfterConcurrentCheckout.inventory_stock) === START_STOCK - 5,
+    'the concurrent checkout deducts product and batch inventory exactly once',
+    `product stock=${stockAfterConcurrentCheckout.stock}; batch total=${stockAfterConcurrentCheckout.inventory_stock}; expected ${START_STOCK - 5}`,
   )
 
   // A confirm and cancel submitted together must serialize on the order row.
@@ -380,12 +382,13 @@ try {
   )
 
   const stockAfterConcurrentCancellation = JSON.parse(
-    await admin(`select stock from public.products where id = '${fix.product}'`),
+    await admin(`select p.stock, (select coalesce(sum(i.quantity), 0) from public.inventory_items i where i.product_id = p.id) as inventory_stock from public.products p where p.id = '${fix.product}'`),
   )[0]
   check(
-    Number(stockAfterConcurrentCancellation.stock) === START_STOCK - 3,
-    'cancellation restores the concurrent order allocation exactly once',
-    `stock=${stockAfterConcurrentCancellation.stock}; expected ${START_STOCK - 3}`,
+    Number(stockAfterConcurrentCancellation.stock) === START_STOCK - 3 &&
+      Number(stockAfterConcurrentCancellation.inventory_stock) === START_STOCK - 3,
+    'cancellation restores product and batch inventory exactly once',
+    `product stock=${stockAfterConcurrentCancellation.stock}; batch total=${stockAfterConcurrentCancellation.inventory_stock}; expected ${START_STOCK - 3}`,
   )
 
   // ── delivery pricing by district ─────────────────────────────────────────────
