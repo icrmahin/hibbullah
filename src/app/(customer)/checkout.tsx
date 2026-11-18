@@ -43,6 +43,8 @@ export default function CheckoutScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [cartRefreshWarning, setCartRefreshWarning] = useState<string | null>(null);
   const { confirm, confirmDialogProps } = useConfirm();
 
   useEffect(() => {
@@ -89,12 +91,19 @@ export default function CheckoutScreen() {
 
     setSubmitting(true);
     try {
-      await createOrder(selectedAddressId, orderNote);
+      const orderId = await createOrder(selectedAddressId, orderNote);
+      setCreatedOrderId(orderId);
       setSuccess(true);
-      // create_order deletes the cart server-side, so the local copy is now stale and the
-      // cart badge would keep counting items the customer has already bought. Without
-      // this the count only corrects itself on a full app restart.
-      await reloadCart();
+
+      // Order creation is already committed before the local cart refresh runs.
+      // A refresh failure must not make a successful checkout look unsuccessful.
+      try {
+        await reloadCart();
+      } catch {
+        setCartRefreshWarning(
+          "Your order was placed, but the cart could not refresh. Reopen the cart to sync it."
+        );
+      }
     } catch (nextError) {
       setError(normalizeError(nextError).message);
     } finally {
@@ -337,10 +346,13 @@ export default function CheckoutScreen() {
               <View style={styles.summaryColumn}>
                 {summaryGroup}
                 {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
-                {success ? <Text style={[styles.success, { color: colors.success }]}>Order placed — the rider will call you.</Text> : null}
+                {success ? <Text style={[styles.success, { color: colors.success }]}>Order placed successfully. You can track its status in your orders.</Text> : null}
+                {cartRefreshWarning ? <Text style={[styles.error, { color: colors.warning }]}>{cartRefreshWarning}</Text> : null}
                 <Button
-                  title={success ? "View cycle" : "Place order"}
-                  onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
+                  title={success ? "View order" : "Place order"}
+                  onPress={success && createdOrderId
+                    ? () => router.replace({ pathname: "/(customer)/order/[orderId]", params: { orderId: createdOrderId } })
+                    : handleSubmit}
                   loading={submitting}
                   disabled={success ? false : submitting}
                   fullWidth
@@ -354,10 +366,13 @@ export default function CheckoutScreen() {
               {paymentBox}
               {noteSection}
               {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
-              {success ? <Text style={[styles.success, { color: colors.success }]}>Order placed — the rider will call you.</Text> : null}
+              {success ? <Text style={[styles.success, { color: colors.success }]}>Order placed successfully. You can track its status in your orders.</Text> : null}
+              {cartRefreshWarning ? <Text style={[styles.error, { color: colors.warning }]}>{cartRefreshWarning}</Text> : null}
               <Button
-                title={success ? "View cycle" : "Place order"}
-                onPress={success ? () => router.replace("/(customer)/delivery-cycle") : handleSubmit}
+                title={success ? "View order" : "Place order"}
+                onPress={success && createdOrderId
+                  ? () => router.replace({ pathname: "/(customer)/order/[orderId]", params: { orderId: createdOrderId } })
+                  : handleSubmit}
                 loading={submitting}
                 disabled={success ? false : submitting}
                 fullWidth
