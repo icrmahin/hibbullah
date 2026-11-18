@@ -141,10 +141,9 @@ export default function AdminReportsScreen() {
           const d = new Date(o.createdAt)
           const monthIndex = d.getUTCMonth()
           const existing = ordersByMonth.get(monthIndex) || { orderCount: 0, deliveredRevenue: 0, totalOrderValue: 0 }
-          const orderTotal = (o.items || []).reduce(
-            (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
-            0,
-          )
+          // The charged total is stored on the order (includes delivery fee and
+          // any discount); the item snapshots only give the product subtotal.
+          const orderTotal = Number(o.total ?? 0)
           const statusUpper = (o.status || '').toUpperCase()
           existing.orderCount += 1
           if (statusUpper === 'DELIVERED') existing.deliveredRevenue += orderTotal

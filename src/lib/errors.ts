@@ -28,7 +28,16 @@ export function supabaseErrorToAppError(error: any): AppError {
   if (message.includes('Auth') || message.includes('signIn') || message.includes('signUp')) {
     return new AppError(AppErrorType.AUTHENTICATION, 'Authentication failed. Please try again.')
   }
-  if (message.includes('RLS') || message.includes('policy') || message.includes('permission')) {
+  if (
+    error?.code === '42501' ||
+    message.includes('RLS') ||
+    message.includes('policy') ||
+    message.includes('permission') ||
+    /not allowed/i.test(message)
+  ) {
+    // Several admin definer functions raise errcode 42501 with the bare message
+    // "not allowed". Without this branch an admin saw that raw text (or a
+    // generic "unexpected error") instead of an authorization message.
     return new AppError(AppErrorType.AUTHORIZATION, 'You do not have permission to perform this action.')
   }
   if (message.includes('Insufficient stock')) {

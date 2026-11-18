@@ -6,8 +6,9 @@
  * device and expo-sharing to offer the user a share/save sheet. Generation is
  * purely client-side, so there are no recurring server costs.
  *
- * Returns the file URI of the generated PDF, or null if the user dismissed
- * sharing. Throws on hard failure so the caller can surface an error message.
+ * Returns the file URI of the generated PDF. A share-sheet failure is logged
+ * and the saved file path is still returned; only a generation failure throws,
+ * so the caller can surface an error message.
  */
 
 import { printToFileAsync } from 'expo-print'
@@ -24,10 +25,10 @@ const PRINT_HEIGHT = 1123
  */
 function prepareSalesOrders(orders: Order[]): SalesOrder[] {
   return orders.map((order) => {
-    const orderTotal = (order.items || []).reduce(
-      (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
-      0,
-    )
+    // Use the charged total stored on the order (subtotal - discount + delivery
+    // fee), not the sum of item snapshots. The item sum is only the product
+    // subtotal and understated every order by the delivery fee.
+    const orderTotal = Number(order.total ?? 0)
     const statusUpper = (order.status || '').toUpperCase()
     return {
       order,
@@ -56,7 +57,7 @@ export async function generateAndShareSalesReport(params: {
     totalOrderValue: number
   }[]
   dialogTitle?: string
-}): Promise<string | null> {
+}): Promise<string> {
   const prepared = prepareSalesOrders(params.orders)
   const html = buildSalesReportHtml({
     docTitle: params.docTitle,
@@ -70,7 +71,7 @@ export async function generateAndShareSalesReport(params: {
   return renderAndShare(html, params.dialogTitle)
 }
 
-async function renderAndShare(html: string, dialogTitle?: string): Promise<string | null> {
+async function renderAndShare(html: string, dialogTitle?: string): Promise<string> {
   let fileUri: string
   try {
     const result = await printToFileAsync({
@@ -85,14 +86,16 @@ async function renderAndShare(html: string, dialogTitle?: string): Promise<strin
     )
   }
 
-  try {
-    await Sharing.shareAsync(fileUri, {
-      mimeType: 'application/pdf',
-      dialogTitle: dialogTitle || 'Hibbullah report',
-      UTI: 'com.adobe.pdf',
-    })
-  } catch {
-    return fileUri
+  if (await Sharing.isAvailableAsync()) {
+    try {
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: dialogTitle || 'Hibbullah report',
+        UTI: 'com.adobe.pdf',
+      })
+    } catch (err) {
+      console.warn('[report] could not open the share sheet:', err instanceof Error ? err.message : err)
+    }
   }
 
   return fileUri

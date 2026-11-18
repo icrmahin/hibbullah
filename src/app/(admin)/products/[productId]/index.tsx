@@ -1,6 +1,7 @@
-import { router, useLocalSearchParams } from "expo-router";
+/* eslint-disable react-hooks/set-state-in-effect -- refresh-on-focus and the batch read are derived-state syncs */
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { goBack } from '@/utils/navigation';
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Screen from "../../../../components/common/Screen";
 import ScreenHeader from "../../../../components/common/ScreenHeader";
@@ -59,22 +60,30 @@ export default function AdminProductDetailScreen() {
   const [inventory, setInventory] = useState<
     { batchNumber: string; expiryDate?: string }[]
   >([]);
-  useEffect(() => {
+  const loadInventory = useCallback(async () => {
     if (!productId) return;
-    let cancelled = false;
-    fetchProductInventory(productId)
-      .then((rows) => {
-        if (!cancelled) setInventory(rows);
-      })
-      .catch(() => {
-        // No batches yet (a product whose stock was never distributed) is not an error the
-        // owner needs to hear about: the rows simply do not render.
-        if (!cancelled) setInventory([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const rows = await fetchProductInventory(productId);
+      setInventory(rows);
+    } catch {
+      // No batches yet (a product whose stock was never distributed) is not an error the
+      // owner needs to hear about: the rows simply do not render.
+      setInventory([]);
+    }
   }, [productId]);
+
+  useEffect(() => {
+    loadInventory();
+  }, [loadInventory]);
+
+  // Edit uses goBack(), so this screen stays mounted. Refresh on focus or the
+  // detail view keeps showing the pre-edit name, price and stock.
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+      loadInventory();
+    }, [reload, loadInventory]),
+  );
 
   if (loading) {
     return (
@@ -194,6 +203,14 @@ export default function AdminProductDetailScreen() {
 
           <View style={[styles.divider, { backgroundColor: colors.borderSoft }]} />
 
+          {/* Shown here so stock adjustments can reference a real product; selectable
+              so an admin can copy it without a clipboard dependency. */}
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Product ID</Text>
+            <Text selectable numberOfLines={2} style={[styles.infoValue, { color: colors.text }]}>
+              {product.id}
+            </Text>
+          </View>
           <InfoRow label="Category" value={categoryName} colors={colors} />
           <InfoRow label="Unit" value={product.unit} colors={colors} />
           <InfoRow label="Stock" value={`${product.stock} units`} colors={colors} />

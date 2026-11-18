@@ -6,8 +6,9 @@
  * to offer the user a share/save sheet. Generation is purely client-side, so there
  * are no recurring server costs and no new backend table or RPC.
  *
- * Returns the file URI of the generated PDF, or null if the user dismissed sharing.
- * Throws on hard failure so the caller can surface an error message.
+ * Returns the file URI of the generated PDF. A share-sheet failure is logged
+ * and the saved file path is still returned; only a generation failure throws,
+ * so the caller can surface an error message.
  */
 
 import { printToFileAsync } from 'expo-print'
@@ -23,7 +24,7 @@ import type { Order } from '../types/order'
  * if sharing is cancelled or unavailable the file was still written to the cache
  * directory and its URI is returned.
  */
-export async function generateAndShareInvoice(order: Order): Promise<string | null> {
+export async function generateAndShareInvoice(order: Order): Promise<string> {
   const html = buildInvoiceHtml(order);
 
   let fileUri: string;
@@ -42,14 +43,18 @@ export async function generateAndShareInvoice(order: Order): Promise<string | nu
     );
   }
 
-  try {
-    await Sharing.shareAsync(fileUri, {
-      mimeType: 'application/pdf',
-      dialogTitle: `Invoice ${order.orderNumber || ''}`,
-      UTI: 'com.adobe.pdf',
-    });
-  } catch {
-    return fileUri;
+  if (await Sharing.isAvailableAsync()) {
+    try {
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Invoice ${order.orderNumber || ''}`,
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (err) {
+      // The invoice is already written to the cache. Keep its path for the
+      // caller, but record why the share sheet could not be opened.
+      console.warn('[invoice] could not open the share sheet:', err instanceof Error ? err.message : err);
+    }
   }
 
   return fileUri;

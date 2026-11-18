@@ -1,4 +1,5 @@
 import { isRunningInExpoGo } from "expo";
+import { Platform } from "react-native";
 
 /**
  * `expo-notifications`, or `null` when it cannot be evaluated on this device.
@@ -37,6 +38,11 @@ function loadNotificationsModule(): NotificationsModule | null {
   // top level, and a failed `require` is cached by Metro, so attempting it would poison
   // the module for the rest of the session even though nothing here is wrong.
   if (isRunningInExpoGo()) return null;
+
+  // Web has no native push module: the package's hooks call `getLastNotificationResponse`,
+  // which throws UnavailabilityError in the browser. Use the "no notifications" stub so
+  // the shop still renders — device push is Android-only by design (see pushNotifications.ts).
+  if (Platform.OS === "web") return null;
 
   try {
     // Metro rewrites this literal into a module id at build time, so the package ships in

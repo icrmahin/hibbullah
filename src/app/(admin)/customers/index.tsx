@@ -16,7 +16,10 @@ import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
 import { config } from '../../../constants/config';
-import { fetchCustomers, type CustomerRecord } from '../../../services/customers';
+import { fetchCustomers, fetchAllCustomers, type CustomerRecord } from '../../../services/customers';
+import { fetchOrdersByCustomer } from '../../../services/orders';
+import { generateAndShareAllCustomersReport } from '../../../lib/customer-statement';
+import { normalizeError } from '../../../utils/errorHandling';
 import { radius } from '../../../constants/sizes';
 
 /** One customer row. Identical in the grid and the list, so it is defined once. */
@@ -68,6 +71,7 @@ export default function AdminCustomersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [hasMore, setHasMore] = useState(false);
+  const [reportGenerating, setReportGenerating] = useState(false);
 
   // `fetchCustomers` asks for one row more than the page holds, so "is there another page"
   // is answered by the fetch instead of by a separate count query. The screen used to
@@ -117,6 +121,34 @@ export default function AdminCustomersScreen() {
     return () => clearTimeout(t);
   }, [query, load]);
 
+  // The consolidated report already existed in `lib/customer-statement` but no
+  // screen called it, so admins could only export one customer at a time.
+  // Sequential order fetches keep a large customer list from firing a burst of
+  // requests at once.
+  const handleAllCustomersReport = useCallback(async () => {
+    setReportGenerating(true);
+    setError(null);
+    try {
+      const all = await fetchAllCustomers();
+      const customersWithOrders = [];
+      for (const customer of all) {
+        customersWithOrders.push({
+          ...customer,
+          orders: await fetchOrdersByCustomer(customer.id),
+        });
+      }
+      await generateAndShareAllCustomersReport({
+        customers: customersWithOrders,
+        asOf: new Date().toISOString(),
+        dialogTitle: 'Hibbullah — all customers',
+      });
+    } catch (e: any) {
+      setError(normalizeError(e).message);
+    } finally {
+      setReportGenerating(false);
+    }
+  }, []);
+
   if (loading && customers.length === 0) {
     return (
       <Screen header={<ScreenHeader title="Customers" subtitle="Manage customer records" />}>
@@ -140,6 +172,15 @@ export default function AdminCustomersScreen() {
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <ResponsiveContainer sidebarAware>
           <SearchBar value={query} onChangeText={setQuery} placeholder="Search customer" />
+          <Button
+            title="Download all-customers report"
+            variant="secondary"
+            onPress={() => void handleAllCustomersReport()}
+            loading={reportGenerating}
+            disabled={reportGenerating}
+            fullWidth
+          />
+          {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
           {filtered.length === 0 ? (
             <EmptyState
               title="No customers found"
@@ -224,5 +265,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
     textAlign: 'center',
+  },
+  error: {
+    fontFamily: fontFamily.pjsRegular,
+    fontSize: fontSize.footnote,
+    lineHeight: fontSize.footnote * lineHeight.normal,
   },
 });

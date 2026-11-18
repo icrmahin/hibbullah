@@ -172,10 +172,25 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
     fetchSalesAggregates(since30),
   ])
 
+  // A failed count is not "zero orders". Every query that feeds a tile must be
+  // checked, otherwise an RLS/grant/network fault renders as a healthy-looking
+  // dashboard full of zeros. useAdmin already surfaces the thrown error.
+  for (const result of [
+    pendingResult,
+    processingResult,
+    activeResult,
+    lowStockResult,
+    attentionResult,
+    expiringResult,
+    recentOrdersResult,
+    pendingReturnsResult,
+  ]) {
+    if (result.error) throw supabaseErrorToAppError(result.error)
+  }
+
   const pendingOrders = pendingResult.count || 0
   const processingOrders = processingResult.count || 0
   const activeProducts = activeResult.count || 0
-  if (lowStockResult.error) throw lowStockResult.error
 
   const attentionOrders = (attentionResult.data as OrderBasic[] || []).map(order => ({
     id: order.id,
@@ -357,9 +372,15 @@ export async function fetchAdminProducts(
   )
   const page = products.slice(0, limit)
   const last = (fallback.data || [])[page.length - 1] as unknown as Record<string, unknown> | undefined
+  // The RPC normally supplies the count. In this fallback, returning 0 made the
+  // list show real rows next to a "0 products" label and disabled paging.
+  const { count } = await supabase
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_deleted', false)
   return {
     data: page,
-    total: 0,
+    total: count ?? products.length,
     hasMore: products.length > limit,
     cursor:
       products.length > limit && last

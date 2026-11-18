@@ -17,7 +17,7 @@ import { useBottomInset } from '../../../hooks/useBottomInset';
 import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { formatCurrency } from '../../../utils/currency';
-import { formatDate } from '../../../utils/date';
+import { formatDate, toDate } from '../../../utils/date';
 import { fetchCustomerById, setCustomerBlocked, type CustomerRecord } from '../../../services/customers';
 import { fetchOrdersByCustomer } from '../../../services/orders';
 import { generateAndShareCustomerStatement } from '../../../lib/customer-statement';
@@ -164,8 +164,9 @@ export default function AdminCustomerDetailScreen() {
     const asOf = new Date();
     const from = thirtyDaysBefore(asOf);
     const recentOrders = orders.filter((o) => {
-      const d = new Date(o.createdAt);
-      return !Number.isNaN(d.getTime()) && d >= from && d <= asOf;
+      // Postgres timestamps are not ISO 8601; Hermes mis-parses the jsonb form.
+      const d = toDate(o.createdAt);
+      return d !== null && d >= from && d <= asOf;
     });
     setPdfError(null);
     setPdfGenerating(true);

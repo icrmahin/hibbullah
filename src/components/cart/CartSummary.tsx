@@ -19,7 +19,12 @@ export default function CartSummary({ summary }: { summary: CartSummaryData }) {
   return (
     <View style={[styles.box, { backgroundColor: colors.backgroundAlt }]}>
       <Row label="Subtotal" value={formatCurrency(summary.subtotal)} muted />
-      <Row label="Discount" value={`-${formatCurrency(summary.discount)}`} muted />
+      {/* Orders are stored without an item-level discount snapshot today, so a
+          post-purchase summary always had a misleading "Discount -৳0" row.
+          Show it only when there is a discount to report. */}
+      {summary.discount > 0 ? (
+        <Row label="Discount" value={`-${formatCurrency(summary.discount)}`} muted />
+      ) : null}
       <Row label="Delivery" value={formatCurrency(summary.deliveryFee)} muted />
       <View style={[styles.totalRow, { borderTopColor: colors.borderSoft }]}>
         <Text style={[styles.total, { color: colors.text }]}>Total</Text>

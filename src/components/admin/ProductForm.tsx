@@ -75,9 +75,16 @@ export default function ProductForm({
 
   const [name, setName] = useState(product?.name ?? "");
   const [companyName, setCompanyName] = useState(product?.companyName ?? "");
+  // Mirrors the category selection: set when the admin taps an existing company
+  // suggestion so we do not warn against the very value we just offered.
+  const [selectedCompanyName, setSelectedCompanyName] = useState<string | null>(
+    product?.companyName ?? null,
+  );
   const [categoryName, setCategoryName] = useState(product?.categoryName ?? "");
+  // A missing category is stored as NULL; the mapper represents it as ''. Use
+  // `||` so that empty string never reaches a uuid column on update.
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    product?.categoryId ?? null,
+    product?.categoryId || null,
   );
   const [unit, setUnit] = useState(product?.unit ?? "pack");
   const [description, setDescription] = useState(product?.description ?? "");
@@ -127,7 +134,8 @@ export default function ProductForm({
   }, [companies, trimmedCompany, lowerCompany])
 
   // Warn when the typed name reuses an existing company (case-insensitive),
-  // unless it is the product's own current company while editing.
+  // unless it is the product's own current company while editing or a suggestion
+  // the admin deliberately picked.
   const companyWarning = useMemo(() => {
     if (!trimmedCompany) return null
     const exists = (companies || []).some((n) => n.toLowerCase() === lowerCompany)
@@ -136,8 +144,9 @@ export default function ProductForm({
       product &&
       product.companyName &&
       product.companyName.trim().toLowerCase() === lowerCompany
-    return exists && !isOwn ? 'This company name already exists.' : null
-  }, [companies, trimmedCompany, lowerCompany, isEditing, product])
+    const isPicked = selectedCompanyName?.trim().toLowerCase() === lowerCompany
+    return exists && !isOwn && !isPicked ? 'This company name already exists.' : null
+  }, [companies, trimmedCompany, lowerCompany, isEditing, product, selectedCompanyName])
 
   // Existing categories, refreshed as the admin types, used for suggestions
   // and duplicate detection. `categories` is the source of truth.
@@ -282,7 +291,7 @@ export default function ProductForm({
       // Resolve category: use an explicitly selected category, otherwise find or
       // create (case-insensitive) from the typed name; empty → null.
       const trimmedCategory = categoryName.trim();
-      let resolvedCategoryId: string | null = selectedCategoryId ?? null;
+      let resolvedCategoryId: string | null = selectedCategoryId || null;
       if (!resolvedCategoryId && trimmedCategory) {
         const { findCategoryByName, createCategory } = await import("../../services/products");
         const existing = await findCategoryByName(trimmedCategory);
@@ -392,7 +401,10 @@ export default function ProductForm({
               <Input
                 label="Company"
                 value={companyName}
-                onChangeText={setCompanyName}
+                onChangeText={(value) => {
+                  setCompanyName(value);
+                  setSelectedCompanyName(null);
+                }}
                 error={errors.companyName}
                 placeholder="e.g. Square Pharmaceuticals"
               />
@@ -406,7 +418,10 @@ export default function ProductForm({
                   {suggestions.map((suggestion) => (
                     <Pressable
                       key={suggestion}
-                      onPress={() => setCompanyName(suggestion)}
+                      onPress={() => {
+                        setCompanyName(suggestion);
+                        setSelectedCompanyName(suggestion);
+                      }}
                       style={[
                         styles.suggestion,
                         {

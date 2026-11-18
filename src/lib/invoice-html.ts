@@ -47,14 +47,15 @@ export const businessAddress: string | null = null;
  */
 export function originalUnitPrice(item: { unitPrice: number; discountPercent: number }): number {
   const { unitPrice, discountPercent } = item;
-  if (!discountPercent || discountPercent <= 0) return unitPrice;
+  // A 100% discount is valid; dividing by (1 - 1) would print "৳ Infinity".
+  if (!discountPercent || discountPercent <= 0 || discountPercent >= 100) return unitPrice;
   return Number((unitPrice / (1 - discountPercent / 100)).toFixed(2));
 }
 
 /** Discount (savings) per unit = original - final. */
 export function discountUnitPrice(item: { unitPrice: number; discountPercent: number }): number {
   const { unitPrice, discountPercent } = item;
-  if (!discountPercent || discountPercent <= 0) return 0;
+  if (!discountPercent || discountPercent <= 0 || discountPercent >= 100) return 0;
   return Number((originalUnitPrice(item) - unitPrice).toFixed(2));
 }
 
@@ -103,6 +104,7 @@ export function buildInvoiceHtml(order: Order): string {
   // The order's stored subtotal is the source of truth for what was charged; it is
   // the sum of item final prices. Round to 2dp for display.
   const orderSubtotal = Number(order.subtotal || 0);
+  const orderDiscount = Number(order.discount || 0);
   const deliveryFee = Number(order.deliveryFee || 0);
   const orderTotal = Number(order.total || 0);
 
@@ -314,6 +316,11 @@ export function buildInvoiceHtml(order: Order): string {
         ${businessAddress ? `<div class="info-value">${businessAddress}</div>` : ''}
       </div>
       <div class="info-col">
+        <div class="info-label">Bill to</div>
+        <div class="info-value">${esc(order.customerName || '—')}</div>
+        ${order.address ? `<div class="info-value">${esc(order.address)}</div>` : ''}
+      </div>
+      <div class="info-col">
         <div class="info-label">Invoice</div>
         <div class="info-value"># ${orderNumber}</div>
         <div class="info-value">${orderDate}</div>
@@ -342,6 +349,11 @@ export function buildInvoiceHtml(order: Order): string {
         <span class="label">Subtotal</span>
         <span class="value">${money(orderSubtotal)}</span>
       </div>
+      ${orderDiscount > 0 ? `
+      <div class="totals-row">
+        <span class="label">Discount</span>
+        <span class="value">-${money(orderDiscount)}</span>
+      </div>` : ''}
       <div class="totals-row delivery">
         <span class="label">Delivery fee</span>
         <span class="value">${money(deliveryFee)}</span>

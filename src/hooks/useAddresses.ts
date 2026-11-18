@@ -37,6 +37,7 @@ export function useAddresses() {
 
     const mine = ++seq.current
     setLoading(true)
+    setError(null)
     try {
       const rows = await fetchAddresses(user.id)
       if (mine !== seq.current) return

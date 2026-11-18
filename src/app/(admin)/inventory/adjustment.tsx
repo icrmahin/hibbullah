@@ -1,4 +1,5 @@
-import { useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect -- resetting the batch picker when the chosen product changes is a derived-state sync */
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { goBack } from '@/utils/navigation';
 import Screen from "../../../components/common/Screen";
@@ -6,6 +7,7 @@ import ScreenHeader from "../../../components/common/ScreenHeader";
 import ResponsiveContainer from "../../../components/common/ResponsiveContainer";
 import Button from "../../../components/common/Button";
 import Input from "../../../components/common/Input";
+import SearchableSelect from "../../../components/common/SearchableSelect";
 import { radius } from "../../../constants/sizes";
 import LoadingState from "../../../components/common/LoadingState";
 import ErrorState from "../../../components/common/ErrorState";
@@ -15,6 +17,7 @@ import { useBottomInset } from "../../../hooks/useBottomInset";
 import { useAdminInventory } from "../../../hooks/useAdmin";
 import { useProducts } from "../../../hooks/useProducts";
 import { createStockAdjustment } from "../../../services/admin";
+import { fetchProductInventory } from "../../../services/products";
 import spacing from "../../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 
@@ -31,12 +34,14 @@ export default function InventoryAdjustmentScreen() {
     reload: reloadInventory,
   } = useAdminInventory();
   const {
+    data: products,
     loading: productsLoading,
     error: productsError,
     reload: reloadProducts,
   } = useProducts({ limit: 100 });
 
   const [productId, setProductId] = useState("");
+  const [batches, setBatches] = useState<{ batchNumber: string; expiryDate?: string }[]>([]);
   const [batchNumber, setBatchNumber] = useState("");
   const [type, setType] = useState<'increase' | 'decrease'>('increase');
   const [quantity, setQuantity] = useState("");
@@ -45,11 +50,32 @@ export default function InventoryAdjustmentScreen() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // A product's batches are the only valid targets for an adjustment. Picking
+  // from them instead of typing a UUID and a free-text number removes both the
+  // unreachable "copy the id from detail" step and the no-op on a typo.
+  useEffect(() => {
+    let cancelled = false;
+    setBatchNumber("");
+    setBatches([]);
+    if (productId) {
+      fetchProductInventory(productId)
+        .then((rows) => {
+          if (!cancelled) setBatches(rows);
+        })
+        .catch(() => {
+          if (!cancelled) setBatches([]);
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
+
   const handleSave = async () => {
     setError(null);
     setSuccess(false);
-    if (!productId.trim()) {
-      setError('Product ID is required. Copy it from Products → detail.');
+    if (!productId) {
+      setError('Choose a product from the list.');
       return;
     }
     const qty = Number(quantity);
@@ -57,8 +83,12 @@ export default function InventoryAdjustmentScreen() {
       setError('Quantity must be a positive integer.');
       return;
     }
-    if (!batchNumber.trim()) {
-      setError('Batch number is required.');
+    if (!batchNumber) {
+      setError('Choose a batch for this product.');
+      return;
+    }
+    if (!batches.some((b) => b.batchNumber === batchNumber)) {
+      setError('No matching batch — stock was not changed. Pick one from the list.');
       return;
     }
     if (!reason.trim()) {
@@ -72,8 +102,8 @@ export default function InventoryAdjustmentScreen() {
     setSaving(true);
     try {
       await createStockAdjustment({
-        product_id: productId.trim(),
-        batch_number: batchNumber.trim(),
+        product_id: productId,
+        batch_number: batchNumber,
         type,
         quantity: qty,
         reason: reason.trim(),
@@ -82,6 +112,7 @@ export default function InventoryAdjustmentScreen() {
       setSuccess(true);
       setQuantity("");
       setReason("");
+      reloadInventory();
     } catch (e: any) {
       setError(e.message || 'Failed to save adjustment');
     } finally {
@@ -118,8 +149,29 @@ export default function InventoryAdjustmentScreen() {
       <ScrollView contentContainerStyle={[styles.container, { paddingBottom: bottomInset }]}>
         <ResponsiveContainer sidebarAware maxWidth={720}>
         <View style={[styles.form, { backgroundColor: colors.backgroundAlt }]}>
-          <Input label="Product ID" value={productId} onChangeText={setProductId} placeholder="uuid from product detail" autoCapitalize="none" />
-          <Input label="Batch number" value={batchNumber} onChangeText={setBatchNumber} placeholder="e.g. BATCH-001" autoCapitalize="none" />
+          <SearchableSelect
+            label="Product"
+            value={productId}
+            options={products.map((p) => ({
+              label: p.companyName ? `${p.name} · ${p.companyName}` : p.name,
+              value: p.id,
+            }))}
+            onSelect={setProductId}
+            placeholder="Choose a product"
+            emptyMessage="No products available"
+          />
+          <SearchableSelect
+            label="Batch number"
+            value={batchNumber}
+            options={batches.map((b) => ({
+              label: b.expiryDate ? `${b.batchNumber} · expires ${b.expiryDate}` : b.batchNumber,
+              value: b.batchNumber,
+            }))}
+            onSelect={setBatchNumber}
+            placeholder={productId ? (batches.length ? 'Choose a batch' : 'This product has no batches') : 'Choose a product first'}
+            emptyMessage="No batches for this product"
+            disabled={!productId}
+          />
           <Input label="Type (increase/decrease)" value={type} onChangeText={(v) => setType(v.trim().toLowerCase() === 'decrease' ? 'decrease' : 'increase')} placeholder="increase" autoCapitalize="none" />
           <Input label="Reason" value={reason} onChangeText={setReason} placeholder="e.g. Restock, damaged, audit correction" />
           <Input label="Quantity" value={quantity} onChangeText={setQuantity} keyboardType="numeric" placeholder="e.g. 10" />

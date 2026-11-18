@@ -4,7 +4,7 @@ import { radius } from "../../constants/sizes";
 import spacing from "../../constants/spacing";
 import { fontFamily, fontSize, lineHeight } from "../../constants/typography";
 import { formatDateTime, formatRelativeTime } from "../../utils/date";
-import { timelineStepLabel } from "../../utils/displayLabels";
+import { timelineStepLabel, orderStatusLabel } from "../../utils/displayLabels";
 
 export type TimelineStep = {
   label: string;
@@ -23,6 +23,17 @@ export type TimelineStep = {
  * timestamp beside them; an unreadable timestamp renders "—" via the shared
  * date guards, never a crash.
  */
+/** `transition_order_status` writes notes like "PENDING → CONFIRMED"; read them as words. */
+function humanizeStatusNote(note: string): string {
+  return note
+    .split("→")
+    .map((part) => {
+      const value = part.trim();
+      return /^[A-Z][A-Z_]*$/.test(value) ? orderStatusLabel(value) : value;
+    })
+    .join(" → ");
+}
+
 export default function OrderTimeline({ steps }: { steps: TimelineStep[] }) {
   const colors = useThemeColors();
 
@@ -78,7 +89,7 @@ export default function OrderTimeline({ steps }: { steps: TimelineStep[] }) {
                 {formatRelativeTime(step.time)} · {formatDateTime(step.time)}
               </Text>
               {step.note ? (
-                <Text style={[styles.note, { color: colors.textMuted }]}>{step.note}</Text>
+                <Text style={[styles.note, { color: colors.textMuted }]}>{humanizeStatusNote(step.note)}</Text>
               ) : null}
             </View>
           </View>

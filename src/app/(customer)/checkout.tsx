@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- data fetching and derived state sync require setState inside effects */
 import { goBack } from "@/utils/navigation";
 import { router } from "expo-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { useThemeColors } from "../../providers/ThemeProvider";
 import Screen from "../../components/common/Screen";
@@ -41,6 +41,10 @@ export default function CheckoutScreen() {
   const [orderNote, setOrderNote] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // State updates are not synchronous, so two taps in one frame both see
+  // `submitting === false`. This ref locks synchronously; without it a double
+  // tap can call create_order twice and deduct the same cart stock twice.
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const { confirm, confirmDialogProps } = useConfirm();
@@ -62,7 +66,7 @@ export default function CheckoutScreen() {
     // condition, tapping it did nothing at all -- no order, no message, no error. The
     // button is now always pressable while not submitting, and pressing it is what
     // surfaces the reason.
-    if (!items.length || submitting) return;
+    if (!items.length || submitting || submittingRef.current) return;
 
     setError(null);
 
@@ -87,6 +91,7 @@ export default function CheckoutScreen() {
       }
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       await createOrder(selectedAddressId, orderNote);
@@ -98,6 +103,7 @@ export default function CheckoutScreen() {
     } catch (nextError) {
       setError(normalizeError(nextError).message);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -143,6 +149,22 @@ export default function CheckoutScreen() {
       </Screen>
     );
   }
+  // create_order empties the cart, so `items` is empty the moment the order
+  // succeeds. Render the confirmation before the empty-cart guard or the
+  // "Order placed" message and the "View cycle" button never appear.
+  if (success) {
+    return (
+      <Screen header={<ScreenHeader title="Order placed" onBack={() => router.replace("/(customer)/(tabs)/orders")} />}>
+        <EmptyState
+          title="Order placed"
+          message="Thank you. The pharmacy is preparing your order and the rider will call you."
+          actionLabel="Track your order"
+          onAction={() => router.replace("/(customer)/delivery-cycle")}
+        />
+      </Screen>
+    );
+  }
+
   if (!items.length) {
     return (
       <Screen header={<ScreenHeader title="Checkout" onBack={() => goBack()} />}>

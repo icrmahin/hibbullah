@@ -6,8 +6,9 @@
  * device and expo-sharing to offer the user a share/save sheet. Generation is
  * purely client-side, so there are no recurring server costs.
  *
- * Returns the file URI of the generated PDF, or null if the user dismissed
- * sharing. Throws on hard failure so the caller can surface an error message.
+ * Returns the file URI of the generated PDF. A share-sheet failure is logged
+ * and the saved file path is still returned; only a generation failure throws,
+ * so the caller can surface an error message.
  */
 
 import { printToFileAsync } from 'expo-print'
@@ -37,7 +38,7 @@ export async function generateAndShareCustomerStatement(params: {
   asOf: string
   emptyMessage?: string
   dialogTitle?: string
-}): Promise<string | null> {
+}): Promise<string> {
   const prepared = params.orders.map(prepareOrder)
   const html = buildCustomerStatementHtml({
     customer: params.customer,
@@ -59,7 +60,7 @@ export async function generateAndShareAllCustomersReport(params: {
   customers: (StatementCustomer & { orders: Order[] })[]
   asOf: string
   dialogTitle?: string
-}): Promise<string | null> {
+}): Promise<string> {
   const prepared = params.customers.map((c) => ({
     ...c,
     orders: c.orders.map(prepareOrder),
@@ -72,10 +73,12 @@ export async function generateAndShareAllCustomersReport(params: {
 }
 
 function prepareOrder(order: Order): StatementOrder {
-  const orderTotal = (order.items || []).reduce(
-    (sum, item) => sum + Number(item.unitPrice || 0) * Number(item.quantity || 0),
-    0,
-  )
+  // The stored order total is the amount the customer was actually charged:
+  // subtotal - discount + delivery fee. Re-deriving it from the item snapshots
+  // yields the product-only subtotal and silently drops the delivery fee (and
+  // any order-level discount), so statements disagreed with invoices and with
+  // the dashboard's "Total spending". Current product prices are never used.
+  const orderTotal = Number(order.total ?? 0)
   const status = (order.status || '').toUpperCase()
   return {
     order,
@@ -85,7 +88,7 @@ function prepareOrder(order: Order): StatementOrder {
   }
 }
 
-async function renderAndShare(html: string, dialogTitle?: string): Promise<string | null> {
+async function renderAndShare(html: string, dialogTitle?: string): Promise<string> {
   let fileUri: string
   try {
     const result = await printToFileAsync({
@@ -100,14 +103,18 @@ async function renderAndShare(html: string, dialogTitle?: string): Promise<strin
     )
   }
 
-  try {
-    await Sharing.shareAsync(fileUri, {
-      mimeType: 'application/pdf',
-      dialogTitle: dialogTitle || 'Hibbullah statement',
-      UTI: 'com.adobe.pdf',
-    })
-  } catch {
-    return fileUri
+  if (await Sharing.isAvailableAsync()) {
+    try {
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: dialogTitle || 'Hibbullah statement',
+        UTI: 'com.adobe.pdf',
+      })
+    } catch (err) {
+      // The PDF is already saved. Do not pretend the share sheet opened, but do
+      // not throw away a valid file either — log the reason and return the path.
+      console.warn('[statement] could not open the share sheet:', err instanceof Error ? err.message : err)
+    }
   }
 
   return fileUri

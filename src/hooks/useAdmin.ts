@@ -33,6 +33,7 @@ export function useAdmin() {
     }
 
     setLoading(true)
+    setError(null)
     try {
       const data = await fetchAdminDashboard()
       setDashboard(data)
@@ -197,6 +198,7 @@ export function useAdminOrders(filters?: { status?: string; limit?: number; offs
 
   const loadOrders = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const result = await fetchAdminOrders(filtersRef.current)
       setData(result.data)
@@ -229,6 +231,7 @@ export function useAdminInventory() {
 
   const loadInventory = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const data = await fetchAdminInventory()
       setData(data)

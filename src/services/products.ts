@@ -226,6 +226,7 @@ export async function fetchCompanyNames(query?: string): Promise<string[]> {
   let builder = supabase
     .from('products')
     .select('company_name')
+    .eq('is_deleted', false)
     .not('company_name', 'is', null)
     .neq('company_name', '')
     .order('company_name')
@@ -252,10 +253,17 @@ export async function fetchCompanyNames(query?: string): Promise<string[]> {
 
 export function slugify(text: string): string {
   return text
-    .toLowerCase()
+    .toLocaleLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-')
+    // Bangla (and other non-Latin) category names are normal here; stripping
+    // everything outside a-z produced an empty slug and made creation fail.
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/(^-|-$)/g, '')
+}
+
+/** Escape LIKE metacharacters so typed `%` / `_` match literally in `.ilike()`. */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
 }
 
 /** Postgres unique_violation. */
@@ -280,7 +288,7 @@ async function findExistingCategoryByName(
   query =
     column === 'slug'
       ? query.eq('slug', value)
-      : query.ilike('name', name.trim())
+      : query.ilike('name', escapeLikePattern(name.trim()))
   const { data } = await query.maybeSingle()
   return (data as Record<string, unknown> | null) ?? null
 }
@@ -295,7 +303,7 @@ export async function findCategoryByName(name: string): Promise<Category | null>
   const { data, error } = await supabase
     .from('categories')
     .select('*')
-    .ilike('name', name.trim())
+    .ilike('name', escapeLikePattern(name.trim()))
     .limit(1)
     .maybeSingle();
   if (error) throw error;
@@ -551,7 +559,9 @@ export async function updateProduct(productId: string, input: ProductUpdate): Pr
   if (input.name !== undefined) payload.name = input.name
   if (input.companyName !== undefined) payload.company_name = input.companyName
   if (input.genericName !== undefined) payload.generic_name = input.genericName
-  if (input.categoryId !== undefined) payload.category_id = input.categoryId
+  // A cleared category arrives as null (and the mapper may represent a missing
+  // one as ''). An empty string is not a uuid and makes the whole UPDATE fail.
+  if (input.categoryId !== undefined) payload.category_id = input.categoryId || null
   if (input.description !== undefined) payload.description = input.description
   if (input.price !== undefined) payload.price = input.price
   if (input.unit !== undefined) payload.unit = input.unit
@@ -610,23 +620,55 @@ export async function updateProduct(productId: string, input: ProductUpdate): Pr
         if (error) throw error
       }
     } else if (input.stock !== undefined) {
-      // A product can have several batches. The entered number is the product
-      // total, so it is distributed: the oldest batch absorbs the total minus
-      // everything the other batches hold, and the ledger stays an accurate
-      // breakdown of that same total.
+      // The entered number is the product total and batches are the ledger, so
+      // the difference must be spread across the batches. Rewriting only the
+      // oldest batch and clamping it at zero silently left the real total too
+      // high whenever the requested total was below what the other batches
+      // held — an oversell risk with no error shown to the admin.
       const { data: batches } = await supabase
         .from('inventory_items')
         .select('id, quantity')
         .eq('product_id', productId)
         .order('last_updated', { ascending: true })
-      const others = (batches || []).slice(1).reduce((s, b) => s + Number(b.quantity || 0), 0)
-      const target = Math.max(input.stock - others, 0)
+      const target = Math.max(input.stock, 0)
       if (batches && batches.length > 0) {
-        const patch: Record<string, unknown> = { quantity: target }
-        if (input.expiryDate !== undefined) patch.expiry_date = expiry
-        const { error } = await supabase.from('inventory_items').update(patch).eq('id', batches[0].id)
-        if (error) throw error
-      } else if (input.stock > 0) {
+        const quantities = batches.map((b) => Math.max(Number(b.quantity || 0), 0))
+        const currentTotal = quantities.reduce((s, q) => s + q, 0)
+        let delta = target - currentTotal
+
+        // Reductions consume the oldest batches first (matching FIFO sales);
+        // increases go to the oldest batch so no batch number is invented here.
+        for (let i = 0; i < batches.length && delta !== 0; i += 1) {
+          if (delta < 0) {
+            const cut = Math.min(quantities[i], -delta)
+            quantities[i] -= cut
+            delta += cut
+          } else if (i === 0) {
+            quantities[i] += delta
+            delta = 0
+          }
+        }
+
+        for (let i = 0; i < batches.length; i += 1) {
+          const previous = Math.max(Number(batches[i].quantity || 0), 0)
+          if (quantities[i] === previous && !(i === 0 && input.expiryDate !== undefined)) continue
+          const patch: Record<string, unknown> = { quantity: quantities[i] }
+          if (i === 0 && input.expiryDate !== undefined) patch.expiry_date = expiry
+          const { error } = await supabase.from('inventory_items').update(patch).eq('id', batches[i].id)
+          if (error) throw error
+        }
+
+        // Defensive: batches could have been removed between the read and the
+        // writes. Store any remaining shortfall under a DB-generated number.
+        if (delta > 0) {
+          const { error } = await supabase.from('inventory_items').insert({
+            product_id: productId,
+            quantity: delta,
+            expiry_date: expiry,
+          })
+          if (error) throw error
+        }
+      } else if (target > 0) {
         // `batch_number` is deliberately absent. The column carries a default that
         // generates the short identifier in the database — the same function
         // `create_product` calls — so formatting one here would be a second copy of a

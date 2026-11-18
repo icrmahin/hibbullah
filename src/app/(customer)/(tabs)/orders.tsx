@@ -1,5 +1,4 @@
 import { router } from "expo-router";
-import { useEffect } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "../../../providers/ThemeProvider";
 import Screen from "../../../components/common/Screen";
@@ -22,11 +21,6 @@ export default function CustomerOrdersScreen() {
   // is not the product grid's `columns`. A hook, so it belongs with the others and not
   // below the loading and error returns.
   const { listColumns } = useResponsive();
-
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
 
   if (loading) {
     return (

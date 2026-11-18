@@ -41,8 +41,11 @@ export interface SalesOrder {
  *  value is returned; rounding happens on the final aggregate. */
 function discountUnitPrice(item: { unitPrice: number; discountPercent: number }): number {
   const { unitPrice, discountPercent } = item
-  if (!discountPercent || discountPercent <= 0) return 0
-  return unitPrice * discountPercent / (100 - discountPercent)
+  // 100% is a valid stored discount. Dividing by (100 - 100) would produce
+  // Infinity and print "৳ Infinity" in the PDF, so treat it as a fully
+  // discounted line with no recoverable pre-discount amount.
+  if (!discountPercent || discountPercent <= 0 || discountPercent >= 100) return 0
+  return Number((unitPrice * discountPercent / (100 - discountPercent)).toFixed(2))
 }
 
 /** Escapes text for safe placement inside HTML text nodes. */
@@ -119,8 +122,12 @@ export function buildSalesReportHtml(params: {
   const deliveredRevenue = orders
     .filter((o) => o.isDelivered)
     .reduce((sum, o) => sum + o.orderTotal, 0)
+  // These two cards must use the same scope as the value cards above. Counting
+  // cancelled orders here made "Discounts"/"Delivery fees" disagree with both
+  // "Total order value" and the dashboard tiles, which exclude cancelled orders.
+  const countedOrders = orders.filter((o) => o.countsAsValue)
   const discounts = Number(
-    orders.reduce((sum, o) => {
+    countedOrders.reduce((sum, o) => {
       const discount = (o.order.items || []).reduce(
         (s, item) => s + discountUnitPrice(item) * Number(item.quantity || 0),
         0,
@@ -128,7 +135,7 @@ export function buildSalesReportHtml(params: {
       return sum + discount
     }, 0).toFixed(2),
   )
-  const deliveryFees = orders.reduce((sum, o) => sum + Number(o.order.deliveryFee || 0), 0)
+  const deliveryFees = countedOrders.reduce((sum, o) => sum + Number(o.order.deliveryFee || 0), 0)
 
   const hasOrders = orderCount > 0
   const ordersHtml = hasOrders
@@ -386,9 +393,10 @@ export function buildSalesReportHtml(params: {
     ` : ''}
 
     <div class="note">
-      Cancelled orders are excluded from delivered revenue. Total order value includes
-      all non-cancelled orders. Figures come from stored order snapshots, not live
-      product prices.
+      Cancelled orders are excluded from delivered revenue, total order value,
+      discounts and delivery fees. Order values are the charged totals stored on
+      each order (including delivery fee); product figures come from stored order
+      snapshots, not live product prices.
     </div>
   </div>
 </body>
@@ -399,6 +407,6 @@ export function buildSalesReportHtml(params: {
 /** Helper: original unit price derived from stored final price + discount percent. */
 export function originalUnitPrice(item: { unitPrice: number; discountPercent: number }): number {
   const { unitPrice, discountPercent } = item
-  if (!discountPercent || discountPercent <= 0) return unitPrice
+  if (!discountPercent || discountPercent <= 0 || discountPercent >= 100) return unitPrice
   return Number((unitPrice / (1 - discountPercent / 100)).toFixed(2))
 }

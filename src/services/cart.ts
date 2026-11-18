@@ -70,10 +70,15 @@ export async function fetchCart(userId: string): Promise<{ items: CartItemWithPr
 
   if (error) throw error
 
-  const items: CartItemWithProduct[] = (data || []).map(item => ({
-    ...item,
-    product: mapDbProductToProduct(item.products as DbProduct),
-  }))
+  // RLS hides inactive and soft-deleted products from customers, so the
+  // many-to-one embed comes back null once an item sells out or is removed.
+  // Mapping that null threw and replaced the whole cart with an error.
+  const items: CartItemWithProduct[] = []
+  for (const item of (data || []) as (Record<string, unknown> & { products?: DbProduct | null })[]) {
+    const embedded = item.products
+    if (!embedded || !embedded.id) continue
+    items.push({ ...item, product: mapDbProductToProduct(embedded) } as CartItemWithProduct)
+  }
 
   // `price` is already the price the customer pays. What the summary calls "Discount" is
   // the gap between the struck-through original and that price — see `sumBasket`.

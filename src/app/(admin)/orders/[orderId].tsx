@@ -14,6 +14,8 @@ import StatusBadge from '../../../components/common/StatusBadge';
 import OrderTimeline from '../../../components/orders/OrderTimeline';
 import { useThemeColors } from '../../../providers/ThemeProvider';
 import { useBottomInset } from '../../../hooks/useBottomInset';
+import { useConfirm } from '../../../hooks/useConfirm';
+import ConfirmDialog from '../../../components/common/ConfirmDialog';
 import spacing from '../../../constants/spacing';
 import { fontFamily, fontSize, lineHeight } from '../../../constants/typography';
 import { fetchAdminOrderById, updateOrderStatus } from '../../../services/admin';
@@ -54,6 +56,7 @@ export default function AdminOrderDetailScreen() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const { confirm, confirmDialogProps } = useConfirm();
 
   // FIX: load was created inline each render while the effect only listed orderId —
   // react-hooks/exhaustive-deps flagged the missing load. Memoized on orderId.
@@ -77,6 +80,18 @@ export default function AdminOrderDetailScreen() {
 
   const handleTransition = async (next: OrderStatus) => {
     if (!order) return;
+    if (next === 'CANCELLED') {
+      // Cancelling restocks every line and has no outgoing transition, so a
+      // mis-tap cannot be undone from this screen. Confirm it explicitly.
+      const ok = await confirm({
+        title: 'Cancel this order?',
+        message: `Order #${order.orderNumber} will be cancelled and its items returned to stock. This cannot be undone here.`,
+        confirmLabel: 'Cancel order',
+        cancelLabel: 'Keep order',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     setUpdating(next);
     setActionError(null);
     try {
@@ -190,6 +205,7 @@ export default function AdminOrderDetailScreen() {
           ))
         )}
       </View>
+      <ConfirmDialog {...confirmDialogProps} />
     </Screen>
   );
 }
