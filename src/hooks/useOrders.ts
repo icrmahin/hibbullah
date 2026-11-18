@@ -67,6 +67,7 @@ export function useOrder(orderId?: string) {
   const reload = useCallback(() => {
     if (orderId) {
       setLoading(true)
+      setError(null)
       import('../services/orders').then(({ fetchOrderById }) => {
         fetchOrderById(orderId)
           .then(order => setOrder(order))
