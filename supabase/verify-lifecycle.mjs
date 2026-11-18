@@ -268,6 +268,126 @@ try {
   const emptied = await api(`/rest/v1/cart_items?user_id=eq.${customer.id}&select=id`, { token: customer.token })
   check(emptied.json?.length === 0, 'and the cart is empty afterwards, so the badge does not lie', emptied.text.slice(0, 200))
 
+  // ── concurrent order integrity ──────────────────────────────────────────────
+  head('Concurrent checkout and status transitions')
+
+  // Two requests against the same initially-empty customer's cart must serialize:
+  // exactly one creates the order; the second observes the now-empty cart.
+  const concurrentCustomer = await signUp({
+    email: `lc-cust-race-${stamp}@hibbullah.test`,
+    password: `LcRace-${stamp}-Aa1!`,
+  })
+  const concurrentAddress = await api('/rest/v1/addresses', {
+    method: 'POST',
+    token: concurrentCustomer.token,
+    prefer: 'return=representation',
+    body: {
+      label: 'Home',
+      street: '8 Concurrent Road',
+      city: 'Dhaka',
+      county: 'Dhaka',
+      postal_code: '1215',
+      is_default: true,
+      user_id: concurrentCustomer.id,
+    },
+  })
+  const concurrentAddressId = concurrentAddress.json?.[0]?.id
+  check(Boolean(concurrentAddressId), 'the concurrency customer has a delivery address', concurrentAddress.text.slice(0, 180))
+
+  const concurrentCart = await api('/rest/v1/cart_items', {
+    method: 'POST',
+    token: concurrentCustomer.token,
+    prefer: 'return=representation',
+    body: { user_id: concurrentCustomer.id, product_id: fix.product, quantity: 2 },
+  })
+  check(concurrentCart.status === 201, 'the concurrency customer has one cart line', concurrentCart.text.slice(0, 180))
+
+  const simultaneousCheckouts = await Promise.all([
+    api('/rest/v1/rpc/create_order', {
+      method: 'POST',
+      token: concurrentCustomer.token,
+      body: { p_customer_id: concurrentCustomer.id, p_address_id: concurrentAddressId },
+    }),
+    api('/rest/v1/rpc/create_order', {
+      method: 'POST',
+      token: concurrentCustomer.token,
+      body: { p_customer_id: concurrentCustomer.id, p_address_id: concurrentAddressId },
+    }),
+  ])
+  const successfulCheckouts = simultaneousCheckouts.filter((result) => result.status === 200 && Boolean(result.json))
+  const failedCheckouts = simultaneousCheckouts.filter((result) => result.status >= 400)
+  check(
+    successfulCheckouts.length === 1 &&
+      failedCheckouts.length === 1 &&
+      String(failedCheckouts[0].json?.message ?? failedCheckouts[0].text).includes('Cart is empty'),
+    'simultaneous first checkouts create one order and reject the duplicate request',
+    simultaneousCheckouts.map((result) => `HTTP ${result.status}: ${String(result.json?.message ?? result.json ?? result.text).slice(0, 100)}`).join(' | '),
+  )
+
+  const concurrentOrders = await api(
+    `/rest/v1/orders?customer_id=eq.${concurrentCustomer.id}&status=eq.PENDING&select=id,status`,
+    { token: adminUser.token },
+  )
+  const concurrentOrderRows = concurrentOrders.json ?? []
+  const concurrentOrderId = concurrentOrderRows[0]?.id
+  check(
+    concurrentOrders.status === 200 && concurrentOrderRows.length === 1,
+    'only one pending order exists after the simultaneous checkout',
+    concurrentOrders.text.slice(0, 180),
+  )
+
+  const stockAfterConcurrentCheckout = JSON.parse(
+    await admin(`select stock from public.products where id = '${fix.product}'`),
+  )[0]
+  check(
+    Number(stockAfterConcurrentCheckout.stock) === START_STOCK - 5,
+    'the concurrent checkout deducts inventory exactly once',
+    `stock=${stockAfterConcurrentCheckout.stock}; expected ${START_STOCK - 5}`,
+  )
+
+  // A confirm and cancel submitted together must serialize on the order row.
+  // Whether confirm wins first or cancel wins first, the final state is CANCELLED:
+  // if cancel wins, confirm is refused; if confirm wins, cancellation follows it.
+  const simultaneousTransitions = await Promise.all([
+    api('/rest/v1/rpc/transition_order_status', {
+      method: 'POST',
+      token: adminUser.token,
+      body: {
+        p_order_id: concurrentOrderId,
+        p_new_status: 'CONFIRMED',
+        p_admin_id: adminUser.id,
+      },
+    }),
+    api('/rest/v1/rpc/transition_order_status', {
+      method: 'POST',
+      token: adminUser.token,
+      body: {
+        p_order_id: concurrentOrderId,
+        p_new_status: 'CANCELLED',
+        p_admin_id: adminUser.id,
+      },
+    }),
+  ])
+  const concurrentState = (await api(
+    `/rest/v1/orders?id=eq.${concurrentOrderId}&select=status,timeline`,
+    { token: adminUser.token },
+  )).json?.[0]
+  check(
+    simultaneousTransitions.some((result) => result.status === 200) &&
+      concurrentState?.status === 'CANCELLED',
+    'a simultaneous confirm/cancel race ends in one valid cancelled state',
+    `responses=${simultaneousTransitions.map((result) => result.status).join(',')}; final=${concurrentState?.status}`,
+  )
+
+  const stockAfterConcurrentCancellation = JSON.parse(
+    await admin(`select stock from public.products where id = '${fix.product}'`),
+  )[0]
+  check(
+    Number(stockAfterConcurrentCancellation.stock) === START_STOCK - 3,
+    'cancellation restores the concurrent order allocation exactly once',
+    `stock=${stockAfterConcurrentCancellation.stock}; expected ${START_STOCK - 3}`,
+  )
+
   // ── delivery pricing by district ─────────────────────────────────────────────
   // The fee is the one number where a silent error is a direct financial one: the customer
   // is quoted a total, a different total is charged, and no error is raised anywhere --
