@@ -102,7 +102,7 @@ begin
   for update;
 
   for v_cart_item in
-    select * from public.cart_items where user_id = p_customer_id
+    select * from public.cart_items where user_id = p_customer_id order by product_id
   loop
     select * into v_product
     from public.products
