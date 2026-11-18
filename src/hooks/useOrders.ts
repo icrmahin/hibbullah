@@ -12,6 +12,7 @@ export function useOrders() {
 
   const loadOrders = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const data = await fetchOrders()
       setOrders(data)
