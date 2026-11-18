@@ -13,6 +13,96 @@
 -- perform conflicting side effects (especially cancellation stock restoration).
 -- FOR UPDATE serializes the read, validation, status write, and any restock work.
 
+-- Make the legacy products.stock fallback atomic as well.
+--
+-- Products that have inventory batch rows are deducted from those rows above.
+-- Legacy products with no inventory rows use products.stock directly. A plain
+-- read-then-write decrement could oversell when different customers checked out
+-- at the same time, so the stock predicate and decrement must be one UPDATE.
+
+create or replace function public.deduct_inventory_fifo(
+  p_product_id uuid,
+  p_quantity integer,
+  p_order_item_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $
+declare
+  v_remaining integer := p_quantity;
+  v_inv record;
+  v_taken integer;
+  v_new_stock integer;
+begin
+  for v_inv in
+    select id, quantity
+    from public.inventory_items
+    where product_id = p_product_id
+      and quantity > 0
+      and (expiry_date is null or expiry_date >= current_date)
+    order by
+      case when expiry_date is null then 1 else 0 end,
+      expiry_date asc,
+      last_updated asc,
+      id asc
+    for update
+  loop
+    exit when v_remaining <= 0;
+
+    if v_inv.quantity >= v_remaining then
+      v_taken := v_remaining;
+      update public.inventory_items
+      set quantity = quantity - v_remaining
+      where id = v_inv.id;
+      v_remaining := 0;
+    else
+      v_taken := v_inv.quantity;
+      v_remaining := v_remaining - v_inv.quantity;
+      update public.inventory_items
+      set quantity = 0
+      where id = v_inv.id;
+    end if;
+
+    if p_order_item_id is not null then
+      insert into public.order_item_allocations (
+        order_item_id, order_id, inventory_item_id, quantity
+      )
+      values (
+        p_order_item_id,
+        (select order_id from public.order_items where id = p_order_item_id),
+        v_inv.id,
+        v_taken
+      )
+      on conflict (order_item_id, inventory_item_id) do update
+      set quantity = public.order_item_allocations.quantity + excluded.quantity;
+    end if;
+  end loop;
+
+  if v_remaining > 0
+     and exists (
+       select 1 from public.inventory_items
+       where product_id = p_product_id
+     )
+  then
+    raise exception 'Insufficient stock for product';
+  end if;
+
+  if v_remaining = p_quantity then
+    update public.products
+    set stock = stock - p_quantity
+    where id = p_product_id
+      and stock >= p_quantity
+    returning stock into v_new_stock;
+
+    if not found then
+      raise exception 'Insufficient stock for product';
+    end if;
+  end if;
+end;
+$;
+
 create or replace function public.create_order(
   p_customer_id uuid,
   p_address_id uuid,
@@ -139,7 +229,7 @@ begin
     v_order_id := v_existing_id;
 
     for v_cart_item in
-      select * from public.cart_items where user_id = p_customer_id
+      select * from public.cart_items where user_id = p_customer_id order by product_id
     loop
       select * into v_product
       from public.products
@@ -227,7 +317,7 @@ begin
     returning id into v_order_id;
 
     for v_cart_item in
-      select * from public.cart_items where user_id = p_customer_id
+      select * from public.cart_items where user_id = p_customer_id order by product_id
     loop
       select * into v_product
       from public.products
