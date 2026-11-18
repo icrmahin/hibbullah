@@ -79,7 +79,8 @@ export default function AdminOrderDetailScreen() {
   }, [load]);
 
   const handleTransition = async (next: OrderStatus) => {
-    if (!order) return;
+    if (!order || updating) return;
+
     if (next === 'CANCELLED') {
       // Cancelling restocks every line and has no outgoing transition, so a
       // mis-tap cannot be undone from this screen. Confirm it explicitly.
@@ -92,6 +93,7 @@ export default function AdminOrderDetailScreen() {
       });
       if (!ok) return;
     }
+
     setUpdating(next);
     setActionError(null);
     try {

@@ -38,6 +38,7 @@ export default function CustomerOrderDetailScreen() {
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [returnError, setReturnError] = useState<string | null>(null);
   const [returnSuccess, setReturnSuccess] = useState(false);
+  const [submittedReturnCount, setSubmittedReturnCount] = useState(0);
   const [selectedReturnIds, setSelectedReturnIds] = useState<Set<string>>(new Set());
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
@@ -85,10 +86,9 @@ export default function CustomerOrderDetailScreen() {
       setReturnError('Not signed in.');
       return;
     }
-    const selected = order.items.filter((it) => selectedReturnIds.has(it.id));
-    const toReturn = selected.length > 0 ? selected : order.items;
+    const toReturn = order.items.filter((it) => selectedReturnIds.has(it.id));
     if (toReturn.length === 0) {
-      setReturnError('No items selected to return.');
+      setReturnError('Select at least one item to return.');
       return;
     }
     setReturnSubmitting(true);
@@ -103,6 +103,7 @@ export default function CustomerOrderDetailScreen() {
         // match on and nowhere to restock from.
         items: toReturn.map((it) => ({ productName: it.productName, quantity: it.quantity, orderItemId: it.id, productId: it.productId })),
       });
+      setSubmittedReturnCount(toReturn.length);
       setReturnSuccess(true);
       setShowReturn(false);
       setReturnReason("");
@@ -184,12 +185,12 @@ export default function CustomerOrderDetailScreen() {
           <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Return</Text>
             {returnSuccess ? (
-              <Text style={[styles.meta, { color: colors.success }]}>Return requested for {order.items.length > 1 ? `${order.items.filter((it) => selectedReturnIds.size === 0 || selectedReturnIds.has(it.id)).length} item(s)` : 'item'}. Admin will review.</Text>
+              <Text style={[styles.meta, { color: colors.success }]}>Return requested for {submittedReturnCount} {submittedReturnCount === 1 ? 'item' : 'items'}. Admin will review.</Text>
             ) : showReturn ? (
               <View style={{ gap: spacing.md }}>
-                <Text style={[styles.meta, { color: colors.textMuted }]}>Select items to return (defaults to all)</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>Select the items you want to return.</Text>
                 {order.items.map((it) => {
-                  const selected = selectedReturnIds.size === 0 ? true : selectedReturnIds.has(it.id);
+                  const selected = selectedReturnIds.has(it.id);
                   return (
                     <View key={it.id} style={[styles.returnItem, { borderColor: selected ? colors.accent : colors.borderLight, backgroundColor: selected ? colors.primarySoft : colors.backgroundAlt }]}>
                       <Text style={[styles.itemName, { color: colors.text, flex: 1 }]}>{it.productName} — {it.quantity} pcs</Text>
@@ -199,13 +200,23 @@ export default function CustomerOrderDetailScreen() {
                 })}
                 <Input label="Reason" value={returnReason} onChangeText={setReturnReason} placeholder="e.g. Damaged, wrong item" multiline />
                 {returnError ? <Text style={[styles.meta, { color: colors.danger }]}>{returnError}</Text> : null}
-                <Button title={returnSubmitting ? "Submitting..." : `Submit return (${selectedReturnIds.size === 0 ? order.items.length : selectedReturnIds.size})`} onPress={handleReturn} loading={returnSubmitting} disabled={returnSubmitting} fullWidth />
+                <Button title={returnSubmitting ? "Submitting..." : `Submit return (${selectedReturnIds.size})`} onPress={handleReturn} loading={returnSubmitting} disabled={returnSubmitting || selectedReturnIds.size === 0} fullWidth />
                 <Button title="Cancel" variant="secondary" onPress={() => setShowReturn(false)} fullWidth />
               </View>
             ) : (
               <View style={{ gap: spacing.md }}>
                 {returnError ? <Text style={[styles.meta, { color: colors.danger }]}>{returnError}</Text> : null}
-                <Button title="Request return" variant="secondary" onPress={() => setShowReturn(true)} fullWidth />
+                <Button
+                  title="Request return"
+                  variant="secondary"
+                  onPress={() => {
+                    setSelectedReturnIds(new Set(order.items.map((item) => item.id)));
+                    setReturnError(null);
+                    setReturnSuccess(false);
+                    setShowReturn(true);
+                  }}
+                  fullWidth
+                />
               </View>
             )}
           </View>

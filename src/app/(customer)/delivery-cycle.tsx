@@ -24,7 +24,12 @@ export default function DeliveryCycleScreen() {
   const colors = useThemeColors();
   const bottomInset = useBottomInset();
   const { cycle, loading, error, reload, create } = useDeliveryCycle();
-  const { orders } = useOrders();
+  const {
+    orders,
+    loading: ordersLoading,
+    error: ordersError,
+    reload: reloadOrders,
+  } = useOrders();
   const [creating, setCreating] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
 
@@ -73,8 +78,20 @@ export default function DeliveryCycleScreen() {
   }
 
   // cycle.products now comes from delivery_cycle_items join; fallback to pending orders filtered by cycle window if still empty
-  const cycleProducts = (cycle as any).products as any[]
-  const pendingOrders = orders.filter((o) => o.status === 'PENDING' || o.status === 'CONFIRMED' || o.status === 'PROCESSING')
+  const cycleProducts = Array.isArray((cycle as any).products)
+    ? (cycle as any).products as any[]
+    : []
+  const cycleStartedAt = Date.parse(cycle.startedAt);
+  const cycleClosesAt = Date.parse(cycle.closesAt);
+  const pendingOrders = orders.filter((order) => {
+    const createdAt = Date.parse(order.createdAt);
+    const activeStatus = ['PENDING', 'CONFIRMED', 'PROCESSING'].includes(order.status);
+    return (
+      activeStatus &&
+      createdAt >= cycleStartedAt &&
+      createdAt <= cycleClosesAt
+    );
+  });
 
   return (
     <Screen header={<ScreenHeader title="Delivery cycle" onBack={() => goBack()} />}>
@@ -100,8 +117,17 @@ export default function DeliveryCycleScreen() {
         <View style={[styles.card, { backgroundColor: colors.backgroundAlt }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Pending orders in window ({pendingOrders.length})</Text>
           <Text style={[styles.meta, { color: colors.textMuted, marginBottom: spacing.sm }]}>New and confirmed orders created after {formatDateTime(cycle.startedAt)}</Text>
-          {pendingOrders.length === 0 ? (
-            <Text style={[styles.meta, { color: colors.textMuted }]}>No pending orders. New orders will be grouped here.</Text>
+          {ordersLoading ? (
+            <Text style={[styles.meta, { color: colors.textMuted }]}>Loading orders in this cycle…</Text>
+          ) : ordersError ? (
+            <View style={{ gap: spacing.sm }}>
+              <Text style={[styles.error, { color: colors.danger }]}>
+                Could not load this cycle’s orders: {ordersError}
+              </Text>
+              <Button title="Retry" variant="secondary" onPress={reloadOrders} fullWidth />
+            </View>
+          ) : pendingOrders.length === 0 ? (
+            <Text style={[styles.meta, { color: colors.textMuted }]}>No active orders in this cycle yet.</Text>
           ) : (
             pendingOrders.map((order) => (
               <View key={order.id} style={styles.row}>

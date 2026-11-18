@@ -1,6 +1,5 @@
 import { router } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useThemeColors } from "../../../providers/ThemeProvider";
 import Screen from "../../../components/common/Screen";
 import ScreenHeader from "../../../components/common/ScreenHeader";
 import EmptyState from "../../../components/common/EmptyState";
@@ -8,13 +7,11 @@ import ErrorState from "../../../components/common/ErrorState";
 import LoadingState from "../../../components/common/LoadingState";
 import OrderCard from "../../../components/orders/OrderCard";
 import spacing from "../../../constants/spacing";
-import { fontFamily, fontSize, lineHeight } from "../../../constants/typography";
 import { useResponsive } from "../../../hooks/useResponsive";
 import { useBottomInset } from "../../../hooks/useBottomInset";
 import { useOrders } from "../../../hooks/useOrders";
 
 export default function CustomerOrdersScreen() {
-  const colors = useThemeColors();
   const bottomInset = useBottomInset();
   const { orders, loading, error, reload } = useOrders();
   // One-up on a phone, growing to three on a desktop — see `useResponsive` for why this

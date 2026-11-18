@@ -12,6 +12,7 @@ export function useDeliveryCycle() {
   const [error, setError] = useState<string | null>(null)
 
   const loadCycle = useCallback(async () => {
+    setError(null)
     if (!user) {
       setCycle(null)
       setLoading(false)
