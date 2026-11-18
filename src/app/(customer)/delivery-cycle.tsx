@@ -78,7 +78,9 @@ export default function DeliveryCycleScreen() {
   }
 
   // cycle.products now comes from delivery_cycle_items join; fallback to pending orders filtered by cycle window if still empty
-  const cycleProducts = (cycle as any).products as any[]
+  const cycleProducts = Array.isArray((cycle as any).products)
+    ? (cycle as any).products as any[]
+    : []
   const cycleStartedAt = Date.parse(cycle.startedAt);
   const cycleClosesAt = Date.parse(cycle.closesAt);
   const pendingOrders = orders.filter((order) => {
