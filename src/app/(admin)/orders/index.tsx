@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import Screen from '../../../components/common/Screen';
 import ScreenHeader from '../../../components/common/ScreenHeader';
@@ -33,14 +33,18 @@ function OrderRow({ order }: { order: Order }) {
         label={orderStatusLabel(order.status)}
         tone={statusTone(order.status)}
       />
-      <Text
-        style={[styles.link, { color: colors.accent }]}
+      <Pressable
         onPress={() =>
           router.push({ pathname: '/(admin)/orders/[orderId]', params: { orderId: order.id } })
         }
+        accessibilityRole="button"
+        accessibilityLabel={`Review order ${order.orderNumber} for ${order.customerName}`}
+        hitSlop={8}
+        android_ripple={{ color: colors.ripple.primary, borderless: false }}
+        style={styles.reviewAction}
       >
-        Review
-      </Text>
+        <Text style={[styles.link, { color: colors.accent }]}>Review</Text>
+      </Pressable>
     </View>
   );
 }
@@ -142,6 +146,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     lineHeight: fontSize.caption * lineHeight.normal,
   },
+  reviewAction: { minHeight: 40, minWidth: 56, justifyContent: 'center', alignItems: 'center', borderRadius: radius.md, paddingHorizontal: spacing.xs, overflow: 'hidden' },
   link: {
     fontFamily: fontFamily.pjsSemiBold,
     fontSize: fontSize.footnote,
